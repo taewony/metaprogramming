@@ -7,16 +7,15 @@ import cuda.tile as ct
 from cuda.tile.tune import exhaustive_search
 import torch
 import math
+import sys
 
 from torch.nn.functional import scaled_dot_product_attention
 from torch.nn.attention import sdpa_kernel, SDPBackend
 from utils.benchmark import report_benchmark
 from types import SimpleNamespace
 
-
 import numpy as np
 from cuda.tile import RoundingMode as RMd
-
 
 INV_LOG_2 = 1.0 / math.log(2)
 ConstInt = ct.Constant[int]
@@ -27,7 +26,7 @@ ConstBool = ct.Constant[bool]
 def fmha_kernel(Q, K, V, Out,
                 qk_scale: float,
                 input_pos: int,
-                TILE_D: ConstInt,  # TILE_D = hidden_size
+                TILE_D: ConstInt,
                 H: ConstInt,
                 TILE_M: ConstInt,
                 TILE_N: ConstInt,
@@ -71,9 +70,7 @@ def fmha_kernel(Q, K, V, Out,
     m_end = input_pos + (bid_x + 1) * TILE_M
     k_seqlen = K.shape[2]
     if CAUSAL:
-        # when kv pos could exceed q pos
         mask_start = (input_pos + bid_x * TILE_M) // TILE_N
-        # when kv pos could exceed k_seqlen
         mask_start = min(mask_start, k_seqlen // TILE_N)
         Tc = ct.cdiv(min(m_end, k_seqlen), TILE_N)
     else:
@@ -96,37 +93,31 @@ def fmha_kernel(Q, K, V, Out,
         if (CAUSAL or not EVEN_K) and j >= mask_start:
             offs_n = j * TILE_N + offs_n_tile
             mask = ct.full((TILE_M, TILE_N), True, dtype=np.bool_)
-            # out of bound mask
             if not EVEN_K:
                 mask = mask & (offs_n < k_seqlen)
-            # causal mask
             if CAUSAL:
-                mask = mask & (offs_m >= offs_n)  # [TILE_M, TILE_N]
-            mask = ct.where(mask, 0.0, -np.inf)  # [TILE_M, TILE_N]
+                mask = mask & (offs_m >= offs_n)
+            mask = ct.where(mask, 0.0, -np.inf)
             qk += mask
 
         # --- Online Softmax Update ---
-        # Moving qk_scale multiplication after reduce_max is to improve performance.
         m_ij = max(m_i, ct.max(qk, axis=-1, keepdims=True) * qk_scale)
-        qk = qk * qk_scale - m_ij  # [TILE_M, TILE_N]
+        qk = qk * qk_scale - m_ij
 
-        # attention weights
-        p = ct.exp2(qk, flush_to_zero=True)  # [TILE_M, TILE_N]
-        l_ij = ct.sum(p, axis=-1, keepdims=True)  # [TILE_M, 1]
-        alpha = ct.exp2(m_i - m_ij, flush_to_zero=True)  # [TILE_M, 1]
-        # update m_i and l_i
-        l_i = l_i * alpha + l_ij  # [TILE_M, 1]
-        # scale acc
-        acc = acc * alpha  # [TILE_M, TILE_N]
+        p = ct.exp2(qk, flush_to_zero=True)
+        l_ij = ct.sum(p, axis=-1, keepdims=True)
+        alpha = ct.exp2(m_i - m_ij, flush_to_zero=True)
+        l_i = l_i * alpha + l_ij
+        acc = acc * alpha
 
         # --- Compute PV product ---
         v = ct.load(
             V, index=(batch_idx, off_kv_h, j, 0), shape=(1, 1, TILE_N, TILE_D),
             latency=4,
-        ).reshape((TILE_N, TILE_D))  # [TILE_N, TILE_D]
+        ).reshape((TILE_N, TILE_D))
         p = p.astype(Q.dtype)
-        acc = ct.mma(p, v, acc)  # [TILE_M, TILE_N]
-        m_i = m_ij  # [TILE_M, 1]
+        acc = ct.mma(p, v, acc)
+        m_i = m_ij
 
     # --- Final Normalization and Store ---
     acc = ct.truediv(acc, l_i, flush_to_zero=True, rounding_mode=RMd.APPROX)
@@ -134,7 +125,6 @@ def fmha_kernel(Q, K, V, Out,
     ct.store(Out, index=(batch_idx, head_idx, bid_x, 0), tile=acc)
 
 
-# --- Wrapper function to launch the FMHA kernel ---
 def cutile_fmha(Q: torch.Tensor, K: torch.Tensor, V: torch.Tensor,
                 qk_scale: float | None = None,
                 input_pos: int = 0,
@@ -145,22 +135,7 @@ def cutile_fmha(Q: torch.Tensor, K: torch.Tensor, V: torch.Tensor,
                 kernel=fmha_kernel) -> torch.Tensor:
     """
     Performs Fused Multi-Head Attention (FMHA) using a cuTile kernel.
-
-    Args:
-        Q (torch.Tensor): Query tensor (Batch, Heads, SeqLen_Q, D_k).
-        K (torch.Tensor): Key tensor (Batch, KV_Heads, SeqLen_KV, D_k).
-        V (torch.Tensor): Value tensor (Batch, KV_Heads, SeqLen_KV, D_v).
-        qk_scale (float, optional): Scaling factor for QK dot product. Defaults to 1/sqrt(D_k).
-        input_pos (int, optional): Global start pos for queries (causal masking). Defaults to 0.
-        tile_m (int): Tile size for Query sequence length (M dimension).
-        tile_n (int): Tile size for Key/Value sequence length (N dimension).
-        query_group_size (int): Number of query heads per key/value head.
-        causal (bool): If True, applies causal masking.
-
-    Returns:
-        torch.Tensor: Output tensor (Batch, Heads, SeqLen_Q, D_v).
     """
-    # --- Input Validation ---
     if Q.ndim != 4 or K.ndim != 4 or V.ndim != 4:
         raise ValueError("Input tensors Q, K, V must be 4D (Batch, Heads, SeqLen, Dim).")
     if Q.shape[0] != K.shape[0] or Q.shape[0] != V.shape[0]:
@@ -185,15 +160,12 @@ def cutile_fmha(Q: torch.Tensor, K: torch.Tensor, V: torch.Tensor,
     if qk_scale is None:
         qk_scale = 1.0 / math.sqrt(D_k)
 
-    # --- Create Output Tensor ---
     Out = torch.empty((Batch, Heads, SeqLen_Q, D_v), dtype=Q.dtype, device=Q.device)
 
-    # --- Calculate Grid Dimensions ---
     grid_x = math.ceil(SeqLen_Q / tile_m)
     grid_y = Batch * Heads
     grid = (grid_x, grid_y, 1)
 
-    # --- Launch the FMHA Kernel ---
     ct.launch(torch.cuda.current_stream(), grid, kernel, (
         Q, K, V, Out,
         qk_scale,
@@ -210,7 +182,6 @@ def cutile_fmha(Q: torch.Tensor, K: torch.Tensor, V: torch.Tensor,
     return Out
 
 
-# --- Find best config for cutile fmha kernel ---
 def tune_cutile_fmha(Q: torch.Tensor,
                      K: torch.Tensor,
                      V: torch.Tensor,
@@ -220,18 +191,6 @@ def tune_cutile_fmha(Q: torch.Tensor,
                      causal: bool = False) -> SimpleNamespace:
     """
     Performs tuning for Fused Multi-Head Attention (FMHA) using a cuTile kernel.
-
-    Args:
-        Q (torch.Tensor): Query tensor (Batch, Heads, SeqLen_Q, D_k).
-        K (torch.Tensor): Key tensor (Batch, KV_Heads, SeqLen_KV, D_k).
-        V (torch.Tensor): Value tensor (Batch, KV_Heads, SeqLen_KV, D_v).
-        qk_scale (float): Scaling factor for QK dot product.
-        input_pos (int, optional): Global start pos for queries (causal masking). Defaults to 0.
-        query_group_size (int): Number of query heads per key/value head.
-        causal (bool): If True, applies causal masking.
-
-    Returns:
-        The best config
     """
     Batch, Heads, SeqLen_Q, D_k = Q.shape
     _, KV_Heads, SeqLen_KV, D_v = V.shape
@@ -287,77 +246,96 @@ if __name__ == "__main__":
         action="store_true",
         help="Check the correctness of the results",
     )
+    parser.add_argument(
+        "--tile-m", type=int, default=None,
+        help="Fixed TILE_M (query tile size). If provided, uses fixed config and skips tuning."
+    )
+    parser.add_argument(
+        "--tile-n", type=int, default=None,
+        help="Fixed TILE_N (key/value tile size)."
+    )
+    parser.add_argument(
+        "--num-ctas", type=int, default=1,
+        help="Number of CTAs (for fixed config)."
+    )
+    parser.add_argument(
+        "--occupancy", type=int, default=2,
+        help="Occupancy (for fixed config)."
+    )
+    parser.add_argument(
+        "--skip-small-tests", action="store_true",
+        help="Skip the first two small correctness tests."
+    )
     args = parser.parse_args()
+
     print("--- Running cuTile Fused Multi-Head Attention (FMHA) Sample ---")
 
-    # --- User Configuration ---
-    BATCH_SIZE = 2
-    NUM_HEADS = 8
-    SEQ_LEN_Q = 128
-    SEQ_LEN_KV = 128
-    D_K = 64
-    D_V = 64
+    # --- Small tests (optional) ---
+    if not args.skip_small_tests:
+        # --- User Configuration for small tests ---
+        BATCH_SIZE = 2
+        NUM_HEADS = 8
+        SEQ_LEN_Q = 128
+        SEQ_LEN_KV = 128
+        D_K = 64
+        D_V = 64
+        QUERY_GROUP_SIZE = 1
+        DTYPE = torch.float16
 
-    QUERY_GROUP_SIZE = 1
+        Q_input = torch.randn(BATCH_SIZE, NUM_HEADS, SEQ_LEN_Q, D_K, dtype=DTYPE, device='cuda')
+        K_input = torch.randn(BATCH_SIZE, NUM_HEADS // QUERY_GROUP_SIZE, SEQ_LEN_KV, D_K,
+                              dtype=DTYPE, device='cuda')
+        V_input = torch.randn(BATCH_SIZE, NUM_HEADS // QUERY_GROUP_SIZE, SEQ_LEN_KV, D_V,
+                              dtype=DTYPE, device='cuda')
 
-    DTYPE = torch.float16
+        print("  Configuration (small tests):")
+        print(f"  Batch Size: {BATCH_SIZE}")
+        print(f"  Number of Heads: {NUM_HEADS}")
+        print(f"  Query Sequence Length: {SEQ_LEN_Q}")
+        print(f"  KV Sequence Length: {SEQ_LEN_KV}")
+        print(f"  Head Dimension (D_k): {D_K}")
+        print(f"  Value Dimension (D_v): {D_V}")
+        print(f"  Data Type: {DTYPE}")
+        print(f"Input Q shape: {Q_input.shape}")
+        print(f"Input K shape: {K_input.shape}")
+        print(f"Input V shape: {V_input.shape}")
 
-    Q_input = torch.randn(BATCH_SIZE, NUM_HEADS, SEQ_LEN_Q, D_K, dtype=DTYPE, device='cuda')
-    K_input = torch.randn(BATCH_SIZE, NUM_HEADS // QUERY_GROUP_SIZE, SEQ_LEN_KV, D_K,
-                          dtype=DTYPE, device='cuda')
-    V_input = torch.randn(BATCH_SIZE, NUM_HEADS // QUERY_GROUP_SIZE, SEQ_LEN_KV, D_V,
-                          dtype=DTYPE, device='cuda')
+        # Test 1: Non-Causal Attention
+        print("\n--- Test 1: Non-Causal Attention ---")
+        output_fmha_cutile_non_causal = cutile_fmha(
+            Q=Q_input, K=K_input, V=V_input,
+            tile_m=128, tile_n=128,
+            causal=False,
+            query_group_size=QUERY_GROUP_SIZE
+        )
+        print(f"cuTile FMHA Output shape (Non-Causal):{output_fmha_cutile_non_causal.shape}, dtype:{output_fmha_cutile_non_causal.dtype}")
+        if args.correctness_check:
+            ref_fmha = torch_fmha(Q_input, K_input, V_input,
+                                  is_causal=False, enable_gqa=False)
+            torch.testing.assert_close(output_fmha_cutile_non_causal, ref_fmha, atol=1e-3, rtol=1e-3)
+            print("Correctness check passed")
+        else:
+            print("Correctness check disabled")
 
-    print("  Configuration:")
-    print(f"  Batch Size: {BATCH_SIZE}")
-    print(f"  Number of Heads: {NUM_HEADS}")
-    print(f"  Query Sequence Length: {SEQ_LEN_Q}")
-    print(f"  KV Sequence Length: {SEQ_LEN_KV}")
-    print(f"  Head Dimension (D_k): {D_K}")
-    print(f"  Value Dimension (D_v): {D_V}")
-    print(f"  Data Type: {DTYPE}")
-    print(f"Input Q shape: {Q_input.shape}")
-    print(f"Input K shape: {K_input.shape}")
-    print(f"Input V shape: {V_input.shape}")
+        # Test 2: Causal Attention
+        print("\n--- Test 2: Causal Attention ---")
+        output_fmha_cutile_causal = cutile_fmha(
+            Q=Q_input, K=K_input, V=V_input,
+            tile_m=128, tile_n=128,
+            causal=True,
+            query_group_size=QUERY_GROUP_SIZE
+        )
+        print(f"cuTile FMHA Output shape (Causal): {output_fmha_cutile_causal.shape}, dtype: {output_fmha_cutile_causal.dtype}")
+        if args.correctness_check:
+            ref_fmha = torch_fmha(Q_input, K_input, V_input,
+                                  is_causal=True, enable_gqa=False)
+            torch.testing.assert_close(output_fmha_cutile_causal, ref_fmha, atol=1e-3, rtol=1e-3)
+            print("Correctness check passed")
+        else:
+            print("Correctness check disabled")
 
-    # Test 1: Non-Causal Attention
-    print("\n--- Test 1: Non-Causal Attention ---")
-    output_fmha_cutile_non_causal = cutile_fmha(
-        Q=Q_input, K=K_input, V=V_input,
-        tile_m=128, tile_n=128,  # Increased tile sizes
-        causal=False,
-        query_group_size=QUERY_GROUP_SIZE
-    )
-    print(f"""cuTile FMHA Output shape (Non-Causal):{output_fmha_cutile_non_causal.shape},
-        dtype:{output_fmha_cutile_non_causal.dtype}""")
-    if args.correctness_check:
-        ref_fmha = torch_fmha(Q_input, K_input, V_input,
-                              is_causal=False, enable_gqa=False)
-        torch.testing.assert_close(output_fmha_cutile_non_causal, ref_fmha, atol=1e-3, rtol=1e-3)
-        print("Correctness check passed")
-    else:
-        print("Correctness check disabled")
-
-    # Test 2: Causal Attention
-    print("\n--- Test 2: Causal Attention ---")
-    output_fmha_cutile_causal = cutile_fmha(
-        Q=Q_input, K=K_input, V=V_input,
-        tile_m=128, tile_n=128,  # Increased tile sizes
-        causal=True,
-        query_group_size=QUERY_GROUP_SIZE
-    )
-    print(f"""cuTile FMHA Output shape (Causal): {output_fmha_cutile_causal.shape},
-            dtype: {output_fmha_cutile_causal.dtype}""")
-    if args.correctness_check:
-        ref_fmha = torch_fmha(Q_input, K_input, V_input,
-                              is_causal=True, enable_gqa=False)
-        torch.testing.assert_close(output_fmha_cutile_causal, ref_fmha, atol=1e-3, rtol=1e-3)
-        print("Correctness check passed")
-    else:
-        print("Correctness check disabled")
-
-    # Test 3: Causal Attention with autotuning and performance benchmarking.
-    print("\n--- Test 3: Causal Attention with autotuning and performance benchmarking ---")
+    # --- Test 3: Causal Attention with larger problem, optional fixed config or tuning ---
+    print("\n--- Test 3: Causal Attention with larger problem (benchmark) ---")
     # --- Increase the problem size ---
     BATCH_SIZE = 8
     NUM_HEADS = 16
@@ -366,6 +344,7 @@ if __name__ == "__main__":
     D_K = 64
     D_V = 64
     QUERY_GROUP_SIZE = 1
+    DTYPE = torch.float16
 
     Q_input = torch.randn(BATCH_SIZE, NUM_HEADS, SEQ_LEN_Q, D_K, dtype=DTYPE, device='cuda')
     K_input = torch.randn(BATCH_SIZE, NUM_HEADS // QUERY_GROUP_SIZE, SEQ_LEN_KV, D_K,
@@ -379,48 +358,84 @@ if __name__ == "__main__":
     print(f"Input Q shape: {Q_input.shape}")
     print(f"Input K shape: {K_input.shape}")
     print(f"Input V shape: {V_input.shape}")
-    best_cfg = tune_cutile_fmha(
-        Q=Q_input, K=K_input, V=V_input,
-        qk_scale=1.0 / math.sqrt(D_K),
-        causal=True,
-        query_group_size=QUERY_GROUP_SIZE
-    )
-    tuned_kernel = fmha_kernel.replace_hints(num_ctas=best_cfg.num_ctas,
-                                             occupancy=best_cfg.occupancy)
-    # Launch with best config
-    output_fmha_cutile_autotune_causal = cutile_fmha(
-        Q=Q_input, K=K_input, V=V_input,
-        tile_m=best_cfg.TILE_M, tile_n=best_cfg.TILE_N,
-        causal=True,
-        query_group_size=QUERY_GROUP_SIZE,
-        kernel=tuned_kernel
-    )
-    print(f"""cuTile FMHA Output shape (Causal): {output_fmha_cutile_autotune_causal.shape},
-            dtype: {output_fmha_cutile_autotune_causal.dtype}""")
-    if args.correctness_check:
-        ref_fmha = torch_fmha(Q_input, K_input, V_input, is_causal=True, enable_gqa=False)
-        torch.testing.assert_close(
-            output_fmha_cutile_autotune_causal, ref_fmha, atol=1e-2, rtol=5e-2
-        )
-        print("Correctness check passed")
-    else:
-        print("Correctness check disabled")
 
-    stats_cutile_autotuned = report_benchmark(
-        cutile_fmha,
-        (Q_input, K_input, V_input,
-         1.0 / math.sqrt(D_K), 0,
-         best_cfg.TILE_M, best_cfg.TILE_N,
-         QUERY_GROUP_SIZE, True, tuned_kernel)
-    )
+    # Decide whether to use fixed config or tuning
+    if args.tile_m is not None and args.tile_n is not None:
+        # Use fixed config
+        tile_m = args.tile_m
+        tile_n = args.tile_n
+        num_ctas = args.num_ctas
+        occupancy = args.occupancy
+        print(f"Using fixed config: TILE_M={tile_m}, TILE_N={tile_n}, num_ctas={num_ctas}, occupancy={occupancy}")
+        # Create kernel with given hints
+        tuned_kernel = fmha_kernel.replace_hints(num_ctas=num_ctas, occupancy=occupancy)
+        output_fmha_cutile = cutile_fmha(
+            Q=Q_input, K=K_input, V=V_input,
+            tile_m=tile_m, tile_n=tile_n,
+            causal=True,
+            query_group_size=QUERY_GROUP_SIZE,
+            kernel=tuned_kernel
+        )
+        # For benchmarking, we still need stats – we can directly call report_benchmark
+        # but we also want to print output shape.
+        print(f"cuTile FMHA Output shape (Causal): {output_fmha_cutile.shape}, dtype: {output_fmha_cutile.dtype}")
+        if args.correctness_check:
+            ref_fmha = torch_fmha(Q_input, K_input, V_input, is_causal=True, enable_gqa=False)
+            torch.testing.assert_close(output_fmha_cutile, ref_fmha, atol=1e-2, rtol=5e-2)
+            print("Correctness check passed")
+        else:
+            print("Correctness check disabled")
+        # Benchmark with fixed config
+        stats_cutile = report_benchmark(
+            cutile_fmha,
+            (Q_input, K_input, V_input,
+             1.0 / math.sqrt(D_K), 0,
+             tile_m, tile_n,
+             QUERY_GROUP_SIZE, True, tuned_kernel)
+        )
+    else:
+        # Run tuning
+        print("Running autotuning...")
+        best_cfg = tune_cutile_fmha(
+            Q=Q_input, K=K_input, V=V_input,
+            qk_scale=1.0 / math.sqrt(D_K),
+            causal=True,
+            query_group_size=QUERY_GROUP_SIZE
+        )
+        print(f"Best config found: TILE_M={best_cfg.TILE_M}, TILE_N={best_cfg.TILE_N}, num_ctas={best_cfg.num_ctas}, occupancy={best_cfg.occupancy}")
+        tuned_kernel = fmha_kernel.replace_hints(num_ctas=best_cfg.num_ctas,
+                                                 occupancy=best_cfg.occupancy)
+        output_fmha_cutile = cutile_fmha(
+            Q=Q_input, K=K_input, V=V_input,
+            tile_m=best_cfg.TILE_M, tile_n=best_cfg.TILE_N,
+            causal=True,
+            query_group_size=QUERY_GROUP_SIZE,
+            kernel=tuned_kernel
+        )
+        print(f"cuTile FMHA Output shape (Causal): {output_fmha_cutile.shape}, dtype: {output_fmha_cutile.dtype}")
+        if args.correctness_check:
+            ref_fmha = torch_fmha(Q_input, K_input, V_input, is_causal=True, enable_gqa=False)
+            torch.testing.assert_close(output_fmha_cutile, ref_fmha, atol=1e-2, rtol=5e-2)
+            print("Correctness check passed")
+        else:
+            print("Correctness check disabled")
+        # Benchmark with tuned config
+        stats_cutile = report_benchmark(
+            cutile_fmha,
+            (Q_input, K_input, V_input,
+             1.0 / math.sqrt(D_K), 0,
+             best_cfg.TILE_M, best_cfg.TILE_N,
+             QUERY_GROUP_SIZE, True, tuned_kernel)
+        )
+
     stats_torch = report_benchmark(
         torch_fmha,
         (Q_input, K_input, V_input, True, False)
     )
     print("Benchmark results:")
-    print(f"  cuTile FMHA with tuned parameters: {stats_cutile_autotuned['mean_time_ms']:.5f} ms")
+    print(f"  cuTile FMHA: {stats_cutile['mean_time_ms']:.5f} ms")
     print(f"  torch FMHA: {stats_torch['mean_time_ms']:.5f} ms")
-    speedup_autotuned = stats_torch["mean_time_ms"] / stats_cutile_autotuned["mean_time_ms"]
-    print(f"Speedup with autotuned parameters: {speedup_autotuned:.3f}x")
+    speedup = stats_torch["mean_time_ms"] / stats_cutile["mean_time_ms"]
+    print(f"Speedup: {speedup:.3f}x")
 
     print("\n--- cuTile Fused Multi-Head Attention (FMHA) Sample execution complete ---")
