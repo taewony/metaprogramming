@@ -1,7 +1,7 @@
 # 2차 실험 결고
 
 - 첨부가 아래 실행 결과
-ncu --set full -k regex:fmha_kernel -o fmha_baseline_rtx4060 python AttentionFMHA.py --tile-m 128 --tile-n 128 --num-ctas 2 --occupancy 2 --correctness-check --skip-small-tests
+ncu --set full -k regex:fmha_kernel -o fmha_baseline_rtx4060 python AttentionFMHA_v1.py --tile-m 128 --tile-n 128 --num-ctas 2 --occupancy 2 --correctness-check --skip-small-tests
 
 Architect 에이전트로서 업로드해주신 `fmha.csv` 실측 데이터를 꼼꼼히 분석했습니다.
 
@@ -584,3 +584,45 @@ ncu --set full -k regex:fmha_kernel -o fmha_v2_rtx4060 python3 AttentionFMHA_v2.
 ```
 
 이 코드가 컴파일을 통과하고 `Correctness check passed`를 띄운다면, 새로운 `.ncu-rep` 파일에서 **# Registers** 수치가 255개에서 얼마나 떨어졌는지, 그리고 **Compute Throughput**이 얼마나 올랐는지 바로 확인하실 수 있을 것입니다! 결과가 무척 기대되네요.
+
+---
+
+이 에러는 우리가 사용 중인 `cuda.tile` (cuTile) 라이브러리의 핵심적인 설계 철학을 보여주는 아주 중요한 단서입니다.
+
+에러 메시지 `AttributeError: module 'cuda.tile' has no attribute 'shared_memory'`에서 알 수 있듯이, **cuTile에는 명시적으로 Shared Memory를 할당하는 `ct.shared_memory` 같은 함수가 존재하지 않습니다.**
+
+이것이 일반적인 CUDA C++ 프로그래밍(예: `__shared__ float smem_q[...]`)이나 Triton(`tl.alloc`)과 cuTile이 구분되는 결정적인 차이점입니다.
+
+---
+
+### 🧠 Architect의 시스템 모델 분석 (cuTile의 철학)
+
+cuTile(그리고 그 기반인 TileGym)은 "명시적 할당(Explicit Allocation)의 은닉"을 지향합니다.
+
+1. **Register vs Shared Memory 자동 결정:** cuTile에서 개발자는 `ct.load()`, `ct.mma()`, `ct.exp2()` 같은 연산의 '데이터 흐름(Dataflow)'만 정의합니다.
+2. **컴파일러의 책임:** 데이터가 레지스터에 머물러야 할지, 아니면 크기가 너무 커서 Shared Memory로 내려가야(Spilling/Staging) 할지는 전적으로 **cuTile의 JIT 컴파일러(PTX 생성기)가 판단**합니다.
+3. **명시적 Staging 불필요:** 따라서 우리가 v2 코드에서 시도했던 `smem_q = ...` 와 같은 명시적인 공간 할당 코드는 cuTile의 문법(HIR - High-level IR)에 존재하지 않으므로 컴파일 에러가 발생한 것입니다.
+
+### 💡 레지스터 문제 해결을 위한 새로운 가설 (Hypothesis)
+
+그렇다면 "255개의 레지스터가 터져나가는 문제"를 명시적인 Shared Memory 선언 없이 어떻게 해결해야 할까요? 해답은 "데이터의 생명 주기(Lifespan) 줄이기"와 "소프트웨어 파이프라인(Software Pipelining) 힌트"에 있습니다.
+
+**가설 1: 불필요한 Tile 보관 최소화**
+현재 코드(v1)를 다시 보면, $Q$ 타일을 `q`라는 변수에 한 번 로드한 뒤 바깥쪽 루프에서 계속 쥐고 있습니다. $K, V$ 타일도 루프 내부에서 계속 누적됩니다. 컴파일러가 이 변수들을 "끝까지 필요한 데이터"로 인식하여 억지로 레지스터에 잡아두고 있을 가능성이 높습니다.
+
+**가설 2: Latency Hiding 힌트 강화**
+`ct.load`의 `latency` 인자는 매우 중요합니다. 컴파일러에게 "이 데이터를 가져오는 데 오래 걸리니, 그동안 다른 연산을 해라"라고 알려주어 레지스터 재사용 효율을 높이는 소프트웨어 파이프라이닝을 유도해야 합니다.
+
+### 🛠️ Action Plan for Executor (v3 코드 작성)
+
+cuTile의 문법에 맞게, 명시적인 Shared Memory 선언(`ct.shared_memory`, `ct.syncthreads`)을 모두 제거하고, 순수하게 데이터 흐름과 파이프라인 힌트로만 승부하는 **`AttentionFMHA_v3.py`** 코드를 새로 작성해 드리겠습니다.
+
+```python
+# (AttentionFMHA_v3.py의 fmha_kernel 주요 수정 방향)
+# 1. ct.shared_memory 선언 완전 제거
+# 2. ct.load에 latency 힌트를 명확하게 부여하여 비동기 프리패치 유도
+# 3. 누적기(acc)와 임시 변수들의 데이터 타입 강제 변환(astype) 시점 조절
+
+```
+
+이 방향(v3)으로 코드를 다시 생성하여 프로파일링을 진행해 볼까요?
