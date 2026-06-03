@@ -45,9 +45,25 @@ def measure_performance(model, prompt, stoi, max_new_tokens=200):
 if __name__ == "__main__":
     checkpoint_path = "checkpoint_final.pt"
     # cuTile(T>=64)가 작동하도록 프롬프트를 64자 이상으로 길게 설정 
-    long_prompt = "O Romeo, Romeo! wherefore art thou Romeo? Deny thy father and refuse thy name; Or, if thou wilt not, be but sworn my love,"
+    # long_prompt = "O Romeo, Romeo! wherefore art thou Romeo? Deny thy father and refuse thy name; Or, if thou wilt not, be but sworn my love,"
     # compare_infer.py의 long_prompt를 1024자 이상으로 확장
-    # long_prompt = "O Romeo, Romeo! wherefore art thou Romeo? Deny thy father and refuse thy name; Or, if thou wilt not, be but sworn my love, and I'll no longer be a Capulet. Tis but thy name that is my enemy; thou art thyself, though not a Montague. What's Montague? it is nor hand, nor foot, nor arm, nor face, nor any other part belonging to a man. O, be some other name! What's in a name? that which we call a rose by any other name would smell as sweet; so Romeo would, were he not Romeo call'd, retain that dear perfection which he owes without that title. Romeo, doff thy name, and for that name which is no part of thee take all myself. I take thee at thy word: call me but love, and I'll be new baptiz'd; henceforth I never will be Romeo. What man art thou that thus bescreen'd in night so stumblest on my counsel? By a name I know not how to tell thee who I am: my name, dear saint, is hateful to myself, because it is an enemy to thee; had I it written, I would tear the word."
+    long_prompt = (
+        "O Romeo, Romeo! wherefore art thou Romeo? Deny thy father and refuse thy name; "
+        "Or, if thou wilt not, be but sworn my love, and I'll no longer be a Capulet. "
+        "'Tis but thy name that is my enemy; thou art thyself, though not a Montague. "
+        "What's Montague? it is nor hand, nor foot, nor arm, nor face, nor any other part "
+        "belonging to a man. O, be some other name! What's in a name? that which we call "
+        "a rose by any other name would smell as sweet; so Romeo would, were he not Romeo call'd, "
+        "retain that dear perfection which he owes without that title. Romeo, doff thy name, "
+        "and for that name which is no part of thee take all myself. I take thee at thy word: "
+        "call me but love, and I'll be new baptiz'd; henceforth I never will be Romeo. "
+        "What man art thou that thus bescreen'd in night so stumblest on my counsel? "
+        "By a name I know not how to tell thee who I am: my name, dear saint, is hateful "
+        "to myself, because it is an enemy to thee; had I it written, I would tear the word. "
+        "I hear some noise within; dear love, adieu! Anon, good nurse! Sweet Montague, be true. "
+        "Stay but a little, I will come again. O blessed, blessed night! I am afeard. "
+        "Being in night, all this is but a dream, Too flattering-sweet to be substantial."
+    )
     
     print("Loading Checkpoint...")
     checkpoint = torch.load(checkpoint_path, weights_only=False, map_location='cuda')
