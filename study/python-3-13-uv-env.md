@@ -75,3 +75,5 @@ uv add "cuda-python[cu13]" cuda-tile nvmath-python numpy
 이제 환경 준비가 끝났습니다. CUDA 13.3 환경에서 cuda.core.Graph 객체를 활용해 스트림 기록(Stream Capture) 방식으로 CUDA Graph를 정의하고 집행(Instantiation)하는 구체적인 커널 시험용 코드 템플릿이 필요하신가요? 원하신다면 즉시 이어서 안내해 드리겠습니다.
 
 [1] [https://m.blog.naver.com](https://m.blog.naver.com/drvoss/224204489777)
+
+https://wikidocs.net/book/18603
