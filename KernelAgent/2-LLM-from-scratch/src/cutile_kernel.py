@@ -62,6 +62,7 @@ def fmha_kernel(Q, K, V, Out,
     # Using latency=2 to hint that we want it ready for the loop
     q = ct.load(
         Q, index=(batch_idx, head_idx, bid_x, 0), shape=(1, 1, TILE_M, TILE_D),
+        padding_mode=ct.PaddingMode.ZERO,
         latency=2
     ).reshape((TILE_M, TILE_D))
     
@@ -81,6 +82,7 @@ def fmha_kernel(Q, K, V, Out,
         k = ct.load(
             K, index=(batch_idx, off_kv_h, 0, j), shape=(1, 1, TILE_D, TILE_N),
             order=(0, 1, 3, 2),
+            padding_mode=ct.PaddingMode.ZERO,
             latency=2
         ).reshape((TILE_D, TILE_N))
         
@@ -112,6 +114,7 @@ def fmha_kernel(Q, K, V, Out,
         # Load V with latency hint for software pipelining
         v = ct.load(
             V, index=(batch_idx, off_kv_h, j, 0), shape=(1, 1, TILE_N, TILE_D),
+            padding_mode=ct.PaddingMode.ZERO,
             latency=4
         ).reshape((TILE_N, TILE_D))
 

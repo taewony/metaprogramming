@@ -3,7 +3,7 @@
 <kedsl_v6_document>
   <metadata>
     <target_hardware>NVIDIA RTX 5070 12GB (Single Board)</target_hardware>
-    <compute_capability>9.x (Ada/Blackwell Architecture)</compute_capability>
+    <compute_capability>12.0 (Blackwell Architecture)</compute_capability>
     <software_stack>CUDA Toolkit 13.3, CUDA Python 1.0, cuTile</software_stack>
     <core_objective>Build `nano-vllm` multi-user continuous batching inference engine.</core_objective>
   </metadata>

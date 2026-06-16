@@ -1,78 +1,167 @@
 import torch
 import time
 import argparse
-from src.model import GPT as GPT_PyTorch
-from src.model_cutile import GPT as GPT_cuTile
+import os
+import sys
+import numpy as np
+
+# Ensure src directory is in the path so model imports resolve correctly
+sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'src'))
+
+from model import GPT as GPT_PyTorch, GPTConfig
+from model_cutile import GPT as GPT_cuTile
 
 @torch.no_grad()
-def measure_performance(model, prompt, stoi, max_new_tokens=200):
+def timed_generate(model, prompt, stoi, max_new_tokens=200):
     device = next(model.parameters()).device
     tokens = [stoi[c] for c in prompt if c in stoi]
     idx = torch.tensor([tokens], dtype=torch.long, device=device)
 
-    # 1. GPU Warmup (메모리 할당 등 초기화 지연 방지)
-    _ = model(idx)
-    torch.cuda.synchronize()
-
-    # 2. Measure TTFT (Time To First Token - Prefill Phase)
-    start_time = time.perf_counter()
-    logits, _ = model(idx)
-    torch.cuda.synchronize()
-    ttft_ms = (time.perf_counter() - start_time) * 1000
-
-    # 첫 토큰 샘플링
-    logits = logits[:, -1, :]
-    probs = torch.softmax(logits, dim=-1)
-    next_token = torch.multinomial(probs, num_samples=1)
-    idx = torch.cat([idx, next_token], dim=1)
-
-    # 3. Measure Decoding Speed (Tokens / sec)
-    start_decode = time.perf_counter()
-    for _ in range(max_new_tokens - 1):
-        idx_cond = idx[:, -model.config.block_size:]
-        logits, _ = model(idx_cond)
-        logits = logits[:, -1, :]
-        probs = torch.softmax(logits, dim=-1)
-        next_token = torch.multinomial(probs, num_samples=1)
-        idx = torch.cat([idx, next_token], dim=1)
-    torch.cuda.synchronize()
+    model.eval()
     
-    decode_time = time.perf_counter() - start_decode
-    tok_per_sec = (max_new_tokens - 1) / decode_time
+    torch.cuda.synchronize()
+    t_start = time.perf_counter()
+    
+    # 1. Prefill phase (using KV cache)
+    logits, past_key_values = model(idx, use_cache=True)
+    next_token = logits[:, -1, :].argmax(dim=-1, keepdim=True)
+    
+    torch.cuda.synchronize()
+    t_first = time.perf_counter()
+    
+    generated_tokens = [next_token.item()]
+    
+    # 2. Decoding phase (feeding in one token at a time with KV Cache)
+    for _ in range(max_new_tokens - 1):
+        logits, past_key_values = model(next_token, past_key_values=past_key_values, use_cache=True)
+        next_token = logits[:, -1, :].argmax(dim=-1, keepdim=True)
+        generated_tokens.append(next_token.item())
+        
+    torch.cuda.synchronize()
+    t_end = time.perf_counter()
+    
+    ttft_sec = t_first - t_start
+    total_sec = t_end - t_start
+    
+    return ttft_sec, total_sec, generated_tokens
 
-    return ttft_ms, tok_per_sec
+def benchmark(model, prompt, stoi, warmup=5, repeats=20, max_new_tokens=200):
+    # GPU Warmup
+    for _ in range(warmup):
+        _ = timed_generate(model, prompt, stoi, max_new_tokens=max_new_tokens)
+        
+    ttfts = []
+    totals = []
+    last_tokens = None
+    
+    for _ in range(repeats):
+        ttft, total, tokens = timed_generate(model, prompt, stoi, max_new_tokens=max_new_tokens)
+        ttfts.append(ttft)
+        totals.append(total)
+        last_tokens = tokens
+        
+    return np.array(ttfts), np.array(totals), last_tokens
 
 if __name__ == "__main__":
-    checkpoint_path = "checkpoint_final.pt"
-    # cuTile(T>=64)가 작동하도록 프롬프트를 64자 이상으로 길게 설정 
-    # long_prompt = "O Romeo, Romeo! wherefore art thou Romeo? Deny thy father and refuse thy name; Or, if thou wilt not, be but sworn my love,"
-    # compare_infer.py의 long_prompt를 1024자 이상으로 확장
+    parser = argparse.ArgumentParser(description="Benchmark PyTorch vs cuTile attention inference performance")
+    parser.add_argument("--checkpoint", default="checkpoint_final.pt", help="Path to checkpoint file")
+    parser.add_argument("--warmup", type=int, default=5, help="Number of warmup runs")
+    parser.add_argument("--repeats", type=int, default=20, help="Number of measurement runs")
+    parser.add_argument("--max_new_tokens", type=int, default=200, help="Number of tokens to generate")
+    args = parser.parse_args()
+
+    # Define standard long prompt (>64 chars to trigger cuTile FMHA)
     long_prompt = (
         "O Romeo, Romeo! wherefore art thou Romeo? Deny thy father and refuse thy name; "
         "Or, if thou wilt not, be but sworn my love, and I'll no longer be a Capulet. "
-        "'Tis but thy name that is my enemy."
+        "'Tis but thy name that is my enemy; thou art thyself, though not a Montague. "
+        "What's Montague? it is nor hand, nor foot, nor arm, nor face, nor any other part "
+        "belonging to a man. O, be some other name! What's in a name? that which we call a rose "
+        "by any other name would smell as sweet; so Romeo would, were he not Romeo call'd, "
+        "retain that dear perfection which he owes without that title. Romeo, doff thy name, "
+        "and for that name which is no part of thee take all myself."
     )
     
-    print("Loading Checkpoint...")
-    checkpoint = torch.load(checkpoint_path, weights_only=False, map_location='cuda')
-    config, stoi = checkpoint["config"], checkpoint["stoi"]
-
-    print("\n[1] Baseline PyTorch Model")
-    model_pt = GPT_PyTorch(config).to('cuda')
-    model_pt.load_state_dict(checkpoint["model_state_dict"])
-    model_pt.eval()
-    pt_ttft, pt_tok = measure_performance(model_pt, long_prompt, stoi)
-    print(f" ➔ TTFT (Prefill)  : {pt_ttft:.2f} ms")
-    print(f" ➔ Decoding Speed  : {pt_tok:.2f} tokens/sec")
-
-    print("\n[2] cuTile_v1 (64x64 FMHA) Model")
-    model_cu = GPT_cuTile(config).to('cuda')
-    model_cu.load_state_dict(checkpoint["model_state_dict"])
-    model_cu.eval()
-    cu_ttft, cu_tok = measure_performance(model_cu, long_prompt, stoi)
-    print(f" ➔ TTFT (Prefill)  : {cu_ttft:.2f} ms")
-    print(f" ➔ Decoding Speed  : {cu_tok:.2f} tokens/sec")
+    # Check if checkpoint exists
+    if os.path.exists(args.checkpoint):
+        print(f"Loading checkpoint from {args.checkpoint}...")
+        checkpoint = torch.load(args.checkpoint, weights_only=False, map_location='cuda')
+        config = checkpoint["config"]
+        stoi = checkpoint["stoi"]
+        itos = checkpoint["itos"]
+        
+        # Load models
+        model_pt = GPT_PyTorch(config)
+        model_pt.load_state_dict(checkpoint["model_state_dict"])
+    else:
+        print(f"Checkpoint '{args.checkpoint}' not found.")
+        print("Using standard comparison configuration from design guide with random weights...")
+        # Define a mock character dictionary
+        chars = sorted(list(set(long_prompt)))
+        stoi = {c: i for i, c in enumerate(chars)}
+        itos = {i: c for c, i in stoi.items()}
+        
+        config = GPTConfig(
+            vocab_size=len(chars),
+            block_size=1024,
+            n_layer=6,
+            n_head=12,
+            n_embd=768
+        )
+        
+        model_pt = GPT_PyTorch(config)
+        
+    model_pt = model_pt.half().to('cuda')
     
-    print("\n=== Analysis ===")
-    print(f"Prefill Speedup  : {pt_ttft / cu_ttft:.3f}x")
-    print(f"Decoding Speedup : {cu_tok / pt_tok:.3f}x")
+    # Initialize cuTile model with identical config and weights
+    model_cu = GPT_cuTile(config).half().to('cuda')
+    model_cu.load_state_dict(model_pt.state_dict())
+    
+    print("\nStarting benchmark...")
+    print(f"Prompt length: {len(long_prompt)} characters")
+    print(f"Generating {args.max_new_tokens} tokens per run over {args.repeats} repeats (with {args.warmup} warmups)")
+    print(f"Model Configuration: {config.n_layer} Layers | {config.n_head} Heads | {config.n_embd} Embedding Dim")
+    
+    # Benchmark PyTorch
+    print("\nBenchmarking PyTorch Native Attention...")
+    pt_ttfts, pt_totals, pt_tokens = benchmark(
+        model_pt, long_prompt, stoi, warmup=args.warmup, repeats=args.repeats, max_new_tokens=args.max_new_tokens
+    )
+    
+    # Benchmark cuTile
+    print("Benchmarking cuTile-based Attention...")
+    cu_ttfts, cu_totals, cu_tokens = benchmark(
+        model_cu, long_prompt, stoi, warmup=args.warmup, repeats=args.repeats, max_new_tokens=args.max_new_tokens
+    )
+    
+    # Calculate statistics (ms)
+    pt_ttft_mean, pt_ttft_std = np.mean(pt_ttfts) * 1000, np.std(pt_ttfts) * 1000
+    pt_total_mean, pt_total_std = np.mean(pt_totals) * 1000, np.std(pt_totals) * 1000
+    # Dec speed (tokens / sec) = (max_new_tokens - 1) / (total_sec - ttft_sec)
+    pt_dec_speed = (args.max_new_tokens - 1) / (pt_totals - pt_ttfts)
+    pt_dec_mean, pt_dec_std = np.mean(pt_dec_speed), np.std(pt_dec_speed)
+    
+    cu_ttft_mean, cu_ttft_std = np.mean(cu_ttfts) * 1000, np.std(cu_ttfts) * 1000
+    cu_total_mean, cu_total_std = np.mean(cu_totals) * 1000, np.std(cu_totals) * 1000
+    cu_dec_speed = (args.max_new_tokens - 1) / (cu_totals - cu_ttfts)
+    cu_dec_mean, cu_dec_std = np.mean(cu_dec_speed), np.std(cu_dec_speed)
+    
+    # Verification
+    tokens_match = (pt_tokens == cu_tokens)
+    
+    print("\n" + "="*70)
+    print("                     BENCHMARK RESULTS")
+    print("="*70)
+    print(f"Metrics             | Baseline PyTorch       | cuTile Attention       | Speedup")
+    print("-"*90)
+    print(f"TTFT (Prefill)      | {pt_ttft_mean:7.2f} ± {pt_ttft_std:5.2f} ms | {cu_ttft_mean:7.2f} ± {cu_ttft_std:5.2f} ms | {pt_ttft_mean/cu_ttft_mean:6.3f}x")
+    print(f"Total Response Time | {pt_total_mean:7.2f} ± {pt_total_std:5.2f} ms | {cu_total_mean:7.2f} ± {cu_total_std:5.2f} ms | {pt_total_mean/cu_total_mean:6.3f}x")
+    print(f"Decoding Speed      | {pt_dec_mean:7.2f} ± {pt_dec_std:5.2f} t/s| {cu_dec_mean:7.2f} ± {cu_dec_std:5.2f} t/s| {cu_dec_mean/pt_dec_mean:6.3f}x")
+    print("="*70)
+    print(f"Generated Tokens Match Check: {'PASSED' if tokens_match else 'FAILED'}")
+    if not tokens_match:
+         print(f"First 10 tokens: PyTorch={pt_tokens[:10]} | cuTile={cu_tokens[:10]}")
+    else:
+         # Decode first 50 chars for illustration
+         decoded = "".join([itos[t] for t in pt_tokens[:50]])
+         print(f"Generated sample (first 50 tokens): '{decoded.replace(chr(10), ' ')}...'")
