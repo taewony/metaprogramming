@@ -131,7 +131,7 @@ if HAS_CUTILE:
         num_seq_blocks = ct.cdiv(cur_len, BLOCK_SIZE)
 
         for j in range(0, num_seq_blocks):
-            physical_block_id = ct.load(block_table, index=(batch_idx, j), shape=(1,)).reshape(())
+            physical_block_id = ct.load(block_table, index=(batch_idx, j), shape=(1, 1)).reshape(())
 
             # Load K block and transpose it to (TILE_D, BLOCK_SIZE)
             k = ct.load(
