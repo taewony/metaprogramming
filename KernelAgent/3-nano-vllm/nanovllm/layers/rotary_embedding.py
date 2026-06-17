@@ -14,6 +14,14 @@ def apply_rotary_emb(
     return torch.cat((y1, y2), dim=-1).to(x.dtype)
 
 
+def optional_compile(fn):
+    try:
+        import triton
+        return torch.compile(fn)
+    except ImportError:
+        return fn
+
+
 class RotaryEmbedding(nn.Module):
 
     def __init__(
@@ -34,7 +42,7 @@ class RotaryEmbedding(nn.Module):
         cache = torch.cat((cos, sin), dim=-1).unsqueeze_(1)
         self.register_buffer("cos_sin_cache", cache, persistent=False)
 
-    @torch.compile
+    @optional_compile
     def forward(
         self,
         positions: torch.Tensor,
@@ -46,6 +54,7 @@ class RotaryEmbedding(nn.Module):
         query = apply_rotary_emb(query, cos, sin)
         key = apply_rotary_emb(key, cos, sin)
         return query, key
+
 
 
 @lru_cache(1)
