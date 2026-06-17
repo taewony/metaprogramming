@@ -57,7 +57,8 @@ class RotaryEmbedding(nn.Module):
 
 
 
-@lru_cache(1)
+_ROPE_CACHE = {}
+
 def get_rope(
     head_size: int,
     rotary_dim: int,
@@ -65,6 +66,15 @@ def get_rope(
     base: float,
     rope_scaling: dict | None = None,
 ):
-    assert rope_scaling is None
+    scaling_key = None
+    if rope_scaling is not None:
+        scaling_key = tuple(sorted((k, str(v)) for k, v in rope_scaling.items()))
+    
+    key = (head_size, rotary_dim, max_position, base, scaling_key)
+    if key in _ROPE_CACHE:
+        return _ROPE_CACHE[key]
+        
     rotary_emb = RotaryEmbedding(head_size, rotary_dim, max_position, base)
+    _ROPE_CACHE[key] = rotary_emb
     return rotary_emb
+
