@@ -49,7 +49,7 @@ KernelAgent/
 
 | Experiment | Key Kernel(s) | Baseline | cuTile Advantage |
 |------------|---------------|----------|------------------|
-| **0 - cuTile** | Tiled GEMM with vectorized loads, unrolled loops | `torch.matmul` (FP16) | Explicit shared memory tiling and register blocking optimized for Tensor Cores. |
+| **0 - MatMul** | Tiled GEMM with vectorized loads, unrolled loops | `torch.matmul` (FP16) | Explicit shared memory tiling and register blocking optimized for Tensor Cores. |
 | **1 - FMHA** | Online softmax Fused MHA (64×64 tile) | `F.scaled_dot_product_attention` | Reduces memory bandwidth pressure by fusing QK multiplication, Softmax, and PV reduction. |
 | **2 - LLM-from-scratch** | FMHA Prefill + Decode (KV-Cache & CUDA Graph enabled) | GPT-2 Block with PyTorch attention | Bypasses Python launch latency during token-by-token decoding via static graphs. |
 | **3 - nano-vllm** | PagedAttention & Green Contexts | PyTorch SDPA | Aims to eliminate VRAM fragmentation and compute interference in concurrent execution. |
@@ -84,10 +84,10 @@ Since the experiments run on the **RTX 5070** target machine, we will collaborat
 ### Step 0: Prerequisites & Environment
 Ensure PyTorch (with CUDA support) and the `cuda-python` / `cuda.tile` libraries are installed in your Python environment.
 
-### Step 1: Matrix Multiplication Benchmark (`0-cuTile`)
+### Step 1: Matrix Multiplication Benchmark (`0-MatMul`)
 To compare raw GEMM performance:
 ```bash
-python 0-cuTile/cutile_matmul_perf.py
+python 0-MatMul/compare_matmul.py
 ```
 
 ### Step 2: Fused Multi-Head Attention Benchmark (`1-FMHA`)
