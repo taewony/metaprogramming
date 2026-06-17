@@ -1,0 +1,51 @@
+===========================================================================
+cuTile Matrix Multiplication Benchmark - Tile Size 64 Fixed
+Target GPU: RTX 5070 (Blackwell SM100/101) | Data Type: float16
+===========================================================================
+
+[Matrix Dimension 256x256 x 256x256]
+  cuTile Sample: ✅ Correctness Check Passed
+  cuTile TileGym: ✅ Correctness Check Passed
+  PyTorch:           0.015 ms (2.28 TFLOPS)
+  cuTile Sample:     0.009 ms (3.57 TFLOPS) | Speedup: 1.57x
+  cuTile TileGym:    0.008 ms (4.07 TFLOPS) | Speedup: 1.79x
+
+[Matrix Dimension 512x512 x 512x512]
+  cuTile Sample: ✅ Correctness Check Passed
+  cuTile TileGym: ✅ Correctness Check Passed
+  PyTorch:           0.010 ms (25.94 TFLOPS)
+  cuTile Sample:     0.011 ms (24.22 TFLOPS) | Speedup: 0.93x
+  cuTile TileGym:    0.014 ms (19.16 TFLOPS) | Speedup: 0.74x
+
+[Matrix Dimension 1024x1024 x 1024x1024]
+  cuTile Sample: ✅ Correctness Check Passed
+  cuTile TileGym: ✅ Correctness Check Passed
+  PyTorch:           0.039 ms (54.76 TFLOPS)
+  cuTile Sample:     0.045 ms (47.51 TFLOPS) | Speedup: 0.87x
+  cuTile TileGym:    0.047 ms (45.29 TFLOPS) | Speedup: 0.83x
+
+[Matrix Dimension 2048x2048 x 2048x2048]
+  cuTile Sample: ✅ Correctness Check Passed
+  cuTile TileGym: ✅ Correctness Check Passed
+  PyTorch:           0.259 ms (66.26 TFLOPS)
+  cuTile Sample:     0.294 ms (58.52 TFLOPS) | Speedup: 0.88x
+  cuTile TileGym:    0.293 ms (58.62 TFLOPS) | Speedup: 0.88x
+
+[Matrix Dimension 4096x4096 x 4096x4096]
+  cuTile Sample: ✅ Correctness Check Passed
+  cuTile TileGym: ✅ Correctness Check Passed
+  PyTorch:           2.022 ms (67.98 TFLOPS)
+  cuTile Sample:     2.192 ms (62.71 TFLOPS) | Speedup: 0.92x
+  cuTile TileGym:    2.225 ms (61.78 TFLOPS) | Speedup: 0.91x
+
+===========================================================================
+                    PERFORMANCE SUMMARY TABLE
+===========================================================================
+    Size |            PyTorch |      cuTile Sample |     cuTile TileGym
+---------------------------------------------------------------------------
+     256 |    0.01 ms (  2.3T) |    0.01 ms (  3.6T) |    0.01 ms (  4.1T)
+     512 |    0.01 ms ( 25.9T) |    0.01 ms ( 24.2T) |    0.01 ms ( 19.2T)
+    1024 |    0.04 ms ( 54.8T) |    0.05 ms ( 47.5T) |    0.05 ms ( 45.3T)
+    2048 |    0.26 ms ( 66.3T) |    0.29 ms ( 58.5T) |    0.29 ms ( 58.6T)
+    4096 |    2.02 ms ( 68.0T) |    2.19 ms ( 62.7T) |    2.22 ms ( 61.8T)
+---------------------------------------------------------------------------
