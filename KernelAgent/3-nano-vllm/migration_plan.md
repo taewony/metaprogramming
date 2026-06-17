@@ -245,3 +245,56 @@ Once migrated, the original Linux dependencies are eliminated. You can run the G
   5. model_runner.py: Updated to use the GLOO backend for distributed initialization on Windows/single-GPU
   configurations.
   6. layernorm.py, activation.py, sampler.py, and rotary_embedding.py: Bypasses compiler errors on Windows.
+  
+  ---
+  
+  The  nano-vllm  engine is designed to be fully dynamic. During startup, it reads the model's dimensions (hidden
+  size, head dimension, number of layers, attention heads, GQA ratios) directly from the downloaded model's
+  config.json .
+  ──────
+  ### How to Download and Run a Different Model
+
+Qwen2.5-3B  is an excellent candidate for your RTX 5070 GPU! It offers a great balance of model intelligence (much
+  stronger than the 0.5B model) and memory usage.
+
+  #### Memory & Hardware Specs for Qwen2.5-3B
+
+  • Weight Memory: A 3B model at FP16 precision takes  3 * 2 bytes = ~6.2 GB  of VRAM.
+  • VRAM Margin: On your RTX 5070 (which has 12 GB of VRAM), this leaves about  ~5.8 GB  of free VRAM. This is more
+  than enough for the GPU memory workspace and a very large vLLM Paged KV Cache (allowing high concurrency).
+  • GQA / Attention: Unlike some larger models,  Qwen2.5-3B  uses MHA (16 Query heads and 16 KV heads). This is fully
+  supported and will run with high occupancy.
+
+  #### How to Run it
+
+  Simply download the model and rename it to the benchmark directory:
+
+    # 1. Download the 3B Instruct model
+    python src/download_model.py --repo Qwen/Qwen2.5-3B-Instruct --dest ~/huggingface
+
+    # 2. Rename the old folder to back it up
+    Rename-Item -Path ~/huggingface/Qwen3-0.6B -NewName Qwen3-0.6B-old
+
+    # 3. Rename the 3B model to Qwen3-0.6B
+    Move-Item -Path ~/huggingface/Qwen2.5-3B-Instruct -Destination ~/huggingface/Qwen3-0.6B
+
+  Then run the generation or benchmark as usual:
+
+    # Run generation
+    python example.py
+
+    # Run benchmark
+    python bench.py --use-cutile
+
+──────
+
+  ### Compatibility Check list
+
+  1. Grouped Query Attention (GQA): Larger Qwen models (like 7B or 8B) use GQA (where the number of Query heads is
+  larger than the number of Key/Value heads). Our cuTile attention kernels are fully compatible with GQA because they
+  dynamically calculate  query_group_size = H // num_kv_heads  at runtime.
+  2. VRAM Size Warning:
+      • Qwen2.5-1.5B or 3B: These will run extremely fast and fit easily inside your GPU VRAM.
+      • Qwen2.5-7B/8B: A 7B model at FP16 requires  ~14 GB  of VRAM just to store the weights. On a GPU with 12 GB or
+      16 GB VRAM, this might run close to the limit once the vLLM KV Cache is allocated, so you may need to reduce
+      the  gpu_memory_utilization  flag in  Config  (e.g. to  0.7  or  0.8 ) to prevent Out-Of-Memory (OOM) errors.
