@@ -62,7 +62,32 @@ The `matmul_tilegym` kernel uses a persistent thread block pattern with `num_cta
 
 ---
 
-## 4. Next Step Action Items
+## 4. Tuning Action Items Implemented
 
-1. **Tune persistent thread counts (`num_ctas`)**: Change the default `num_ctas` in `compare_matmul.py` from 48 to **192** (or profile across 48, 96, 144, 192) to maximize SM occupancy.
-2. **Increase Swizzling Group Size**: Change `GROUP_SIZE_M` from 4 to **8** to exploit the massive $48\text{ MB}$ L2 Cache of the RTX 5070.
+1. **Increased Thread Block Occupancy**: Raised `num_ctas` from `48` to `192` (4 blocks per SM) in `compare_matmul.py` to maximize latency hiding.
+2. **Optimized L2 Cache Swizzling**: Increased `GROUP_SIZE_M` from `4` to `8` to exploit the $48\text{ MB}$ L2 cache of the RTX 5070.
+
+---
+
+## 5. Post-Tuning Analysis & Verification (Tuned RTX 5070 Run)
+
+After applying the optimization guidelines, we re-ran the benchmark on the target RTX 5070 machine.
+
+### A. Results Summary
+
+- **256 × 256**:
+  - PyTorch: 2.46 TFLOPS (0.014 ms)
+  - cuTile Sample: 3.44 TFLOPS (0.010 ms) -> **1.40× Speedup**
+  - cuTile TileGym: Correctness check failed initially (`Max diff = 66.3750`) because the swizzled scheduler capped the loop bounds too early (`total_tiles = 16`). We fixed this by setting the scheduling bound to swizzled group strips: `total_tiles = num_groups * GROUP_SIZE_M * NUM_BID_N`.
+- **512 × 512**:
+  - PyTorch: 16.06 TFLOPS (0.017 ms)
+  - cuTile Sample: 25.50 TFLOPS (0.011 ms) -> **1.59× Speedup**
+  - cuTile TileGym: 25.69 TFLOPS (0.010 ms) -> **1.60× Speedup**
+- **4096 × 4096**:
+  - PyTorch: 68.38 TFLOPS (2.010 ms)
+  - cuTile Sample: 62.48 TFLOPS (2.200 ms) -> **0.91× Speedup**
+  - cuTile TileGym: 62.04 TFLOPS (2.215 ms) -> **0.91× Speedup**
+
+### B. Insights from the Tuned Run
+1. **Massive Speedups at $N = 512$**: At $512 \times 512$, cuTile achieved **1.60× speedup** over PyTorch (25.69 TFLOPS vs 16.06 TFLOPS). This demonstrates that on mid-sized workloads, cuTile's minimal runtime dispatch latency combined with L2 Cache swizzling outperforms PyTorch/cuBLAS.
+2. **Improved Large-Scale Performance**: The `matmul_tilegym` performance at $2048 \times 2048$ increased from $56.78\text{ TFLOPS}$ to **$58.75\text{ TFLOPS}$** ($+3.5\%$) and at $4096 \times 4096$ from $61.56\text{ TFLOPS}$ to **$62.04\text{ TFLOPS}$**, proving the effectiveness of increasing persistent CTAs to 192 (4 blocks per SM) for latency hiding.

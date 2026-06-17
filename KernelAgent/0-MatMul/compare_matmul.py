@@ -39,7 +39,8 @@ def matmul_sample(A, B, C, NUM_BID_M: int, NUM_BID_N: int, NUM_K_TILES: int):
 def matmul_tilegym(A, B, C, NUM_BID_M: int, NUM_BID_N: int, NUM_K_TILES: int, GROUP_SIZE_M: int):
     start_tile_id = ct.bid(0)
     num_programs = ct.num_blocks(0)
-    total_tiles = NUM_BID_M * NUM_BID_N
+    num_groups = (NUM_BID_M + GROUP_SIZE_M - 1) // GROUP_SIZE_M
+    total_tiles = num_groups * GROUP_SIZE_M * NUM_BID_N
 
     for tile_id in range(start_tile_id, total_tiles, num_programs):
         tiles_per_group_strip = GROUP_SIZE_M * NUM_BID_N
