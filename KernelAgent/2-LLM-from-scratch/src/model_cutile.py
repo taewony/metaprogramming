@@ -13,7 +13,7 @@ class CausalSelfAttention(nn.Module):
         self.n_head = config.n_head
         self.n_embd = config.n_embd
 
-    def forward(self, x, past_kv=None, use_cache=False):
+    def forward(self, x, past_kv=None, use_cache=False, static_kv=None):
         B, T, C = x.shape
         qkv = self.c_attn(x)
         q, k, v = qkv.split(self.n_embd, dim=2)
@@ -23,6 +23,12 @@ class CausalSelfAttention(nn.Module):
         q = q.view(B, T, self.n_head, head_dim).transpose(1, 2).contiguous()
         k = k.view(B, T, self.n_head, head_dim).transpose(1, 2).contiguous()
         v = v.view(B, T, self.n_head, head_dim).transpose(1, 2).contiguous()
+
+        # If static cache is provided, write directly into it
+        if static_kv is not None:
+            static_k_i, static_v_i = static_kv
+            static_k_i[:, :, :T, :].copy_(k)
+            static_v_i[:, :, :T, :].copy_(v)
 
         if past_kv is not None:
             k = torch.cat([past_kv[0], k], dim=2)
@@ -127,14 +133,14 @@ class Block(nn.Module):
         self.ln_2 = nn.LayerNorm(config.n_embd)
         self.mlp = MLP(config)
 
-    def forward(self, x, past_kv=None, use_cache=False):
+    def forward(self, x, past_kv=None, use_cache=False, static_kv=None):
         if use_cache:
-            attn_out, present_kv = self.attn(self.ln_1(x), past_kv=past_kv, use_cache=use_cache)
+            attn_out, present_kv = self.attn(self.ln_1(x), past_kv=past_kv, use_cache=use_cache, static_kv=static_kv)
             x = x + attn_out
             x = x + self.mlp(self.ln_2(x))
             return x, present_kv
         else:
-            x = x + self.attn(self.ln_1(x))   # attention with residual connection
+            x = x + self.attn(self.ln_1(x), static_kv=static_kv)   # attention with residual connection
             x = x + self.mlp(self.ln_2(x))    # MLP with residual connection
             return x
 
@@ -152,7 +158,7 @@ class GPT(nn.Module):
         # weight tying: the output projection shares weights with the token embeddings
         self.transformer.wte.weight = self.lm_head.weight
 
-    def forward(self, idx, targets=None, past_key_values=None, use_cache=False):
+    def forward(self, idx, targets=None, past_key_values=None, use_cache=False, static_kv=None):
         B, T = idx.shape
         
         prev_T = 0
@@ -172,11 +178,12 @@ class GPT(nn.Module):
         new_past_key_values = [] if use_cache else None
         for i, block in enumerate(self.transformer.h):
             past_kv = past_key_values[i] if past_key_values is not None else None
+            layer_static_kv = static_kv[i] if static_kv is not None else None
             if use_cache:
-                x, present_kv = block(x, past_kv=past_kv, use_cache=use_cache)
+                x, present_kv = block(x, past_kv=past_kv, use_cache=use_cache, static_kv=layer_static_kv)
                 new_past_key_values.append(present_kv)
             else:
-                x = block(x)
+                x = block(x, static_kv=layer_static_kv)
 
         x = self.transformer.ln_f(x)
         logits = self.lm_head(x)               # (B, T, vocab_size)

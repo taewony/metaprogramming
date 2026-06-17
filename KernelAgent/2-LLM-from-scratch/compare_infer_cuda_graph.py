@@ -181,30 +181,19 @@ class StaticGPTRunner(nn.Module):
 
     def reset_cache(self, prompt_tokens):
         """
-        Initializes the static cache with prompt keys/values and zeros out remaining slots.
+        Initializes the static cache with prompt keys/values.
         """
-        for i in range(self.config.n_layer):
-            self.static_k[i].fill_(0.0)
-            self.static_v[i].fill_(0.0)
-
         # Compute prompt keys/values
         device = next(self.model.parameters()).device
         idx = torch.tensor([prompt_tokens], dtype=torch.long, device=device)
         
-        # We run the prefill forward pass once and capture the KV Cache
+        # We run the prefill forward pass once and write directly into static_k and static_v
         self.model.eval()
         with torch.no_grad():
-            # Extract key/values from the standard prefill pass
-            logits, past_key_values = self.model(idx, use_cache=True)
+            static_kv = list(zip(self.static_k, self.static_v))
+            logits, _ = self.model(idx, use_cache=True, static_kv=static_kv)
             
-            # Copy prefill key/values into our static buffers
-            prefill_len = len(prompt_tokens)
-            for i in range(self.config.n_layer):
-                pk, pv = past_key_values[i]
-                # Copy into the static cache prefix slice
-                self.static_k[i][:, :, :prefill_len, :].copy_(pk)
-                self.static_v[i][:, :, :prefill_len, :].copy_(pv)
-                
+        prefill_len = len(prompt_tokens)
         return logits, prefill_len
 
     def forward_step(self, next_token, step_idx):
@@ -449,6 +438,7 @@ if __name__ == "__main__":
     model_cu.load_state_dict(model_pt.state_dict())
     
     runner_graph = StaticGPTRunner(model_cu, max_seq_len=config.block_size)
+
     
     print("\nStarting benchmark...")
     print(f"Prompt length: {len(long_prompt)} characters")
