@@ -188,20 +188,24 @@ def cutile_fmha_prefill(
     # Use tile size of 64 or 128 (let's use 64 for compatibility and smaller limits)
     tile_m, tile_n = 64, 64
     
-    # Pad seqlen to a multiple of tile size, with a minimum of 64
-    pad_len_q = max(64, math.ceil(max_seqlen_q / tile_m) * tile_m)
-    pad_len_k = max(64, math.ceil(max_seqlen_k / tile_n) * tile_n)
+    # Pad seqlen to a multiple of 256 to reduce JIT compilation overhead
+    pad_len_q = max(256, math.ceil(max_seqlen_q / 256) * 256)
+    pad_len_k = max(256, math.ceil(max_seqlen_k / 256) * 256)
     
     B = cu_seqlens_q.numel() - 1
+    # Pad batch size B to the next power of 2 to reduce JIT compilation overhead
+    MAX_B = 1 << (B - 1).bit_length() if B > 0 else 1
+    MAX_B = max(1, MAX_B)
+    
     total_tokens_q = q.shape[0]
     num_heads = q.shape[1]
     num_kv_heads = k.shape[1]
     head_dim = q.shape[2]
 
-    # Reconstruct padded 4D tensors: (B, H, SeqLen, D)
-    q_4d = torch.zeros((B, num_heads, pad_len_q, head_dim), dtype=q.dtype, device=q.device)
-    k_4d = torch.zeros((B, num_kv_heads, pad_len_k, head_dim), dtype=k.dtype, device=k.device)
-    v_4d = torch.zeros((B, num_kv_heads, pad_len_k, head_dim), dtype=v.dtype, device=v.device)
+    # Reconstruct padded 4D tensors: (MAX_B, H, SeqLen, D)
+    q_4d = torch.zeros((MAX_B, num_heads, pad_len_q, head_dim), dtype=q.dtype, device=q.device)
+    k_4d = torch.zeros((MAX_B, num_kv_heads, pad_len_k, head_dim), dtype=k.dtype, device=k.device)
+    v_4d = torch.zeros((MAX_B, num_kv_heads, pad_len_k, head_dim), dtype=v.dtype, device=v.device)
     
     for b in range(B):
         # Q
@@ -227,10 +231,10 @@ def cutile_fmha_prefill(
             k_4d[b, :, :seqlen_k, :] = k[start_k:end_k].transpose(0, 1)
             v_4d[b, :, :seqlen_k, :] = v[start_k:end_k].transpose(0, 1)
 
-    Out = torch.empty((B, num_heads, pad_len_q, head_dim), dtype=q.dtype, device=q.device)
+    Out = torch.empty((MAX_B, num_heads, pad_len_q, head_dim), dtype=q.dtype, device=q.device)
 
     grid_x = pad_len_q // tile_m
-    grid_y = B * num_heads
+    grid_y = B * num_heads  # Grid size is based on actual B
     grid = (grid_x, grid_y, 1)
     query_group_size = num_heads // num_kv_heads
 
@@ -262,18 +266,33 @@ def cutile_fmha_paged_decode(
     # q has shape (B, H, D)
     B, H, D = q.shape
     
-    # Reshape Q to (B, H, 1, D) for the kernel
-    q_4d = q.unsqueeze(2) # (B, H, 1, D)
+    # Pad batch size B to the next multiple of 64 to prevent JIT compilation storm
+    MAX_BS = max(64, math.ceil(B / 64) * 64)
     
-    Out = torch.empty((B, H, 1, D), dtype=q.dtype, device=q.device)
+    # Pad block_table columns (max_blocks_per_seq) to a multiple of 32 to prevent JIT compilation storm
+    MAX_BLOCKS = max(32, math.ceil(block_table.shape[1] / 32) * 32)
     
-    grid = (B * H, 1, 1)
+    # Pad Q to (MAX_BS, H, 1, D)
+    q_4d = torch.zeros((MAX_BS, H, 1, D), dtype=q.dtype, device=q.device)
+    q_4d[:B, :, 0, :] = q
+    
+    # Pad block_table to (MAX_BS, MAX_BLOCKS)
+    padded_block_table = torch.full((MAX_BS, MAX_BLOCKS), -1, dtype=block_table.dtype, device=block_table.device)
+    padded_block_table[:B, :block_table.shape[1]] = block_table
+    
+    # Pad context_lens to (MAX_BS,)
+    padded_context_lens = torch.zeros((MAX_BS,), dtype=context_lens.dtype, device=context_lens.device)
+    padded_context_lens[:B] = context_lens
+    
+    Out = torch.empty((MAX_BS, H, 1, D), dtype=q.dtype, device=q.device)
+    
+    grid = (B * H, 1, 1)  # Grid size is based on actual B
     query_group_size = H // k_cache.shape[2]
     
     ct.launch(torch.cuda.current_stream(), grid, paged_decode_kernel, (
-        q_4d, k_cache, v_cache, block_table, context_lens, Out, scale,
+        q_4d, k_cache, v_cache, padded_block_table, padded_context_lens, Out, scale,
         D, H, query_group_size, block_size
     ))
     
     # Return (B, 1, H, D) to match flash_attn_with_kvcache
-    return Out.transpose(1, 2)
+    return Out[:B].transpose(1, 2)
