@@ -259,7 +259,7 @@ def cutile_fmha_paged_decode(
     query_group_size = H // k_cache.shape[2]
     
     ct.launch(torch.cuda.current_stream(), grid, paged_decode_kernel, (
-        q_4d, k_cache, v_cache, block_table, context_lens, scale,
+        q_4d, k_cache, v_cache, block_table, context_lens, Out, scale,
         D, H, query_group_size, block_size
     ))
     
