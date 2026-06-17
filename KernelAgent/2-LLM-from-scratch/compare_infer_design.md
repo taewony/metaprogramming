@@ -56,10 +56,10 @@ To eliminate memory reallocation and fragmentation during the decode loop, we im
    $$\text{Cache Shape} = [\text{Batch}, \text{Heads}, \text{MaxSeqLen}, \text{HeadDim}]$$
    Using a fixed size (e.g., `MaxSeqLen = 1024`) prevents any dynamic memory allocation during decoding.
 2. **In-Place Updates**:
-   During each decode step $t$, the new key and value projection vectors (of length 1) are written directly into their respective slices of the pre-allocated buffers using `index_copy_`:
+   During each decode step $t$, the new key and value projection vectors (of length 1) are written directly into their respective slices of the pre-allocated buffers using the graph-compatible `scatter_` operator with a pre-allocated index tensor:
    ```python
-   self.static_k[i].index_copy_(2, step_idx, k)
-   self.static_v[i].index_copy_(2, step_idx, v)
+   self.static_k[i].scatter_(2, self.static_scatter_index, k)
+   self.static_v[i].scatter_(2, self.static_scatter_index, v)
    ```
 3. **Softmax Masking of Unpopulated Slots**:
    Since the cache tensor has a static shape, future slots ($t > \text{current\_step}$) contain garbage data. To prevent this data from affecting attention, we initialize the static key cache (`static_k`) with a large negative value (`-10000.0`).

@@ -43,6 +43,8 @@ class StaticGPTRunner(nn.Module):
         # Pre-allocate static inputs/outputs for the captured graph step
         self.static_input = torch.zeros((1, 1), dtype=torch.long, device='cuda')
         self.static_step = torch.zeros((1,), dtype=torch.long, device='cuda')
+        self.static_scatter_index = torch.zeros((1, self.config.n_head, 1, self.config.n_embd // self.config.n_head),
+                                                dtype=torch.long, device='cuda')
         self.static_logits = None
 
     def reset_cache(self, prompt_tokens):
@@ -101,9 +103,9 @@ class StaticGPTRunner(nn.Module):
             k = k.view(B, T, self.config.n_head, head_dim).transpose(1, 2).contiguous()
             v = v.view(B, T, self.config.n_head, head_dim).transpose(1, 2).contiguous()
 
-            # Write the new key & value in-place to the static buffers at step_idx
-            self.static_k[i].index_copy_(2, step_idx, k)
-            self.static_v[i].index_copy_(2, step_idx, v)
+            # Write the new key & value in-place using graph-compatible scatter_
+            self.static_k[i].scatter_(2, self.static_scatter_index, k)
+            self.static_v[i].scatter_(2, self.static_scatter_index, v)
 
             # Launch cuTile attention over the static buffers
             # By passing causal=False and using the static cache (where future slots are -10000.0),
@@ -209,6 +211,7 @@ def timed_generate_cutile_graph(runner, prompt, stoi, max_new_tokens=200):
     # Set initial values for graph capture
     runner.static_input.copy_(next_token)
     runner.static_step.copy_(torch.tensor([prefill_len], device='cuda'))
+    runner.static_scatter_index.fill_(prefill_len)
     
     # Capture step
     with torch.cuda.graph(g):
@@ -220,6 +223,7 @@ def timed_generate_cutile_graph(runner, prompt, stoi, max_new_tokens=200):
         # Update inputs in-place without changing memory addresses
         runner.static_input.copy_(next_token_tensor)
         runner.static_step.copy_(torch.tensor([step], device='cuda'))
+        runner.static_scatter_index.fill_(step)
         
         # Replay the CUDA graph (bypasses all PyTorch dispatch & Python launch overheads!)
         g.replay()
