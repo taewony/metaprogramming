@@ -135,7 +135,7 @@ if HAS_CUTILE:
 
             # Load K block and transpose it to (TILE_D, BLOCK_SIZE)
             k = ct.load(
-                K_cache, index=(physical_block_id, 0, off_kv_h, 0), shape=(1, BLOCK_SIZE, 1, TILE_D),
+                K_cache, index=(physical_block_id, 0, off_kv_h, 0), shape=(1, TILE_D, 1, BLOCK_SIZE),
                 order=(0, 3, 2, 1),
                 padding_mode=ct.PaddingMode.ZERO
             ).reshape((TILE_D, BLOCK_SIZE))
