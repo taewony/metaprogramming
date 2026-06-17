@@ -263,8 +263,16 @@ def benchmark(model_type, model_or_runner, prompt, stoi, warmup=5, repeats=20, m
 
 
 if __name__ == "__main__":
+    # Dynamically locate default checkpoint (cwd or relative to script)
+    default_checkpoint = "checkpoint_final.pt"
+    if not os.path.exists(default_checkpoint):
+        script_dir = os.path.dirname(os.path.abspath(__file__))
+        alt_path = os.path.join(script_dir, "src", "checkpoint_final.pt")
+        if os.path.exists(alt_path):
+            default_checkpoint = alt_path
+
     parser = argparse.ArgumentParser(description="Benchmark PyTorch vs raw cuTile vs cuTile + CUDA Graphs")
-    parser.add_argument("--checkpoint", default="checkpoint_final.pt", help="Path to checkpoint file")
+    parser.add_argument("--checkpoint", default=default_checkpoint, help="Path to checkpoint file")
     parser.add_argument("--warmup", type=int, default=5, help="Number of warmup runs")
     parser.add_argument("--repeats", type=int, default=20, help="Number of measurement runs")
     parser.add_argument("--max_new_tokens", type=int, default=200, help="Number of tokens to generate")
