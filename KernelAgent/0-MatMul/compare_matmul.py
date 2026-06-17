@@ -104,10 +104,10 @@ def benchmark_cutile(kernel, A, B, M, N, K, warmup=20, repeats=100):
         args = (A, B, C, num_bid_m, num_bid_n, num_k_tiles)
     else:
         # matmul_tilegym uses persistent threads
-        # Match RTX 5070 SM count (48 SMs), we launch 48 blocks
-        num_ctas = 48
+        # Optimized for RTX 5070 (SM occupancy & L2 cache swizzling)
+        num_ctas = 192    # 4 blocks per SM (across 48 SMs) to hide memory latency
         grid_dim = (num_ctas, 1, 1)
-        group_size_m = 4  # Standard group size for swizzled layout L2 cache optimization
+        group_size_m = 8  # Group size 8 to exploit the massive 48MB L2 cache
         args = (A, B, C, num_bid_m, num_bid_n, num_k_tiles, group_size_m)
 
     for _ in range(warmup):
