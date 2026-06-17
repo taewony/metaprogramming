@@ -15,9 +15,9 @@ The benchmark evaluates a 6-layer, 6-head GPT-2 model (Shakespeare character-lev
 ### A. Performance Metrics Summary
 | Metric | Baseline PyTorch | cuTile Attention (Raw) | cuTile + CUDA Graphs | Graph Speedup vs PyTorch |
 | :--- | :--- | :--- | :--- | :--- |
-| **TTFT (Prefill)** | 1.92 ± 0.46 ms | 2.13 ± 0.67 ms | 3.33 ± 0.64 ms | **0.577x** |
-| **Total Response Time** | 252.31 ± 26.06 ms | 212.49 ± 22.64 ms | 41.69 ± 1.98 ms | **6.052x** |
-| **Decoding Speed** | 513.96 ± 65.75 t/s | 610.09 ± 59.83 t/s | 3316.30 ± 135.36 t/s | **6.452x** |
+| **TTFT (Prefill)** | 1.31 ± 0.28 ms | 2.08 ± 0.63 ms | 2.50 ± 0.71 ms | **0.524x** |
+| **Total Response Time** | 183.78 ± 15.65 ms | 233.68 ± 19.14 ms | 36.97 ± 2.40 ms | **4.971x** |
+| **Decoding Speed** | 700.91 ± 57.70 t/s | 552.41 ± 49.29 t/s | 3701.09 ± 237.08 t/s | **5.281x** |
 
 ### B. Accuracy Parity Verification
 - **PyTorch vs cuTile (Raw) Match**: **PASSED**
@@ -74,27 +74,22 @@ Even with a static KV cache, launching dozens of small PyTorch operators in ever
 
 ---
 
-## 4. TTFT (Prefill) Overhead Analysis in cuTile + CUDA Graphs
+## 4. TTFT (Prefill) Overhead Analysis & Optimizations
 
-While the decoding throughput speedup is highly significant, the Time To First Token (TTFT) for the `cuTile + CUDA Graphs` run exhibits a measured regression of $\approx 1.20\text{ ms}$ ($3.33\text{ ms}$ vs $2.13\text{ ms}$ in raw cuTile).
+In the initial implementation, the Time To First Token (TTFT) for the `cuTile + CUDA Graphs` run exhibited a measured regression of $\approx 1.20\text{ ms}$ ($3.33\text{ ms}$ vs $2.13\text{ ms}$ in raw cuTile). This was caused by two main factors in the cache reset phase:
+1. **Cache Clearing Launches**: 12 eager GPU launches of `fill_(0.0)` to zero out the pre-allocated static caches.
+2. **Post-Hoc Copying Loops**: 12 slicing and `.copy_()` operations in Python to transfer prompt KV states from the model's dynamic outputs into the static buffers.
 
-### A. Cause of the TTFT Overhead
-The prefill phase itself is **not** graph-captured; it runs eagerly to calculate the initial logits and prompt KV states. However, within the timed prefill block of the graph runner, several static cache initialization tasks are executed eagerly:
-1. **Cache Clearing Launches**: 12 eager GPU kernel launches of `fill_(0.0)` (2 per layer for 6 layers) are performed to clear any stale/garbage data from the pre-allocated static KV cache buffers.
-2. **Slicing and Memory Copies**: 12 eager GPU memory copy (`.copy_()`) operations are executed to transfer the calculated prompt KV states into the static cache prefix slots.
+To mitigate this, we implemented the following optimizations directly:
+- **Eliminating `fill_(0.0)`**: Since the custom cuTile decode kernel uses a strict causal mask (`offs_m >= offs_n`), the attention mechanism only reads elements up to the current sequence step. Stale data in future slots ($> t$) is completely masked out ($e^{-\infty} = 0$). Removing the 12 `.fill_(0.0)` launches saved significant dispatch overhead without affecting accuracy.
+- **Direct Prefill Cache Writing**: We modified `CausalSelfAttention`, `Block`, and `GPT` to accept a `static_kv` parameter during prefill. The K/V projections are now copied directly into the static cache slices in-place during the prefill attention forward pass, eliminating all 12 post-hoc copying operations.
 
-These 24 additional GPU operations and host launch latencies account for the $\approx 1.20\text{ ms}$ overhead.
-
-### B. Mitigation and Optimization Plan
-1. **Eliminate Cache Clearing (`fill_`)**: 
-   Since the custom cuTile decode kernel uses a strict causal mask (`offs_m >= offs_n`), the attention mechanism only reads elements up to the current sequence step. Any elements in the future slots (which contain stale data from previous runs) are completely masked out ($e^{-\infty} = 0$). Because each slot $t$ is overwritten with the new key/value *before* it is attended to, we do not need to clear the static cache. Removing the 12 `.fill_(0.0)` launches will immediately reduce the initialization overhead.
-2. **Direct Prefill Cache Writing**: 
-   In production inference engines (e.g., vLLM), the prefill forward pass writes keys and values directly into the pre-allocated cache buffers rather than generating temporary allocations and copying them. Adapting the prefill forward pass to write directly into `runner.static_k` and `runner.static_v` will eliminate the 12 copy operations entirely.
+These optimizations successfully reduced the TTFT of the `cuTile + CUDA Graphs` pipeline from **`3.33 ms`** to **`2.50 ms`** (saving **`0.83 ms`** of prefill latency, reducing the remaining eager overhead to just `0.42 ms` compared to raw cuTile).
 
 ---
 
 ## 5. Conclusion & Performance Assessment
 
-By designing a 100% cuTile-only attention mechanism (via prefill causal padding) and utilizing a static KV Cache with CUDA Graph replays, the decoding pipeline achieves a massive **$6.45\times$ speedup** over PyTorch native SDPA baseline. 
+By designing a 100% cuTile-only attention mechanism (via prefill causal padding) and utilizing a static KV Cache with CUDA Graph replays, the decoding pipeline achieves a massive **$5.28\times$ speedup** over PyTorch native SDPA baseline (and **$6.70\times$ speedup** over raw eager cuTile). 
 
 Leaving the FFN block to run via PyTorch's cuBLAS-backed linear layers is the mathematically optimal choice, as it guarantees peak GEMM execution speed on CUDA Tensor Cores, while the CUDA Graph wrapper successfully eliminates the dispatch latency of executing multiple distinct layers.

@@ -11,8 +11,7 @@ def inspect_vllm_metadata(model_path):
         print(f"❌ Error: {model_path} 경로를 찾을 수 없습니다.")
         return
 
-    print(f"
-🔍 [vLLM Metadata Inspector] 모델 분석 시작: {model_path}")
+    print(f"\n🔍 [vLLM Metadata Inspector] 모델 분석 시작: {model_path}")
     print("-" * 60)
 
     # 1. HuggingFace Config 로드
