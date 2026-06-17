@@ -14,9 +14,9 @@ Benchmarking cuTile Attention + CUDA Graphs...
 ===============================================================================================
 Metrics             | Baseline PyTorch       | cuTile Attention (Raw) | cuTile + CUDA Graphs   | Graph Speedup
 -----------------------------------------------------------------------------------------------
-TTFT (Prefill)      |    1.31 ±  0.31 ms |    1.96 ±  0.62 ms |    2.49 ±  0.65 ms |  0.786x
-Total Response Time |  183.70 ± 12.43 ms |  234.72 ± 12.46 ms |   33.85 ±  1.46 ms |  6.933x
-Decoding Speed      |  699.38 ± 44.78 t/s|  547.12 ± 27.33 t/s| 4055.92 ± 157.12 t/s|  7.413x
+TTFT (Prefill)      |    1.74 ±  0.49 ms |    2.05 ±  0.66 ms |    2.15 ±  0.44 ms |  0.953x
+Total Response Time |  250.24 ± 18.14 ms |  228.54 ± 18.28 ms |   35.44 ±  1.82 ms |  6.448x
+Decoding Speed      |  514.07 ± 41.53 t/s|  564.50 ± 46.51 t/s| 3827.46 ± 213.76 t/s|  6.780x
 ===============================================================================================
 Accuracy Verifications:
   ➔ PyTorch vs cuTile (Raw) Match Check   : PASSED

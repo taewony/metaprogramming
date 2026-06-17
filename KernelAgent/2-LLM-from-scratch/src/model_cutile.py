@@ -33,14 +33,28 @@ class CausalSelfAttention(nn.Module):
         # =================================================================
         # [Smart Routing] Prefill vs Decoding with KV Cache
         # =================================================================
-        if past_kv is None and T >= 64:
-            y = cutile_fmha(
-                Q=q, K=k, V=v,
-                tile_m=64, tile_n=64, # Phase 1 proven best tile
-                causal=True,
-                input_pos=0
-            )
-        elif past_kv is not None:
+        if past_kv is None:
+            if T < 64:
+                # Pad Q, K, V along the sequence dimension to 64 to avoid falling back to PyTorch SDPA
+                pad_len = 64 - T
+                q_padded = F.pad(q, (0, 0, 0, pad_len))
+                k_padded = F.pad(k, (0, 0, 0, pad_len))
+                v_padded = F.pad(v, (0, 0, 0, pad_len))
+                y_padded = cutile_fmha(
+                    Q=q_padded, K=k_padded, V=v_padded,
+                    tile_m=64, tile_n=64,
+                    causal=True,
+                    input_pos=0
+                )
+                y = y_padded[:, :, :T, :]
+            else:
+                y = cutile_fmha(
+                    Q=q, K=k, V=v,
+                    tile_m=64, tile_n=64, # Phase 1 proven best tile
+                    causal=True,
+                    input_pos=0
+                )
+        else:
             cache_len = k.shape[2]
             y = cutile_fmha(
                 Q=q, K=k, V=v,
@@ -48,9 +62,6 @@ class CausalSelfAttention(nn.Module):
                 causal=False,
                 input_pos=cache_len - 1
             )
-        else:
-            is_causal = (T > 1) and (past_kv is None)
-            y = F.scaled_dot_product_attention(q, k, v, is_causal=is_causal)
 
         # reshape back to (B, T, C)
         y = y.transpose(1, 2).contiguous().view(B, T, C)
