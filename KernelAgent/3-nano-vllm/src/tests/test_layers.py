@@ -6,17 +6,22 @@ from torch import nn
 # 프로젝트 루트를 경로에 추가
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
 
+import torch.distributed as dist
+if not dist.is_initialized():
+    dist.get_world_size = lambda: 1
+    dist.get_rank = lambda: 0
+
 from nanovllm.layers.linear import ColumnParallelLinear
 from nanovllm.layers.rotary_embedding import RotaryEmbedding
 from src.tests.utils import fix_seed, compare_outputs, get_garbage_input
+
 
 def test_column_parallel_linear():
     """
     [TDRE 01] 텐서 병렬화 선형 레이어 (Column-wise) 검증
     - vLLM이 레이어를 쪼개서 계산해도, 원래 Linear 결과와 똑같아야 합니다.
     """
-    print("
-[Test 01] ColumnParallelLinear 검증 시작")
+    print("\n[Test 01] ColumnParallelLinear 검증 시작")
     fix_seed(42)
     
     in_dim, out_dim = 128, 256
@@ -42,8 +47,7 @@ def test_rotary_embedding():
     [TDRE 02] Rotary Embedding (RoPE) 회전 연산 검증
     - 수학적으로 올바른 회전 공식이 적용되었는지 확인합니다.
     """
-    print("
-[Test 02] RotaryEmbedding 검증 시작")
+    print("\n[Test 02] RotaryEmbedding 검증 시작")
     fix_seed(42)
     
     head_size = 64

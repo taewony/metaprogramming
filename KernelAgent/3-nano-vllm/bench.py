@@ -1,11 +1,21 @@
 import os
 import time
+import argparse
 from random import randint, seed
 from nanovllm import LLM, SamplingParams
-# from vllm import LLM, SamplingParams
 
 
 def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--use-cutile", action="store_true", help="Use cuTile backend")
+    args = parser.parse_args()
+
+    if args.use_cutile:
+        os.environ["NANO_VLLM_USE_CUTILE"] = "1"
+        print("🚀 Using cuTile attention backend")
+    else:
+        print("⚡ Using default (FlashAttention) backend")
+
     seed(0)
     num_seqs = 256
     max_input_len = 1024
@@ -16,8 +26,6 @@ def main():
 
     prompt_token_ids = [[randint(0, 10000) for _ in range(randint(100, max_input_len))] for _ in range(num_seqs)]
     sampling_params = [SamplingParams(temperature=0.6, ignore_eos=True, max_tokens=randint(100, max_ouput_len)) for _ in range(num_seqs)]
-    # uncomment the following line for vllm
-    # prompt_token_ids = [dict(prompt_token_ids=p) for p in prompt_token_ids]
 
     llm.generate(["Benchmark: "], SamplingParams())
     t = time.time()
@@ -30,3 +38,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+

@@ -34,7 +34,9 @@ if __name__ == "__main__":
     args = parser.parse_args()
     
     # 디렉토리 생성
-    if not os.path.exists(args.dest):
-        os.makedirs(args.dest)
+    dest_path = os.path.expanduser(args.dest)
+    if not os.path.exists(dest_path):
+        os.makedirs(dest_path)
         
-    download_hf_model(args.repo, args.dest)
+    download_hf_model(args.repo, dest_path)
+

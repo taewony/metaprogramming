@@ -11,8 +11,7 @@ from nanovllm.engine.scheduler import Scheduler
 from src.cpu_sim.mock_model_runner import MockModelRunner
 
 def run_simulation():
-    print("
-🚀 [vLLM CPU Simulation Mode] 가동 시작!")
+    print("\n🚀 [vLLM CPU Simulation Mode] 가동 시작!")
     print("-" * 60)
 
     # 1. 설정 (가짜 모델 설정)
@@ -46,8 +45,7 @@ def run_simulation():
     step_count = 0
     while not scheduler.is_finished():
         step_count += 1
-        print(f"
---- [Step {step_count}] ---")
+        print(f"\n--- [Step {step_count}] ---")
 
         # A. 스케줄링 (진짜 로직!)
         seqs, is_prefill = scheduler.schedule()
