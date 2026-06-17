@@ -35,6 +35,7 @@ def main():
     step_count = 0
     
     # 2. Run the generation iteratively
+    finished_outputs = {}
     while not llm.is_finished():
         step_count += 1
         
@@ -45,6 +46,8 @@ def main():
 
         # Execute a single engine step
         outputs, num_tokens = llm.step()
+        for seq_id, token_ids in outputs:
+            finished_outputs[seq_id] = token_ids
         
         # Print active generations at each step
         active_ids = [seq.seq_id for seq in llm.scheduler.running]
@@ -52,9 +55,10 @@ def main():
 
     # 3. Print final outputs
     print("\n" + "="*60)
-    for seq in llm.scheduler.finished:
-        text = tokenizer.decode(seq.completion_token_ids)
-        print(f"User {seq.seq_id} Completion: {text.strip()}\n" + "-"*60)
+    for seq_id in sorted(finished_outputs.keys()):
+        token_ids = finished_outputs[seq_id]
+        text = tokenizer.decode(token_ids)
+        print(f"User {seq_id} Completion: {text.strip()}\n" + "-"*60)
 
 if __name__ == "__main__":
     main()

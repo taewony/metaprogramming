@@ -216,7 +216,8 @@ def test_cutile_prefill_attention_gpu():
         o_refs.append(ob.squeeze(0).transpose(0, 1)) # (seqlen, H, D)
     o_ref = torch.cat(o_refs, dim=0)
     
-    # Target: cuTile FMHA prefill
+    # Target: cuTile FMHA prefill (Standard)
+    match_standard = False
     try:
         o_target = cutile_fmha_prefill(
             q, k, v,
@@ -227,14 +228,71 @@ def test_cutile_prefill_attention_gpu():
             scale=1.0 / math.sqrt(D),
             causal=True
         )
-        # Compare
-        match = compare_outputs(o_ref, o_target, rtol=1e-2, atol=1e-2)
-        if match:
-            print("✅ cuTile FMHA Prefill GPU Verification passed!")
+        match_standard = compare_outputs(o_ref, o_target, rtol=1e-2, atol=1e-2)
+        if match_standard:
+            print("✅ cuTile FMHA Prefill (Standard) GPU Verification passed!")
         else:
-            print("❌ cuTile FMHA Prefill GPU Verification failed!")
+            print("❌ cuTile FMHA Prefill (Standard) GPU Verification failed!")
     except Exception as e:
-        print(f"❌ cuTile FMHA Prefill compilation or execution failed: {e}")
+        print(f"❌ cuTile FMHA Prefill (Standard) compilation or execution failed: {e}")
+
+    # Target: cuTile FMHA prefill (Prefix Cache)
+    match_prefix = False
+    try:
+        cu_seqlens_q_pc = torch.tensor([0, 16, 24], dtype=torch.int32, device="cuda")
+        cu_seqlens_k_pc = torch.tensor([0, 48, 56], dtype=torch.int32, device="cuda")
+        block_size = 16
+        num_blocks = 10
+        
+        k_cache_pc = torch.randn(num_blocks, block_size, H, D, dtype=torch.float16, device="cuda")
+        v_cache_pc = torch.randn(num_blocks, block_size, H, D, dtype=torch.float16, device="cuda")
+        block_table_pc = torch.tensor([[1, 3, 5], [2, 4, -1]], dtype=torch.int32, device="cuda")
+        
+        q_pc = torch.randn(24, H, D, dtype=torch.float16, device="cuda")
+        k_dummy = torch.randn(24, H, D, dtype=torch.float16, device="cuda")
+        v_dummy = torch.randn(24, H, D, dtype=torch.float16, device="cuda")
+        
+        o_refs_pc = []
+        for b in range(B):
+            start_q = cu_seqlens_q_pc[b].item()
+            end_q = cu_seqlens_q_pc[b+1].item()
+            start_k = cu_seqlens_k_pc[b].item()
+            end_k = cu_seqlens_k_pc[b+1].item()
+            seqlen_k = end_k - start_k
+            
+            qb = q_pc[start_q:end_q].transpose(0, 1).unsqueeze(0) # (1, H, seqlen_q, D)
+            kb = torch.zeros(1, H, seqlen_k, D, dtype=torch.float16, device="cuda")
+            vb = torch.zeros(1, H, seqlen_k, D, dtype=torch.float16, device="cuda")
+            for i in range(seqlen_k):
+                logical_blk = i // block_size
+                offset = i % block_size
+                physical_blk = block_table_pc[b, logical_blk].item()
+                kb[0, :, i, :] = k_cache_pc[physical_blk, offset, :, :]
+                vb[0, :, i, :] = v_cache_pc[physical_blk, offset, :, :]
+                
+            ob = torch.nn.functional.scaled_dot_product_attention(qb, kb, vb, is_causal=True)
+            o_refs_pc.append(ob.squeeze(0).transpose(0, 1))
+        o_ref_pc = torch.cat(o_refs_pc, dim=0)
+        
+        o_target_pc = cutile_fmha_prefill(
+            q_pc, k_dummy, v_dummy,
+            cu_seqlens_q=cu_seqlens_q_pc,
+            cu_seqlens_k=cu_seqlens_k_pc,
+            max_seqlen_q=16,
+            max_seqlen_k=48,
+            scale=1.0 / math.sqrt(D),
+            causal=True,
+            k_cache=k_cache_pc,
+            v_cache=v_cache_pc,
+            block_table=block_table_pc
+        )
+        match_prefix = compare_outputs(o_ref_pc, o_target_pc, rtol=1e-2, atol=1e-2)
+        if match_prefix:
+            print("✅ cuTile FMHA Prefill (Prefix Cache) GPU Verification passed!")
+        else:
+            print("❌ cuTile FMHA Prefill (Prefix Cache) GPU Verification failed!")
+    except Exception as e:
+        print(f"❌ cuTile FMHA Prefill (Prefix Cache) compilation or execution failed: {e}")
 
 
 # =========================================================================

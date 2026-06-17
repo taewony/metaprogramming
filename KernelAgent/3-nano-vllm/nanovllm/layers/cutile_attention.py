@@ -177,7 +177,9 @@ if HAS_CUTILE:
 def cutile_fmha_prefill(
     q: torch.Tensor, k: torch.Tensor, v: torch.Tensor,
     cu_seqlens_q: torch.Tensor, cu_seqlens_k: torch.Tensor,
-    max_seqlen_q: int, max_seqlen_k: int, scale: float, causal: bool
+    max_seqlen_q: int, max_seqlen_k: int, scale: float, causal: bool,
+    k_cache: torch.Tensor = None, v_cache: torch.Tensor = None,
+    block_table: torch.Tensor = None
 ) -> torch.Tensor:
     if not HAS_CUTILE:
         raise RuntimeError("cuTile is not installed or import failed.")
@@ -212,8 +214,18 @@ def cutile_fmha_prefill(
         start_k = cu_seqlens_k[b].item()
         end_k = cu_seqlens_k[b+1].item()
         seqlen_k = end_k - start_k
-        k_4d[b, :, :seqlen_k, :] = k[start_k:end_k].transpose(0, 1)
-        v_4d[b, :, :seqlen_k, :] = v[start_k:end_k].transpose(0, 1)
+        if block_table is not None and k_cache is not None and k_cache.numel() > 0:
+            block_size = k_cache.shape[1]
+            idx_seq = torch.arange(seqlen_k, device=block_table.device)
+            logical_blk = torch.div(idx_seq, block_size, rounding_mode='floor')
+            offset = idx_seq % block_size
+            physical_blk = block_table[b, logical_blk].long()
+            
+            k_4d[b, :, :seqlen_k, :] = k_cache[physical_blk, offset].transpose(0, 1)
+            v_4d[b, :, :seqlen_k, :] = v_cache[physical_blk, offset].transpose(0, 1)
+        else:
+            k_4d[b, :, :seqlen_k, :] = k[start_k:end_k].transpose(0, 1)
+            v_4d[b, :, :seqlen_k, :] = v[start_k:end_k].transpose(0, 1)
 
     Out = torch.empty((B, num_heads, pad_len_q, head_dim), dtype=q.dtype, device=q.device)
 

@@ -112,7 +112,10 @@ class Attention(nn.Module):
                     max_seqlen_q=context.max_seqlen_q,
                     max_seqlen_k=context.max_seqlen_k,
                     scale=self.scale,
-                    causal=True
+                    causal=True,
+                    k_cache=k_cache,
+                    v_cache=v_cache,
+                    block_table=context.block_tables
                 )
             else:
                 block_size = k_cache.shape[1]
