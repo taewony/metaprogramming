@@ -138,8 +138,9 @@ def test_paged_attention_lookup_cpu():
     # Allocate contiguous KV Cache for comparison
     k_contiguous = torch.randn(B, H, context_len, D)
     
-    # Allocate Paged KV Cache: [num_blocks, block_size, H, D]
-    k_paged = torch.zeros(num_blocks, block_size, H, D)
+    # Allocate Paged KV Cache: [total_physical_blocks, block_size, H, D]
+    total_physical_blocks = 10
+    k_paged = torch.zeros(total_physical_blocks, block_size, H, D)
     
     # Create block table mapping logical blocks to physical block IDs
     # Let's map logical blocks 0, 1, 2 to physical blocks 5, 2, 7
