@@ -2,6 +2,14 @@ import torch
 from torch import nn
 
 
+def optional_compile(fn):
+    try:
+        import triton
+        return torch.compile(fn)
+    except ImportError:
+        return fn
+
+
 class RMSNorm(nn.Module):
 
     def __init__(
@@ -13,7 +21,7 @@ class RMSNorm(nn.Module):
         self.eps = eps
         self.weight = nn.Parameter(torch.ones(hidden_size))
 
-    @torch.compile
+    @optional_compile
     def rms_forward(
         self,
         x: torch.Tensor,
@@ -25,7 +33,7 @@ class RMSNorm(nn.Module):
         x = x.to(orig_dtype).mul_(self.weight)
         return x
 
-    @torch.compile
+    @optional_compile
     def add_rms_forward(
         self,
         x: torch.Tensor,
@@ -48,3 +56,4 @@ class RMSNorm(nn.Module):
             return self.rms_forward(x)
         else:
             return self.add_rms_forward(x, residual)
+
