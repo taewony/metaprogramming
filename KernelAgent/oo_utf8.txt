@@ -1,40 +1,21 @@
 Loading checkpoint from D:\Capstone\metaprogramming\KernelAgent\2-LLM-from-scratch\src\checkpoint_final.pt...
 
 Starting benchmark...
-Prompt length: 626 characters
-Generating 200 tokens per run over 20 repeats (with 5 warmups)
+Prompt length: 112 characters
+Generating 128 tokens per run over 20 repeats (with 5 warmups)
 Model Configuration: 6 Layers | 6 Heads | 384 Embedding Dim
 
 Benchmarking PyTorch Native Attention...
+Benchmarking cuTile-based Attention...
 
-C:\actions-runner\_work\pytorch\pytorch\aten\src\ATen\native\cuda\IndexKernelUtils.cu:16: block: [348,0,0], thread: [31,0,0] Assertion `ind >=0 && ind < ind_dim_size && "vectorized gather kernel index out of bounds"` failed.
-Traceback (most recent call last):
-  File "D:\Capstone\metaprogramming\KernelAgent\2-LLM-from-scratch\compare_infer.py", line 120, in <module>
-    pt_ttfts, pt_totals, pt_tokens = benchmark(
-                                     ~~~~~~~~~^
-        model_pt, long_prompt, stoi, warmup=args.warmup, repeats=args.repeats, max_new_tokens=args.max_new_tokens
-        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-    )
-    ^
-  File "D:\Capstone\metaprogramming\KernelAgent\2-LLM-from-scratch\compare_infer.py", line 51, in benchmark
-    _ = timed_generate(model, prompt, stoi, max_new_tokens=max_new_tokens)
-  File "C:\Users\실습실1\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.13_qbz5n2kfra8p0\LocalCache\local-packages\Python313\site-packages\torch\utils\_contextlib.py", line 124, in decorate_context
-    return func(*args, **kwargs)
-  File "D:\Capstone\metaprogramming\KernelAgent\2-LLM-from-scratch\compare_infer.py", line 26, in timed_generate
-    logits, past_key_values = model(idx, use_cache=True)
-                              ~~~~~^^^^^^^^^^^^^^^^^^^^^
-  File "C:\Users\실습실1\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.13_qbz5n2kfra8p0\LocalCache\local-packages\Python313\site-packages\torch\nn\modules\module.py", line 1778, in _wrapped_call_impl
-    return self._call_impl(*args, **kwargs)
-           ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^
-  File "C:\Users\실습실1\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.13_qbz5n2kfra8p0\LocalCache\local-packages\Python313\site-packages\torch\nn\modules\module.py", line 1789, in _call_impl
-    return forward_call(*args, **kwargs)
-  File "D:\Capstone\metaprogramming\KernelAgent\2-LLM-from-scratch\src\model.py", line 112, in forward
-    x = tok_emb + pos_emb                  # (B, T, n_embd) — broadcasting adds position info
-        ~~~~~~~~^~~~~~~~~
-torch.AcceleratorError: CUDA error: device-side assert triggered
-Search for `cudaErrorAssert' in https://docs.nvidia.com/cuda/cuda-runtime-api/group__CUDART__TYPES.html for more information.
-CUDA kernel errors might be asynchronously reported at some other API call, so the stacktrace below might be incorrect.
-For debugging consider passing CUDA_LAUNCH_BLOCKING=1
-Compile with `TORCH_USE_CUDA_DSA` to enable device-side assertions.
-
-PS D:\Capstone\metaprogramming\KernelAgent>
+======================================================================
+                     BENCHMARK RESULTS
+======================================================================
+Metrics             | Baseline PyTorch       | cuTile Attention       | Speedup
+------------------------------------------------------------------------------------------
+TTFT (Prefill)      |    1.43 ±  0.43 ms |    2.13 ±  0.70 ms |  0.674x
+Total Response Time |  182.13 ± 17.93 ms |  246.47 ± 13.63 ms |  0.739x
+Decoding Speed      |  708.78 ± 60.97 t/s|  521.22 ± 26.52 t/s|  0.735x
+======================================================================
+Generated Tokens Match Check: PASSED
+Generated sample (first 50 tokens): 'n, To banish him out an and till twelve To bring t...'

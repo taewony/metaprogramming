@@ -1,0 +1,23 @@
+Loading checkpoint from D:\Capstone\metaprogramming\KernelAgent\2-LLM-from-scratch\src\checkpoint_final.pt...
+
+Starting benchmark...
+Prompt length: 112 characters
+Generating 128 tokens per run over 20 repeats (with 5 warmups)
+Model Configuration: 6 Layers | 6 Heads | 384 Embedding Dim
+
+Benchmarking PyTorch Native Attention...
+Benchmarking cuTile Attention (Raw)...
+Benchmarking cuTile Attention + CUDA Graphs...
+
+===============================================================================================
+                                      BENCHMARK RESULTS
+===============================================================================================
+Metrics             | Baseline PyTorch       | cuTile Attention (Raw) | cuTile + CUDA Graphs   | Graph Speedup
+-----------------------------------------------------------------------------------------------
+TTFT (Prefill)      |    1.29 ±  0.29 ms |    1.91 ±  0.58 ms |    2.09 ±  0.39 ms |  0.915x
+Total Response Time |  181.41 ± 18.67 ms |  240.17 ± 14.91 ms |   34.20 ±  1.85 ms |  7.022x
+Decoding Speed      |  711.30 ± 60.74 t/s|  535.15 ± 33.96 t/s| 3966.40 ± 210.76 t/s|  7.412x
+===============================================================================================
+Accuracy Verifications:
+  ➔ PyTorch vs cuTile (Raw) Match Check   : PASSED
+  ➔ cuTile (Raw) vs cuTile (Graph) Match : FAILED

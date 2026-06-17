@@ -369,4 +369,10 @@ if __name__ == "__main__":
     print("="*95)
     print(f"Accuracy Verifications:")
     print(f"  ➔ PyTorch vs cuTile (Raw) Match Check   : {'PASSED' if pt_cu_match else 'FAILED'}")
+    if not pt_cu_match:
+        print(f"     PyTorch: {pt_tokens[:20]}")
+        print(f"     cuTile (Raw): {cu_tokens[:20]}")
     print(f"  ➔ cuTile (Raw) vs cuTile (Graph) Match : {'PASSED' if cu_graph_match else 'FAILED'}")
+    if not cu_graph_match:
+        print(f"     cuTile (Raw): {cu_tokens[:20]}")
+        print(f"     cuTile (Graph): {graph_tokens[:20]}")
