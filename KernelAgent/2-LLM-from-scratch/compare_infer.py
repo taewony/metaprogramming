@@ -83,34 +83,19 @@ if __name__ == "__main__":
     )
     
     # Check if checkpoint exists
-    if os.path.exists(args.checkpoint):
-        print(f"Loading checkpoint from {args.checkpoint}...")
-        checkpoint = torch.load(args.checkpoint, weights_only=False, map_location='cuda')
-        config = checkpoint["config"]
-        stoi = checkpoint["stoi"]
-        itos = checkpoint["itos"]
-        
-        # Load models
-        model_pt = GPT_PyTorch(config)
-        model_pt.load_state_dict(checkpoint["model_state_dict"])
-    else:
-        print(f"Checkpoint '{args.checkpoint}' not found.")
-        print("Using standard comparison configuration from design guide with random weights...")
-        # Define a mock character dictionary
-        chars = sorted(list(set(long_prompt)))
-        stoi = {c: i for i, c in enumerate(chars)}
-        itos = {i: c for c, i in stoi.items()}
-        
-        config = GPTConfig(
-            vocab_size=len(chars),
-            block_size=1024,
-            n_layer=6,
-            n_head=12,
-            n_embd=768
-        )
-        
-        model_pt = GPT_PyTorch(config)
-        
+    if not os.path.exists(args.checkpoint):
+        print(f"Error: Checkpoint file '{args.checkpoint}' not found. Please train the model first.")
+        sys.exit(1)
+
+    print(f"Loading checkpoint from {args.checkpoint}...")
+    checkpoint = torch.load(args.checkpoint, weights_only=False, map_location='cuda')
+    config = checkpoint["config"]
+    stoi = checkpoint["stoi"]
+    itos = checkpoint["itos"]
+    
+    # Load models
+    model_pt = GPT_PyTorch(config)
+    model_pt.load_state_dict(checkpoint["model_state_dict"])
     model_pt = model_pt.half().to('cuda')
     
     # Initialize cuTile model with identical config and weights

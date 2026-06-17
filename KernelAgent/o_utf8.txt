@@ -1,51 +1,65 @@
-===========================================================================
-cuTile Matrix Multiplication Benchmark - Tile Size 64 Fixed
-Target GPU: RTX 5070 (Blackwell SM100/101) | Data Type: float16
-===========================================================================
+================================================================================
+cuTile Fused Multi-Head Attention (FMHA) Benchmark - Optimized Tile Size 64x64
+Target GPU: RTX 5070 (Blackwell SM120) | Data Type: float16
+================================================================================
 
-[Matrix Dimension 256x256 x 256x256]
-  cuTile Sample: ✅ Correctness Check Passed
-  cuTile TileGym: ✅ Correctness Check Passed
-  PyTorch:           0.015 ms (2.28 TFLOPS)
-  cuTile Sample:     0.009 ms (3.57 TFLOPS) | Speedup: 1.57x
-  cuTile TileGym:    0.008 ms (4.07 TFLOPS) | Speedup: 1.79x
+⚡ Running Benchmarks for [Non-Causal Attention] (Batch=8, Heads=12, Dim=64)
+--------------------------------------------------------------------------------
 
-[Matrix Dimension 512x512 x 512x512]
-  cuTile Sample: ✅ Correctness Check Passed
-  cuTile TileGym: ✅ Correctness Check Passed
-  PyTorch:           0.010 ms (25.94 TFLOPS)
-  cuTile Sample:     0.011 ms (24.22 TFLOPS) | Speedup: 0.93x
-  cuTile TileGym:    0.014 ms (19.16 TFLOPS) | Speedup: 0.74x
+[SeqLen 512x512]
+  cuTile FMHA: ✅ Correctness Check Passed
+  PyTorch:         0.205 ms ( 31.38 TFLOPS)
+  cuTile FMHA:     0.106 ms ( 60.55 TFLOPS) | Speedup: 1.93x
 
-[Matrix Dimension 1024x1024 x 1024x1024]
-  cuTile Sample: ✅ Correctness Check Passed
-  cuTile TileGym: ✅ Correctness Check Passed
-  PyTorch:           0.039 ms (54.76 TFLOPS)
-  cuTile Sample:     0.045 ms (47.51 TFLOPS) | Speedup: 0.87x
-  cuTile TileGym:    0.047 ms (45.29 TFLOPS) | Speedup: 0.83x
+[SeqLen 1024x1024]
+  cuTile FMHA: ✅ Correctness Check Passed
+  PyTorch:         0.804 ms ( 32.04 TFLOPS)
+  cuTile FMHA:     0.401 ms ( 64.28 TFLOPS) | Speedup: 2.01x
 
-[Matrix Dimension 2048x2048 x 2048x2048]
-  cuTile Sample: ✅ Correctness Check Passed
-  cuTile TileGym: ✅ Correctness Check Passed
-  PyTorch:           0.259 ms (66.26 TFLOPS)
-  cuTile Sample:     0.294 ms (58.52 TFLOPS) | Speedup: 0.88x
-  cuTile TileGym:    0.293 ms (58.62 TFLOPS) | Speedup: 0.88x
+[SeqLen 2048x2048]
+  cuTile FMHA: ✅ Correctness Check Passed
+  PyTorch:         3.169 ms ( 32.53 TFLOPS)
+  cuTile FMHA:     1.592 ms ( 64.75 TFLOPS) | Speedup: 1.99x
 
-[Matrix Dimension 4096x4096 x 4096x4096]
-  cuTile Sample: ✅ Correctness Check Passed
-  cuTile TileGym: ✅ Correctness Check Passed
-  PyTorch:           2.022 ms (67.98 TFLOPS)
-  cuTile Sample:     2.192 ms (62.71 TFLOPS) | Speedup: 0.92x
-  cuTile TileGym:    2.225 ms (61.78 TFLOPS) | Speedup: 0.91x
+[SeqLen 4096x4096]
+  cuTile FMHA: ✅ Correctness Check Passed
+  PyTorch:        12.603 ms ( 32.72 TFLOPS)
+  cuTile FMHA:     6.289 ms ( 65.57 TFLOPS) | Speedup: 2.00x
 
-===========================================================================
+⚡ Running Benchmarks for [Causal Attention] (Batch=8, Heads=12, Dim=64)
+--------------------------------------------------------------------------------
+
+[SeqLen 512x512]
+  cuTile FMHA: ✅ Correctness Check Passed
+  PyTorch:         0.137 ms ( 47.01 TFLOPS)
+  cuTile FMHA:     0.070 ms ( 92.55 TFLOPS) | Speedup: 1.97x
+
+[SeqLen 1024x1024]
+  cuTile FMHA: ✅ Correctness Check Passed
+  PyTorch:         0.461 ms ( 55.90 TFLOPS)
+  cuTile FMHA:     0.233 ms (110.48 TFLOPS) | Speedup: 1.98x
+
+[SeqLen 2048x2048]
+  cuTile FMHA: ✅ Correctness Check Passed
+  PyTorch:         1.717 ms ( 60.03 TFLOPS)
+  cuTile FMHA:     0.854 ms (120.64 TFLOPS) | Speedup: 2.01x
+
+[SeqLen 4096x4096]
+  cuTile FMHA: ✅ Correctness Check Passed
+  PyTorch:         6.558 ms ( 62.87 TFLOPS)
+  cuTile FMHA:     3.275 ms (125.89 TFLOPS) | Speedup: 2.00x
+
+================================================================================
                     PERFORMANCE SUMMARY TABLE
-===========================================================================
-    Size |            PyTorch |      cuTile Sample |     cuTile TileGym
----------------------------------------------------------------------------
-     256 |    0.01 ms (  2.3T) |    0.01 ms (  3.6T) |    0.01 ms (  4.1T)
-     512 |    0.01 ms ( 25.9T) |    0.01 ms ( 24.2T) |    0.01 ms ( 19.2T)
-    1024 |    0.04 ms ( 54.8T) |    0.05 ms ( 47.5T) |    0.05 ms ( 45.3T)
-    2048 |    0.26 ms ( 66.3T) |    0.29 ms ( 58.5T) |    0.29 ms ( 58.6T)
-    4096 |    2.02 ms ( 68.0T) |    2.19 ms ( 62.7T) |    2.22 ms ( 61.8T)
----------------------------------------------------------------------------
+================================================================================
+        Mode |   Size |       PyTorch Time |   cuTile FMHA Time |   Speedup
+--------------------------------------------------------------------------------
+  Non-Causal |    512 |  0.205 ms ( 31.4T) |  0.106 ms ( 60.5T) |     1.93x
+  Non-Causal |   1024 |  0.804 ms ( 32.0T) |  0.401 ms ( 64.3T) |     2.01x
+  Non-Causal |   2048 |  3.169 ms ( 32.5T) |  1.592 ms ( 64.8T) |     1.99x
+  Non-Causal |   4096 | 12.603 ms ( 32.7T) |  6.289 ms ( 65.6T) |     2.00x
+      Causal |    512 |  0.137 ms ( 47.0T) |  0.070 ms ( 92.6T) |     1.97x
+      Causal |   1024 |  0.461 ms ( 55.9T) |  0.233 ms (110.5T) |     1.98x
+      Causal |   2048 |  1.717 ms ( 60.0T) |  0.854 ms (120.6T) |     2.01x
+      Causal |   4096 |  6.558 ms ( 62.9T) |  3.275 ms (125.9T) |     2.00x
+--------------------------------------------------------------------------------
