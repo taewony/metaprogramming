@@ -18,7 +18,9 @@ class ModelRunner:
         self.config = config
         hf_config = config.hf_config
         self.block_size = config.kvcache_block_size
-        self.enforce_eager = config.enforce_eager
+        import os
+        use_cutile = (os.environ.get("NANO_VLLM_USE_CUTILE", "0") == "1")
+        self.enforce_eager = config.enforce_eager or use_cutile
         self.world_size = config.tensor_parallel_size
         self.rank = rank
         self.event = event
