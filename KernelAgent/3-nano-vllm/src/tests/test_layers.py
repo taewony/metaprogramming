@@ -16,25 +16,25 @@ from nanovllm.layers.rotary_embedding import RotaryEmbedding
 from src.tests.utils import fix_seed, compare_outputs, get_garbage_input
 
 
-def test_column_parallel_linear():
+def test_column_parallel_linear(device):
     """
     [TDRE 01] 텐서 병렬화 선형 레이어 (Column-wise) 검증
     - vLLM이 레이어를 쪼개서 계산해도, 원래 Linear 결과와 똑같아야 합니다.
     """
-    print("\n[Test 01] ColumnParallelLinear 검증 시작")
+    print(f"\n[Test 01] ColumnParallelLinear 검증 시작 (디바이스: {device})")
     fix_seed(42)
     
     in_dim, out_dim = 128, 256
-    garbage_input = get_garbage_input((1, in_dim))
+    garbage_input = get_garbage_input((1, in_dim)).to(device)
     
     # 1. Golden Reference (정답지)
-    ref_linear = nn.Linear(in_dim, out_dim, bias=False)
+    ref_linear = nn.Linear(in_dim, out_dim, bias=False).to(device)
     ref_output = ref_linear(garbage_input)
     
     # 2. Target Layer (nano-vllm 구현체)
     # 실제 TP 환경 대신 단일 프로세스에서 동작하는지 테스트하기 위해 weight 직접 주입
     # (실제 vLLM에서는 가중치 로더가 이 역할을 합니다)
-    target_layer = ColumnParallelLinear(in_dim, out_dim, bias=False)
+    target_layer = ColumnParallelLinear(in_dim, out_dim, bias=False).to(device)
     target_layer.weight.data.copy_(ref_linear.weight.data) # 가중치 복사
     
     target_output = target_layer(garbage_input)
@@ -42,12 +42,12 @@ def test_column_parallel_linear():
     # 3. 결과 비교
     compare_outputs(ref_output, target_output)
 
-def test_rotary_embedding():
+def test_rotary_embedding(device):
     """
     [TDRE 02] Rotary Embedding (RoPE) 회전 연산 검증
     - 수학적으로 올바른 회전 공식이 적용되었는지 확인합니다.
     """
-    print("\n[Test 02] RotaryEmbedding 검증 시작")
+    print(f"\n[Test 02] RotaryEmbedding 검증 시작 (디바이스: {device})")
     fix_seed(42)
     
     head_size = 64
@@ -56,12 +56,12 @@ def test_rotary_embedding():
     base = 10000
     
     # 1. 가짜 입력 준비 (Query, Key, Position)
-    q = get_garbage_input((1, 1, head_size))
-    k = get_garbage_input((1, 1, head_size))
-    pos = torch.tensor([5]) # 5번째 위치
+    q = get_garbage_input((1, 1, head_size)).to(device)
+    k = get_garbage_input((1, 1, head_size)).to(device)
+    pos = torch.tensor([5], device=device) # 5번째 위치
     
     # 2. Target Layer 실행
-    rope = RotaryEmbedding(head_size, rotary_dim, max_pos, base)
+    rope = RotaryEmbedding(head_size, rotary_dim, max_pos, base).to(device)
     q_out, k_out = rope(pos, q, k)
     
     # 3. 간단한 정답지 시뮬레이션 (수학 공식 기반의 수동 계산)
@@ -81,5 +81,6 @@ if __name__ == "__main__":
     device = "cuda" if torch.cuda.is_available() else "cpu"
     print(f"🚀 테스트 실행 디바이스: {device}")
     
-    test_column_parallel_linear()
-    test_rotary_embedding()
+    test_column_parallel_linear(device)
+    test_rotary_embedding(device)
+
