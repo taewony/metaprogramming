@@ -101,6 +101,13 @@ if __name__ == "__main__":
     stoi = checkpoint["stoi"]
     itos = checkpoint["itos"]
     
+    # Dynamic sequence length adjustment to prevent position embedding out-of-bounds
+    max_total_len = config.block_size
+    if len(long_prompt) + args.max_new_tokens >= max_total_len:
+        args.max_new_tokens = min(args.max_new_tokens, max_total_len // 2)
+        prompt_len = max_total_len - args.max_new_tokens - 16
+        long_prompt = long_prompt[:prompt_len]
+    
     # Load models
     model_pt = GPT_PyTorch(config)
     model_pt.load_state_dict(checkpoint["model_state_dict"])
