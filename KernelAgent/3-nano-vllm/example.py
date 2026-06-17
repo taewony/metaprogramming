@@ -1,4 +1,5 @@
 import os
+import time
 from nanovllm import LLM, SamplingParams
 from transformers import AutoTokenizer
 
@@ -12,6 +13,8 @@ def main():
     prompts = [
         "introduce yourself",
         "list all prime numbers within 100",
+        "Write a short poem about coding and artificial intelligence.",
+        "Explain the difference between TCP and UDP in simple terms."
     ]
     prompts = [
         tokenizer.apply_chat_template(
@@ -21,13 +24,28 @@ def main():
         )
         for prompt in prompts
     ]
+    
+    print("\n🚀 Starting generation...")
+    t_start = time.time()
     outputs = llm.generate(prompts, sampling_params)
+    t_end = time.time() - t_start
 
+    total_tokens = 0
     for prompt, output in zip(prompts, outputs):
-        print("\n")
+        print("\n" + "="*60)
         print(f"Prompt: {prompt!r}")
-        print(f"Completion: {output['text']!r}")
+        print("-"*60)
+        print(f"Completion: {output['text']}")
+        print(f"Generated Tokens: {len(output['token_ids'])}")
+        total_tokens += len(output['token_ids'])
+        
+    print("\n" + "="*60)
+    print(f"Total time: {t_end:.2f}s")
+    print(f"Total tokens: {total_tokens}tok")
+    print(f"Average throughput: {total_tokens / t_end:.2f} tok/s")
+    print("="*60)
 
 
 if __name__ == "__main__":
     main()
+
