@@ -37,6 +37,33 @@ class ModelRunner:
         self.sampler = Sampler()
         self.warmup_model()
         self.allocate_kv_cache()
+        import os
+        self.use_green_contexts = (os.environ.get("NANO_VLLM_USE_GREEN_CONTEXTS", "0") == "1")
+        self.green_api_type = None
+        if self.use_green_contexts:
+            try:
+                from torch.cuda.green_contexts import GreenContext
+                self.ctx_prefill = GreenContext.create(num_sms=32)
+                self.ctx_decode = GreenContext.create(num_sms=16)
+                self.green_api_type = "pytorch"
+                print("🟢 Green Contexts Initialized (PyTorch API): Prefill Context (32 SMs), Decode Context (16 SMs)")
+            except Exception as e:
+                try:
+                    from cuda import cuda
+                    from cuda.core import Device, ContextOptions, SMResourceOptions
+                    cuda.cuInit(0)
+                    dev = Device(0)
+                    sm = dev.resources.sm
+                    decode_sm = 16
+                    prefill_sm = max(1, sm.sm_count - decode_sm)
+                    long_grp, crit_grp = sm.split(SMResourceOptions(count=(prefill_sm, decode_sm)))[0]
+                    self.ctx_prefill = dev.create_context(ContextOptions(resources=[long_grp]))
+                    self.ctx_decode = dev.create_context(ContextOptions(resources=[crit_grp]))
+                    self.green_api_type = "cuda_core"
+                    print(f"🟢 Green Contexts Initialized (cuda.core API): Prefill Context ({prefill_sm} SMs), Decode Context ({decode_sm} SMs)")
+                except Exception as ex:
+                    print(f"⚠️ Green Context initialization failed: {ex}. Falling back to default context.")
+                    self.use_green_contexts = False
         if not self.enforce_eager:
             self.capture_cudagraph()
         torch.set_default_device("cpu")
@@ -210,12 +237,27 @@ class ModelRunner:
             return self.model.compute_logits(graph_vars["outputs"][:bs])
 
     def run(self, seqs: list[Sequence], is_prefill: bool) -> list[int]:
-        input_ids, positions = self.prepare_prefill(seqs) if is_prefill else self.prepare_decode(seqs)
-        temperatures = self.prepare_sample(seqs) if self.rank == 0 else None
-        logits = self.run_model(input_ids, positions, is_prefill)
-        token_ids = self.sampler(logits, temperatures).tolist() if self.rank == 0 else None
-        reset_context()
-        return token_ids
+        if self.use_green_contexts:
+            ctx = self.ctx_prefill if is_prefill else self.ctx_decode
+            if self.green_api_type == "pytorch":
+                ctx.set_context()
+            elif self.green_api_type == "cuda_core":
+                ctx.push_current()
+        
+        try:
+            input_ids, positions = self.prepare_prefill(seqs) if is_prefill else self.prepare_decode(seqs)
+            temperatures = self.prepare_sample(seqs) if self.rank == 0 else None
+            logits = self.run_model(input_ids, positions, is_prefill)
+            token_ids = self.sampler(logits, temperatures).tolist() if self.rank == 0 else None
+            reset_context()
+            return token_ids
+        finally:
+            if self.use_green_contexts:
+                ctx = self.ctx_prefill if is_prefill else self.ctx_decode
+                if self.green_api_type == "pytorch":
+                    ctx.pop_context()
+                elif self.green_api_type == "cuda_core":
+                    ctx.pop_current()
 
     @torch.inference_mode()
     def capture_cudagraph(self):

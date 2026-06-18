@@ -84,3 +84,4 @@ The paper will point to the fully open‑source `KernelAgent` repository, with a
 - The paper fills the gap between “write your first CUDA kernel” tutorials and production‑grade systems like vLLM.
 
 I’d be happy to help you draft the abstract or outline specific sections in more detail. This paper would make a strong **education track** submission at conferences like **SC, ISCA (workshops), or SysML**, as well as a journal like **IEEE TPDS** or **JMLR** (if positioned as a systems‑education contribution).
+
