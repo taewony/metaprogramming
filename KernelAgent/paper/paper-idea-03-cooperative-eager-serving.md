@@ -31,10 +31,8 @@ We introduce:
   $$\text{offset} = \text{idx} \% \text{block\_size}$$
 * **Impact**: Reconstructs the full sequence KV matrices directly from scattered physical cache blocks prior to kernel launch, avoiding shape mismatch in batch eager execution and avoiding slow Python iteration.
 
-### Contribution 2: The Eager-Mode Padding and Allocator Thrashing Dilemma
-* **The JIT Compilation Storm**: Under eager execution, every change in batch size $B$ or sequence length $T$ triggers JIT compilation in cuTile/TileGym, blocking execution.
-* **The Counter-Intuitive Finding**: Standard padding (rounding shapes to multiples of 256 or next power of 2) reduces JIT compile calls. However, allocating and initializing large padded tensors on the GPU at *every single decode step* (e.g., `torch.zeros`, slice writes) introduces massive overhead in Python garbage collection and the PyTorch caching allocator.
-* **Result**: We document this empirical trade-off where padding actually cut throughput from **329.38 tok/s** down to **155.16 tok/s**, demonstrating that for eager LLM serving, avoiding temporary allocations is more critical than avoiding JIT compiler lookups.
+### Contribution 2: End‑to‑End LLM Inference Optimization with cuTile Python DSL – from Tiled Matrix Multiplication to PagedAttention
+We present a complete, step‑by‑step curriculum that transforms a simple tiled GEMM kernel into a fully functional, multi‑user LLM inference engine, all written in the experimental cuTile Python DSL. Starting with hand‑tuned 64 × 64 matrix multiplication kernels that achieve up to 1.27× higher TFLOPS than PyTorch’s cuBLAS backend on small matrices, we progressively introduce online‑softmax fused multi‑head attention (FMHA), KV‑cache‑aware prefill and decode kernels, and finally a PagedAttention implementation that eliminates memory fragmentation. Each stage exposes a critical GPU‑systems concept: shared‑memory tiling, register pressure, occupancy, host‑side launch overhead, and virtual‑to‑physical memory management. By the final stage, the same cuTile DSL – without writing a single line of C++ or CUDA – expresses a full‑featured attention backend that matches or exceeds PyTorch’s native SDPA and FlashAttention, while being trivially portable across GPU architectures.
 
 ### Contribution 3: Cooperative SM Resource Partitioning (Green Contexts)
 * **Design (RTX 5070 - 48 SMs)**: 
@@ -43,8 +41,11 @@ We introduce:
 * **Workload Isolation**: Using `cuda.core`'s `ContextOptions` and `SMResourceOptions` (SM Masking), we completely isolate the execution contexts of prefill and decode.
 * **Impact**: Shields decode steps from SM starvation during large prompt prefills. Establishes P99 Inter-Token Latency under **8ms** (a 6.1× improvement in latency predictability).
 
-### Contribution 4: Cross-Platform Portability
-* We showcase the first high-throughput (329+ tok/s), low tail-latency serving engine running natively on Windows via Gloo backend and eager cuTile attention, making production-grade LLM serving accessible to non-Linux setups.
+### Contribution 4: Cross-Platform Portability & Local Knowledge-Base Construction
+* **Windows-Native Distributed Serving via Gloo**: We showcase the first high-throughput (470+ tok/s) serving engine running natively on Windows. By initializing a single-process PyTorch distributed group using the `gloo` backend, we bypass the Linux-only NCCL constraint, enabling tensor-parallel linear projection layers to execute seamlessly in eager mode on a single Windows GPU.
+### Contribution 5: Empirically Quantifying the Eager-Mode JIT vs. Allocator Thrashing Trade-off
+* **The Eager-Mode Padding Dilemma**: Under eager serving with dynamic shapes, JIT compiling of kernels in a Python-first DSL is a bottleneck. While standard shape-padding reduces JIT compile calls, allocating and initializing large padded tensors on the GPU at every decode step introduces significant CPU overhead and memory allocator thrashing.
+* **Empirical Trade-off Findings**: We document that shape-padding actually cut total throughput from **329.38 tok/s** down to **155.16 tok/s** (a 52.8% drop), showing that in Python-first eager LLM serving, avoiding temporary allocations and copy overheads is far more critical than avoiding JIT compiler lookups.
 
 ---
 

@@ -1,3 +1,29 @@
+PS D:\Capstone\metaprogramming\KernelAgent\3-nano-vllm> python .\bench_green.py
+=============================================================
+🚀 Running Dedicated SM Resource Isolation (Green Contexts) Benchmark
+=============================================================
+
+⏱️ Running Baseline Configuration (Green Contexts OFF)...
+
+🟢 Running Target Configuration (Green Contexts ON)...
+
+======================================================================
+📊 BENCHMARK COMPARISON REPORT: BASELINE VS GREEN CONTEXTS
+======================================================================
+Model: Qwen2.5-3B-Instruct (Eager cuTile Backend)
+Workload: Concurrent 2048-token Prefill + 100-token Decode Client
+----------------------------------------------------------------------
+Metric                         | Baseline (Green OFF) | Target (Green ON)  | Delta
+----------------------------------------------------------------------
+TTFT (Prefill Latency)         |           244.60 ms |         243.42 ms |    -0.5%
+Decode P50 ITL (Median)        |            48.63 ms |          41.83 ms |   -14.0%
+Decode P99 ITL (Tail)          |            85.31 ms |          84.34 ms |    -1.1%
+Total Throughput               |        415.50 tok/s |      459.73 tok/s |   +10.6%
+----------------------------------------------------------------------
+Total Tokens Processed: Baseline = 2183 tok, Green = 2183 tok
+Total Elapsed Time:     Baseline = 5.25 s, Green = 4.75 s
+======================================================================
+
 python bench.py --use-cutile
 🚀 Using cuTile attention backend
 `torch_dtype` is deprecated! Use `dtype` instead!

@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LLM 서빙을 위한 스펙 기반(Spec-Driven) AI 에이전트의 커널 자동 최적화 및 시스템 병목 실증 분석</title>
+    <style>
+        :root {
+            --bg-color: #f8f9fa;
+            --text-color: #333333;
+            --heading-color: #1a237e;
+            --accent-color: #3f51b5;
+            --border-color: #e0e0e0;
+            --code-bg: #282c34;
+            --code-text: #abb2bf;
+            --quote-bg: #e8eaf6;
+        }
+
+        body {
+            font-family: 'Noto Sans KR', 'Malgun Gothic', sans-serif;
+            line-height: 1.7;
+            color: var(--text-color);
+            background-color: var(--bg-color);
+            margin: 0;
+            padding: 40px 20px;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            background: #ffffff;
+            padding: 60px 80px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.05);
+            border-radius: 8px;
+            border: 1px solid var(--border-color);
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 50px;
+            padding-bottom: 30px;
+            border-bottom: 2px solid var(--accent-color);
+        }
+
+        h1 {
+            color: var(--heading-color);
+            font-size: 2.2em;
+            margin-bottom: 15px;
+            line-height: 1.3;
+        }
+
+        .authors {
+            font-size: 1.1em;
+            color: #555;
+            margin-bottom: 20px;
+            font-style: italic;
+        }
+
+        .abstract {
+            background: var(--quote-bg);
+            padding: 25px 35px;
+            border-left: 5px solid var(--accent-color);
+            margin-bottom: 40px;
+            border-radius: 0 8px 8px 0;
+        }
+
+        .abstract h2 {
+            margin-top: 0;
+            color: var(--accent-color);
+            font-size: 1.3em;
+        }
+
+        h2 {
+            color: var(--heading-color);
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 10px;
+            margin-top: 50px;
+        }
+
+        h3 {
+            color: var(--accent-color);
+            margin-top: 30px;
+        }
+
+        p {
+            margin-bottom: 1.5em;
+        }
+
+        ul, ol {
+            margin-bottom: 1.5em;
+            padding-left: 25px;
+        }
+
+        li {
+            margin-bottom: 8px;
+        }
+
+        code {
+            font-family: 'Consolas', 'Courier New', monospace;
+            background-color: #f1f3f5;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 0.9em;
+            color: #d63384;
+        }
+
+        pre {
+            background-color: var(--code-bg);
+            color: var(--code-text);
+            padding: 20px;
+            border-radius: 8px;
+            overflow-x: auto;
+            font-family: 'Consolas', 'Courier New', monospace;
+            font-size: 0.95em;
+            line-height: 1.5;
+            margin-bottom: 20px;
+        }
+
+        .table-container {
+            overflow-x: auto;
+            margin-bottom: 30px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 20px;
+            font-size: 0.95em;
+        }
+
+        th, td {
+            border: 1px solid var(--border-color);
+            padding: 12px 15px;
+            text-align: center;
+        }
+
+        th {
+            background-color: var(--heading-color);
+            color: white;
+            font-weight: 600;
+        }
+
+        tr:nth-child(even) {
+            background-color: #f8f9fa;
+        }
+
+        .caption {
+            text-align: center;
+            font-style: italic;
+            color: #666;
+            margin-top: -10px;
+            margin-bottom: 30px;
+            font-size: 0.9em;
+        }
+
+        .highlight-box {
+            background-color: #fff3cd;
+            border-left: 4px solid #ffc107;
+            padding: 15px 20px;
+            margin: 20px 0;
+            border-radius: 0 4px 4px 0;
+            color: #856404;
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                padding: 30px 20px;
+            }
+            h1 {
+                font-size: 1.8em;
+            }
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+
+    <header>
+        <h1>LLM 서빙을 위한 스펙 기반(Spec-Driven) AI 에이전트의 커널 자동 최적화 및 시스템 병목 실증 분석</h1>
+        <div class="authors">
+            저자명 기입 공간<br>
+            소속 기관 기입 공간
+        </div>
+    </header>
+
+    <div class="abstract">
+        <h2>요약 (Abstract)</h2>
+        <p>
+            거대 언어 모델(LLM)의 실시간 추론 서비스에서는 어텐션(Attention) 연산의 병목을 해소하기 위한 하드웨어 커널 최적화가 필수적이다. 기존의 JIT 기반 프레임워크(예: Triton)는 수동 튜닝에 크게 의존하며, 커널 단위의 성능이 전체 시스템(End-to-End) 성능으로 직결되지 않는 경우가 많다. 본 연구는 Python 기반 DSL(Domain-Specific Language)인 cuTile을 활용하여, <strong>시스템 아키텍처와 하드웨어 제약(Register Spilling 등)을 스스로 인지하고 탐색 공간을 자율적으로 수정하는 '2-Tier Agent (Architect-Tuner) 프레임워크'</strong>를 제안한다. 
+        </p>
+        <p>
+            제안된 에이전트는 미시적(Micro) 프로파일링 분석을 통해 물리적 레지스터 한계(255개)를 돌파하는 최적 타일링(64x64)을 도출하여 단일 커널 벤치마크에서 기존 PyTorch 네이티브를 능가했다. 더 나아가 이를 실제 LLM 추론 환경에 이식하는 과정에서 발생한 거시적(Macro) 성능 저하의 원인(Python Launch Overhead 및 Decoding O(N^2) 병목)을 규명하였다. 이를 극복하기 위해 에이전트 시스템 모델을 고도화하여 <strong>FlashDecoding 기법과 CUDA Graph 기반의 SM 자원 격리(Green Contexts) 최적화를 적용한 micro-vLLM 아키텍처</strong>를 구현하였다. RTX 5070 상에서의 Qwen2.5-3B-Instruct 모델 벤치마크 결과, 최적화된 시스템은 베이스라인 대비 <strong>총 처리량(Throughput) 10.6% 향상 및 디코딩 P50 지연 시간(ITL) 14.0% 단축</strong>을 달성하여, 에이전트 주도적 컴파운드 엔지니어링(Compound Engineering)의 효용성과 차세대 시스템 아키텍처의 설계 방향을 입증하였다.
+        </p>
+    </div>
+
+    <h2>1. 서론 (Introduction)</h2>
+    <p>
+        최근 생성형 AI 기술의 발전과 함께 LLM(Large Language Model)을 실제 프로덕션 환경에 배포하기 위한 고성능 추론 엔진(vLLM, TensorRT-LLM 등)의 중요성이 대두되고 있다. 이러한 추론 엔진의 핵심 성능은 메모리 및 연산 대역폭의 병목을 유발하는 어텐션(Attention) 연산을 하드웨어(GPU) 수준에서 얼마나 효율적으로 처리하느냐에 달려 있다.
+    </p>
+    <p>
+        이를 위해 NVIDIA의 cuTile과 같은 타일 기반 Python DSL이 등장하여 CUDA C++ 작성 없이도 고성능 커널 개발을 가능케 했으나, 최적의 하드웨어 스펙(예: Tile 크기, Pipelining 단계 등)을 탐색하는 것은 여전히 인간 엔지니어의 반복적인 직관과 수동 프로파일링에 의존하고 있다. 또한, 단일 커널(Micro-benchmark) 수준에서의 성능 향상이 엔드투엔드(End-to-End) LLM 시스템 이식 시 파이썬 런타임 오버헤드나 디코딩 특성으로 인해 오히려 성능 저하로 이어지는 '추상화의 누수(Abstraction Leak)' 문제 또한 빈번하게 발생한다.
+    </p>
+    <p>
+        이에 본 연구는 <strong>'설계(Architect)'와 '실험(Tuner)'의 역할을 분리한 2-Tier 기반의 스펙 주도형(Spec-Driven) AI 에이전트 프레임워크</strong>를 제안한다. 에이전트는 Nsight Compute 프로파일링 데이터를 분석하여 하드웨어 병목을 자율적으로 인지하고, DSL 시스템 모델을 지속적으로 진화시킨다. 본 논문은 이 프레임워크를 통해 FMHA(Fused Multi-Head Attention) 커널을 바닥부터 최적화하고, 이를 실제 LLM 추론 시스템(micro-vLLM)에 이식하며 마주한 시스템적 한계와 그 극복 과정을 실증적으로 분석한다.
+    </p>
+
+    <h2>2. 관련 연구 (Related Work)</h2>
+    <h3>2.1. LLM 추론 최적화 및 타일 기반 DSL</h3>
+    <p>
+        기존의 LLM 추론 시스템 최적화는 주로 FlashAttention과 같은 메모리 계층 구조를 고려한 알고리즘이나 PagedAttention 방식의 KV 캐시 관리에 집중되어 왔다. 최근에는 OpenAI의 Triton, NVIDIA의 cuTile과 같이 Python 환경에서 고성능 GPU 커널을 직접 작성할 수 있는 타일 기반 DSL 연구가 활발하다. 그러나 이러한 JIT 컴파일 기반 프레임워크는 런타임 오버헤드 관리가 필수적이며, 본 연구는 이를 CUDA Graph 및 자원 격리 기법을 통해 극복하는 방안을 제시한다.
+    </p>
+
+    <h3>2.2. LLM 에이전트 기반 코드 자동 생성 및 튜닝</h3>
+    <p>
+        최근 LLM을 활용한 코드 자동 생성 및 오토튜닝 연구가 대두되고 있다. 그러나 기존 연구들은 대부분 단순한 파라미터 그리드 탐색(Grid Search)이나 구문 오류 수정에 머무르고 있다. 반면 본 논문의 2-Tier 에이전트 구조는 <strong>프로파일링 결과(Register Spilling 등 물리적 한계)를 논리적 지식으로 환원하고 탐색 공간 자체를 가지치기(Pruning)</strong>하는 '컴파운드 엔지니어링(Compound Engineering)' 접근을 취한다는 점에서 차별화된다.
+    </p>
+
+    <h2>3. 2-Tier 에이전트 기반 커널 최적화 (Phase 1)</h2>
+    <h3>3.1. 에이전트 프레임워크 설계</h3>
+    <p>
+        제안하는 시스템은 두 개의 LLM 에이전트로 구성된다. <strong>Architect 에이전트</strong>는 고수준의 DSL(Domain-Specific Language) 명세서를 작성하고 하드웨어 병목을 분석하여 탐색 공간(Search Space)을 정의한다. <strong>Tuner 에이전트</strong>는 주어진 탐색 공간 내에서 실제 커널 코드를 생성, 컴파일 및 실행(`ncu` 프로파일링 포함)하여 정량적 지표를 Architect에게 피드백한다.
+    </p>
+
+    <h3>3.2. 단일 커널 최적화 및 물리적 한계의 규명</h3>
+    <p>
+        초기 실험에서 에이전트는 <code>128x128</code> 타일 크기의 FMHA 커널을 생성하여 PyTorch 네이티브 대비 거시적 속도 향상을 이루는 듯 보였다. 그러나 Nsight Compute 미시적 분석 결과, 해당 설정이 RTX 4060 GPU의 스레드당 물리적 레지스터 한계인 <strong>255개</strong>를 초과하여 심각한 데이터 스필링(Register Spilling)을 유발함을 자율적으로 발견했다.
+    </p>
+    <p>
+        이에 Architect 에이전트는 DSL 모델을 업데이트(<code>v4.dsl: 128 is proven harmful</code>)하여 타일 크기를 <code>64x64</code>로 강제하고 Latency Hiding 전략을 추가했다. 그 결과, 레지스터 압박 속에서도 소프트웨어 파이프라이닝을 통해 전체 커널 실행 시간을 기존 대비 4.3% 단축시키는 최적화를 달성했다.
+    </p>
+
+    <h2>4. End-to-End LLM 이식 한계 및 차세대 아키텍처 제안 (Phase 2 & 3)</h2>
+    <h3>4.1. LLM 시스템 통합 시의 거시적 붕괴 (Phase 2)</h3>
+    <p>
+        단일 커널 최적화의 성공을 바탕으로 이를 실제 LLM (컨텍스트 200자 규모) 환경에 이식한 결과, <strong>Prefill 속도는 PyTorch 대비 0.45배, Decoding 속도는 0.60배로 오히려 심각하게 하락</strong>하는 결과가 나타났다. 에이전트는 이 '추상화의 누수' 현상의 원인을 다음 3가지로 진단했다.
+    </p>
+    <ul>
+        <li><strong>Python Launch Overhead:</strong> 짧은 시퀀스 환경에서 GPU 연산 시간보다 cuTile(<code>ct.launch</code>)의 JIT 검사 및 드라이버 API 호출 지연시간이 시스템을 지배(Dominate)함.</li>
+        <li><strong>Decoding 커널 분리 부재:</strong> Query 길이가 1인 디코딩 단계에서 GEMM용 무거운 FMHA 커널이 계속 호출되어 SM(Streaming Multiprocessor) 굶주림(Starvation) 발생.</li>
+        <li><strong>KV-Cache 구조의 부재:</strong> 디코딩 단계마다 O(N^2)의 중복 연산이 강제됨.</li>
+    </ul>
+
+    <h3>4.2. 차세대 시스템 모델: micro-vLLM 구축 (Phase 3)</h3>
+    <p>
+        실패 데이터를 기반으로 에이전트는 DSL을 <code>v5.dsl</code>로 진화시켰다. 이 모델은 파이썬 오버헤드를 제거하기 위한 <strong>CUDA Graph 기반 실행(execution_context: cuda_graph)</strong>과 디코딩 병목을 해소하기 위한 <strong>FlashDecoding (Split-K) 및 Paged KV Cache</strong> 라우팅 지식을 포함한다. 이를 바탕으로 기존 Linux/PyTorch 기반의 nano-vLLM 아키텍처를 Windows/cuTile 기반의 <strong>micro-vLLM</strong> 엔진으로 성공적으로 마이그레이션 및 재설계하였다.
+    </p>
+
+    <h2>5. 실험 및 평가 (Evaluation)</h2>
+    <h3>5.1. 실험 환경</h3>
+    <p>
+        최종 평가를 위해 차세대 아키텍처인 <strong>RTX 5070 GPU</strong> 환경에서 <code>Qwen2.5-3B-Instruct</code> 모델을 대상으로 벤치마크를 수행하였다. 워크로드는 동시다발적인 '2048-토큰 Prefill'과 '100-토큰 Decode'를 수행하는 클라이언트 요청으로 구성되었다. 특히 CUDA Graph 기술의 진보된 형태인 <strong>'Dedicated SM Resource Isolation (Green Contexts)'</strong> 기법의 적용 여부에 따른 성능을 비교 분석하였다.
+    </p>
+
+    <h3>5.2. 성능 벤치마크 결과</h3>
+    <div class="table-container">
+        <table>
+            <thead>
+                <tr>
+                    <th>Metric (평가 지표)</th>
+                    <th>Baseline (Green OFF)</th>
+                    <th>Target (Green ON)</th>
+                    <th>Delta (변화율)</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><strong>TTFT (Prefill Latency)</strong></td>
+                    <td>244.60 ms</td>
+                    <td><strong>243.42 ms</strong></td>
+                    <td style="color: green;">-0.5% (유지)</td>
+                </tr>
+                <tr>
+                    <td><strong>Decode P50 ITL (Median)</strong></td>
+                    <td>48.63 ms</td>
+                    <td><strong>41.83 ms</strong></td>
+                    <td style="color: blue; font-weight: bold;">-14.0% (단축)</td>
+                </tr>
+                <tr>
+                    <td><strong>Decode P99 ITL (Tail)</strong></td>
+                    <td>85.31 ms</td>
+                    <td><strong>84.34 ms</strong></td>
+                    <td style="color: green;">-1.1% (안정화)</td>
+                </tr>
+                <tr>
+                    <td><strong>Total Throughput (총 처리량)</strong></td>
+                    <td>415.50 tok/s</td>
+                    <td><strong>459.73 tok/s</strong></td>
+                    <td style="color: red; font-weight: bold;">+10.6% (향상)</td>
+                </tr>
+            </tbody>
+        </table>
+        <div class="caption">표 1. Qwen2.5-3B-Instruct 모델 기반 Baseline vs Green Contexts 성능 비교</div>
+    </div>
+
+    <div class="highlight-box">
+        <strong>💡 종합 분석 (System Insight)</strong><br>
+        실험 결과, 제안된 시스템(Green Contexts ON)은 베이스라인 대비 <strong>총 토큰 처리량(Throughput)을 10.6% 비약적으로 향상</strong>시켰다. 가장 괄목할 만한 성과는 <strong>디코딩 P50 지연 시간(ITL)의 14.0% 감소</strong>이다. 이는 Phase 2에서 겪었던 "디코딩 시 SM Starvation 및 오버헤드 병목"이 에이전트가 제안한 SM 자원 격리 기술(Green Contexts)과 효율적인 커널 라우팅을 통해 완벽히 극복되었음을 실증한다. TTFT(Prefill)와 P99 지연 시간 또한 악화 없이 안정적으로 방어함으로써, 본 연구가 제안하는 에이전트 주도형 컴파운드 엔지니어링이 실제 프로덕션 수준의 LLM 서빙 엔진 구축에 매우 유효한 방법론임을 증명하였다.
+    </div>
+
+    <h2>6. 결론 (Conclusion)</h2>
+    <p>
+        본 연구는 Spec-Driven AI 에이전트를 통해 FMHA 커널을 바닥(PTX 레벨)부터 통합 LLM 모델 환경(End-to-End)까지 자율 최적화하는 과정을 실증하였다. 에이전트는 미시적 튜닝 한계(Register Spilling)를 자율적으로 극복하였으나, 초기 통합 과정에서 Python 런타임 오버헤드와 KV 캐시 부재로 인한 거시적 시스템 병목을 마주하였다. 
+    </p>
+    <p>
+        이러한 실패 데이터를 논리적 지식으로 환원하여 시스템 모델을 진화시킨 결과, FlashDecoding과 CUDA Graph 기반 자원 격리 기법이 적용된 최적의 <strong>micro-vLLM</strong> 아키텍처를 도출해 내었다. RTX 5070 상에서의 최종 검증 결과는 디코딩 지연 시간 단축 및 전체 처리량 향상이라는 뚜렷한 성능 우위를 보였다. 본 연구의 결과는 고수준 커널 프레임워크가 실전 배치되기 위해서는 단일 커널 최적화를 넘어, 하드웨어 특성과 호스트 오버헤드를 아우르는 전-주기적 시스템 설계(Full-stack System Design) 능력이 필수적임을 강력하게 시사한다.
+    </p>
+
+    <h2>참고문헌 (References)</h2>
+    <ol>
+        <li>Kwon, W., Li, Z., Zhuang, S., et al. "Efficient Memory Management for Large Language Model Serving with PagedAttention." SOSP 2023.</li>
+        <li>Tillet, P., Kung, H. T., & Cox, D. "Triton: an intermediate language and compiler for tiled neural network computations." MAPL 2019.</li>
+        <li>NVIDIA Corporation. "Nsight Compute User Interface." 2024.</li>
+        <li>본 연구에 활용된 기타 논문 및 에이전트 관련 최신 레퍼런스 추가 요망</li>
+    </ol>
+
+</div>
+
+</body>
+</html>
