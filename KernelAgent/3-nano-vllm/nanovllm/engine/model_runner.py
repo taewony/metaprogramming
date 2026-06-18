@@ -35,8 +35,6 @@ class ModelRunner:
         self.model = Qwen3ForCausalLM(hf_config)
         load_model(self.model, config.model)
         self.sampler = Sampler()
-        self.warmup_model()
-        self.allocate_kv_cache()
         import os
         self.use_green_contexts = (os.environ.get("NANO_VLLM_USE_GREEN_CONTEXTS", "0") == "1")
         self.green_api_type = None
@@ -64,6 +62,8 @@ class ModelRunner:
                 except Exception as ex:
                     print(f"⚠️ Green Context initialization failed: {ex}. Falling back to default context.")
                     self.use_green_contexts = False
+        self.warmup_model()
+        self.allocate_kv_cache()
         if not self.enforce_eager:
             self.capture_cudagraph()
         torch.set_default_device("cpu")
