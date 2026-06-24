@@ -1,5 +1,5 @@
-# 지식 주도형 이기종 컴파일 및 커널 최적화 프레임워크
-**Knowledge-Guided Hierarchical Optimization Framework for Heterogeneous Kernel Migration**
+# 지식 주도형 커널 엔지니어링 프레임워크
+**Knowledge-Guided Kernel Engineering Framework**
 
 ---
 
@@ -7,11 +7,17 @@
 
 거대 언어 모델(LLM) 서빙 엔진과 같이 고성능 병렬 처리가 요구되는 GPU 커널 프로그래밍 분야는 극단적인 물리적 자원 제약(스레드당 레지스터 수, L2 캐시 대역폭, SM 점유율 등) 하에서 최적의 결정을 내려야 하는 복잡한 설계 공간(Design Space)을 가지고 있다. 이러한 시스템의 최적화는 단순한 단일 코드 생성만으로는 불가능하며, 미시적(Micro) 물리 메트릭과 거시적(Macro) E2E 런타임 시스템 병목 간의 다차원적 상호작용을 규명하고 반영하는 반복적인 엔지니어링 피드백이 필수적이다.
 
-본 프레임워크는 인간 엔지니어와 AI 코딩 에이전트가 최적의 커널 마이그레이션(MatMul $\rightarrow$ FMHA $\rightarrow$ llm-from-scratch $\rightarrow$ nano-vllm)을 협력적으로 수행하며 도출한 지식과 통찰을 구조화하고, 프로젝트의 연속성과 자기 진화성(Self-Evolution)을 확보하기 위해 정의된 **'지식 주도형 다중 위계 작업방식(Knowledge-Guided Hierarchical Optimization Framework)'**이다. 
+본 프레임워크는 인간 엔지니어와 AI 코딩 에이전트가 최적의 커널 마이그레이션(MatMul $\rightarrow$ FMHA $\rightarrow$ llm-from-scratch $\rightarrow$ nano-vllm)을 협력적으로 수행하며 도출한 지식과 통찰을 구조화하고, 프로젝트의 연속성과 자기 진화성(Self-Evolution)을 확보하기 위해 정의된 3계층 구조의 **'지식 주도형 커널 엔지니어링 프레임워크(Knowledge-Guided Kernel Engineering Framework)'**이다. 
 
-특히, 본 프레임워크의 근간이 되는 DSL은 **"하드웨어 메타데이터 $\rightarrow$ 설계/튜닝 공간 $\rightarrow$ 물리 제약 $\rightarrow$ 아키텍처 지식 $\rightarrow$ 코드 구현 프리미티브 $\rightarrow$ 자동 검증 수치 조건"**에 이르는 전 주기의 시스템 엔지니어링 정보를 구조화하는 핵심 지식 모델로 작동하며, 이를 통해 고도화된 최적화 지식이 다음 컴파일 세션으로 안전하게 전이되고 축적되도록 보장한다.
+이 프레임워크는 정보의 추상화 수준, 실행 환경, 그리고 대상 시스템 환경에 따라 **Architect(상위)**, **TechLead(중위)**, **Executor(하위)**의 3계층 위계 구조로 구성된다. Architect가 '시스템 모델(System Model)'을 바탕으로 가설을 세우고, TechLead는 실험을 설계하고 구현하며, Executor가 target 환경에서 실험을 실행하고 trace data를 수집한다. 수집된 데이터를 바탕으로 TechLead가 시험 결과 분석 리포트를 작성하면, Architect는 이를 검토하고 도메인 특화 지식 및 시스템 모델을 수정하고 유지 관리한다. 즉, 기본의 Task Decomposition에 의한 작업 방식을 넘어, Scientist(가설 수립), TechLead(실험 설계 및 구현), Executor(실험 실행 및 측정) 구조를 도입하여 GPU 커널 개발을 통제된 과학 실험 과정으로 모델링한다. 
 
-이 프레임워크는 정보의 추상화 수준, 실행 환경, 그리고 대상 시스템 환경에 따라 **Architect(상위)**, **TechLead(중위)**, **Executor(하위)**의 3계층 위계 구조로 물리적/논리적 영역을 분할하며, 이들 간의 통신과 지식 전이를 규격화한 **S2E(Spec-to-Execution)** 및 **T2K(Telemetry-to-Knowledge)** 프로토콜을 중심으로 동작한다.
+특히, 본 프레임워크의 근간이 되는 DSL은 **"하드웨어 메타데이터 $\rightarrow$ 설계/튜닝 공간 $\rightarrow$ 물리 제약 $\rightarrow$ 아키텍처 지식 $\rightarrow$ 코드 구현 프리미티브 $\rightarrow$ 자동 검증 수치 조건"**에 이르는 전 주기의 시스템 엔지니어링 정보를 구조화하는 핵심 지식 모델로 작동하며, 이를 통해 고도화된 최적화 지식이 다음 커널 엔지니어링 세션으로 안전하게 전이되고 축적되도록 보장한다.
+
+이 프레임워크를 기반으로 다음 4단계로 난이도를 높이며 실험을 진행하며 이 과정에서 획득한 데이터 및 insights는 DSL 형식으로 축적된다.
+1) MatMul
+2) FMHA
+3) LLM from scratch
+4) nano-vLLM kernel migration
 
 ---
 
@@ -21,12 +27,12 @@
        +---------------------------------------------+
        |       Architect (인간 개발자 / Strategy)     |  <-- 전역 지식 승인 & 정책 결정
        +---------------------------------------------+
-                              | S2E (Spec-to-Execution)
+                              | I2S (Intent-to-Experiment)
                               v
        +---------------------------------------------+
        |       TechLead (AI 에이전트 / Translation)   |  <-- 지식 번역 & 코드 Proposal 생성
        +---------------------------------------------+
-                              | S2E (Spec-to-Execution)
+                              | S2E (Experiment-to-Execution)
                               v
        +---------------------------------------------+
        |       Executor (인간 & Local LLM / Target)  |  <-- 물리 실행, 디버깅 & 원격 분석
@@ -36,8 +42,8 @@
 ```
 
 ### 2.1. 상위 계층: Architect (Global Knowledge & Strategy)
-* **주요 역할**: 프로젝트의 궁극적인 의도(Intent), 전역적 제약 조건(Constraints), 핵심 컴파일러 아키텍처 모델을 수립하고 제어한다.
-* **주요 구성**: 인간 개발자가 주도하며, 대규모 클라우드 LLM(Gemini)이 설계 어시스턴트로 작동한다.
+* **주요 역할**: 프로젝트의 궁극적인 의도(Intent), 전역적 제약 조건(Constraints), 핵심 시스템 모델을 수립하고 제어한다.
+* **주요 구성**: 인간 개발자가 주도하며, 대규모 클라우드 LLM(Gemini)이 구조설계 어시스턴트로 작동한다.
 * **통제 경계**: 하위 계층에서 피드백된 실험 보고서(Experiment-report)의 정량적 지표를 종합 평가하여 메타-인사이트를 추출하고, 이를 최종적으로 프로젝트 영구 지식베이스(Knowledgebase)에 영속(Reflection)시킨다.
 
 ### 2.2. 중위 계층: TechLead-Agent (Contextual Translation & Code Proposal)
