@@ -977,11 +977,17 @@ OpenKB는 초기 지식 기반을 빠르게 구축하는 훌륭한 도구이며,
 4. ✅ Web Dashboard 및 CLI 데모 완성
 5. ✅ 모든 컴포넌트 Docker 기반 배포 가능
 
-## 10. 
-
 1. **OKF 기반 Knowledge Catalog**가 30개 테이블의 모든 비즈니스 개념을 커버
 2. **자연어 → 중간 수준 질의 → SQL** 변환 정확도 90% 이상
 3. **멀티홉 질의** (3단계 이상) 처리 성공률 85% 이상
 4. Web Dashboard와 CLI를 통한 **엔드투엔드 데모** 완성
 5. 모든 컴포넌트가 **벤더 종속성 없이** Docker로 배포 가능
 
+---
+
+### 테스트 환경
+
+- Sqlite: 테크샵(TechShop)이라는 가상의 전자상거래 쇼핑몰 데이터베이스
+- DB path: D:\sqlite\output\ecommerce-ko.db
+- 질의 예시:
+  - "30세 이상 VIP 고객 중 이번 달 주문한 사람"
