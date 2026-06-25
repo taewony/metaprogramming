@@ -991,3 +991,84 @@ OpenKB는 초기 지식 기반을 빠르게 구축하는 훌륭한 도구이며,
 - DB path: D:\sqlite\output\ecommerce-ko.db
 - 질의 예시:
   - "30세 이상 VIP 고객 중 이번 달 주문한 사람"
+```
+sqlite> .tables
+_sc_metadata            customers               product_views       v_cart_abandonment      v_product_abc
+calendar                inventory_transactions  products            v_category_tree         v_product_performance
+cart_items              order_items             promotion_products  v_coupon_effectiveness  v_return_analysis
+carts                   orders                  promotions          v_customer_rfm          v_revenue_growth
+categories              payments                returns             v_customer_summary      v_staff_workload
+complaints              point_transactions      reviews             v_daily_orders          v_supplier_performance
+coupon_usage            product_images          shipping            v_hourly_pattern        v_top_products_by_category
+coupons                 product_prices          staff               v_monthly_sales         v_yearly_kpi
+customer_addresses      product_qna             suppliers           v_order_detail          wishlists
+customer_grade_history  product_tags            tags                v_payment_summary
+sqlite> .schema customers
+CREATE TABLE customers (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    email           TEXT NOT NULL UNIQUE,                    -- email (fictional domain)
+    password_hash   TEXT NOT NULL,                           -- SHA-256 hash (fictional)
+    name            TEXT NOT NULL,                           -- customer name
+    phone           TEXT NOT NULL,                           -- 020-XXXX-XXXX (fictional number)
+    birth_date      TEXT NULL,                               -- birth date (YYYY-MM-DD, ~15% NULL)
+    gender          TEXT NULL,                               -- M/F (NULL ~10%, male 65%)
+    grade           TEXT NOT NULL DEFAULT 'BRONZE' CHECK(grade IN ('BRONZE','SILVER','GOLD','VIP')),
+    point_balance   INTEGER NOT NULL DEFAULT 0 CHECK(point_balance >= 0),
+    acquisition_channel TEXT NULL,                            -- organic/search_ad/social/referral/direct
+    is_active       INTEGER NOT NULL DEFAULT 1,              -- active status (0=deactivated)
+    last_login_at   TEXT NULL,                               -- last login (NULL=never logged in)
+    created_at      TEXT NOT NULL,                           -- signup date
+    updated_at      TEXT NOT NULL
+);
+CREATE INDEX idx_customers_email ON customers(email);
+CREATE TRIGGER trg_customers_updated_at
+AFTER UPDATE ON customers
+BEGIN
+    UPDATE customers SET updated_at = datetime('now') WHERE id = NEW.id;
+END;
+
+sqlite> .schema products
+CREATE TABLE products (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    category_id     INTEGER NOT NULL REFERENCES categories(id),
+    supplier_id     INTEGER NOT NULL REFERENCES suppliers(id),
+    successor_id    INTEGER NULL REFERENCES products(id),   -- next-generation replacement product
+    name            TEXT NOT NULL,                           -- product name
+    sku             TEXT NOT NULL UNIQUE,                    -- stock keeping unit (e.g. LA-GEN-Samsung-00001)
+    brand           TEXT NOT NULL,                           -- brand name
+    model_number    TEXT,                                    -- model number
+    description     TEXT,                                    -- product description
+    specs           TEXT NULL,                               -- JSON product specifications
+    price           REAL NOT NULL CHECK(price >= 0),           -- current selling price (KRW)
+    cost_price      REAL NOT NULL CHECK(cost_price >= 0),    -- cost price (KRW)
+    stock_qty  INTEGER NOT NULL DEFAULT 0,              -- current stock quantity
+    weight_grams    INTEGER,                                 -- shipping weight (g)
+    is_active       INTEGER NOT NULL DEFAULT 1,              -- on sale flag
+    discontinued_at TEXT NULL,                               -- discontinuation date (NULL=active)
+    created_at      TEXT NOT NULL,
+    updated_at      TEXT NOT NULL
+);
+CREATE INDEX idx_products_category_id ON products(category_id);
+CREATE INDEX idx_products_supplier_id ON products(supplier_id);
+CREATE INDEX idx_products_successor_id ON products(successor_id);
+CREATE INDEX idx_products_name ON products(name);
+CREATE INDEX idx_products_sku ON products(sku);
+CREATE TRIGGER trg_product_price_history
+AFTER UPDATE OF price ON products
+WHEN OLD.price != NEW.price
+BEGIN
+    -- Close existing history record
+    UPDATE product_prices
+    SET ended_at = datetime('now')
+    WHERE product_id = NEW.id AND ended_at IS NULL;
+
+    -- Insert new history record
+    INSERT INTO product_prices (product_id, price, started_at, ended_at, change_reason)
+    VALUES (NEW.id, NEW.price, datetime('now'), NULL, 'price_update');
+END;
+CREATE TRIGGER trg_products_updated_at
+AFTER UPDATE ON products
+BEGIN
+    UPDATE products SET updated_at = datetime('now') WHERE id = NEW.id;
+END;
+```
