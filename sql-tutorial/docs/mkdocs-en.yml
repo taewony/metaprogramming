@@ -1,0 +1,174 @@
+site_name: SQL Tutorial
+site_description: Learn SQL with a realistic e-commerce database
+repo_url: https://github.com/civilian7/sql-tutorial
+repo_name: GitHub
+docs_dir: en
+site_dir: ../output/docs/en
+
+theme:
+  name: material
+  language: en
+  palette:
+    - scheme: default
+      primary: custom
+      accent: custom
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    - scheme: slate
+      primary: custom
+      accent: custom
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+  features:
+    - content.code.copy
+    - navigation.sections
+    - navigation.expand
+    - navigation.top
+    - search.highlight
+
+copyright: Copyright &copy; 2023-2026 Fullbit Computing. All rights reserved.
+
+extra:
+  generator: false
+  alternate:
+    - name: 한국어
+      link: ../ko/
+      lang: ko
+    - name: English
+      link: ../en/
+      lang: en
+
+extra_css:
+  - css/extra.css
+
+hooks:
+  - hooks/mermaid_hook.py
+
+nav:
+  - Home: index.md
+  - Getting Started:
+    - setup/index.md
+    - "00. Download the Project": setup/00-install.md
+    - "01. Choose a Database": setup/01-choose-db.md
+    - "02. Install the Database": setup/02-database.md
+    - "03. Generate Data": setup/03-generate.md
+    - "04. Advanced Generator Options": setup/04-generate-advanced.md
+    - "05. Verify & First Query": setup/05-verify.md
+  - Database Schema:
+    - schema/index.md
+    - "01. Tables": schema/tables.md
+    - "02. Views": schema/views.md
+    - "03. Triggers": schema/triggers.md
+    - "04. Stored Procedures": schema/procedures.md
+    - "05. Schema Queries": schema/queries.md
+    - "06. Persona Guide": schema/personas.md
+  - Lessons:
+    - Beginner:
+      - "00. Introduction to Databases & SQL": beginner/00-introduction.md
+      - "01. SELECT Basics": beginner/01-select.md
+      - "02. Filtering with WHERE": beginner/02-where.md
+      - "03. Sorting & Pagination": beginner/03-sort-limit.md
+      - "04. Aggregate Functions": beginner/04-aggregates.md
+      - "05. GROUP BY & HAVING": beginner/05-group-by.md
+      - "06. NULL Handling": beginner/06-null.md
+      - "07. CASE Expressions": beginner/07-case.md
+    - Intermediate:
+      - "08. INNER JOIN": intermediate/08-inner-join.md
+      - "09. LEFT JOIN & Outer Joins": intermediate/09-left-join.md
+      - "10. Subqueries": intermediate/10-subqueries.md
+      - "11. Date & Time Functions": intermediate/11-datetime.md
+      - "12. String Functions": intermediate/12-string.md
+      - "13. Numeric, Conversion & Conditional Functions": intermediate/13-utility-functions.md
+      - "14. UNION": intermediate/14-union.md
+      - "15. INSERT, UPDATE, DELETE": intermediate/15-dml.md
+      - "16. DDL — Creating & Altering Tables": intermediate/16-ddl.md
+      - "17. Transactions & ACID": intermediate/17-transactions.md
+    - Advanced:
+      - "18. Window Functions": advanced/18-window.md
+      - "19. CTE & Recursive CTE": advanced/19-cte.md
+      - "20. EXISTS & Correlated Subqueries": advanced/20-exists.md
+      - "21. SELF JOIN & CROSS JOIN": advanced/21-self-cross-join.md
+      - "22. Views": advanced/22-views.md
+      - "23. Indexes & Query Plans": advanced/23-indexes.md
+      - "24. Triggers": advanced/24-triggers.md
+      - "25. JSON Data Queries": advanced/25-json.md
+      - "26. Stored Procedures & Functions": advanced/26-stored-procedures.md
+  - SQL Playground: playground.md
+  - Reference:
+    - "SQL Across Databases": dialect-comparison.md
+    - "Glossary": appendix/glossary.md
+  - Appendix — DBA Basics:
+    - "Security & Permissions": appendix/dba-security.md
+    - "Concurrency & Isolation": appendix/dba-concurrency.md
+    - "Database Maintenance": appendix/dba-maintenance.md
+  - Exercises:
+    - exercises/index.md
+    - Beginner:
+      - "Product Exploration": exercises/beginner-01-products.md
+      - "Sorting & Paging": exercises/beginner-02-sort-paging.md
+      - "Aggregate Functions": exercises/beginner-03-aggregates.md
+      - "Grouping & Filtering": exercises/beginner-04-group-by.md
+      - "NULL Handling": exercises/beginner-05-null.md
+      - "CASE Expressions": exercises/beginner-06-case.md
+      - "Comprehensive": exercises/beginner-07-comprehensive.md
+      - "SQL Error Detection": exercises/beginner-08-debugging.md
+    - Intermediate:
+      - "JOIN Master": exercises/intermediate-01-joins.md
+      - "Date & Time Analysis": exercises/intermediate-02-dates.md
+      - "String & Math Functions": exercises/intermediate-03-string-math.md
+      - "Subqueries": exercises/intermediate-04-subqueries.md
+      - "Set Operations": exercises/intermediate-05-set-operations.md
+      - "DML Practice": exercises/intermediate-06-dml.md
+      - "DDL & Constraints": exercises/intermediate-07-ddl.md
+      - "Transactions": exercises/intermediate-08-transactions.md
+      - "Comprehensive": exercises/intermediate-09-comprehensive.md
+      - "SQL Debugging": exercises/intermediate-10-debugging.md
+      - "Data Quality": exercises/intermediate-11-data-quality.md
+    - Advanced:
+      - "Window Functions": exercises/advanced-01-window-functions.md
+      - "CTE Mastery": exercises/advanced-02-cte.md
+      - "EXISTS & Anti-Patterns": exercises/advanced-03-exists-antipattern.md
+      - "DB Object Design": exercises/advanced-04-db-objects.md
+      - "JSON Queries": exercises/advanced-05-json.md
+      - "Indexes & Optimization": exercises/advanced-06-optimization.md
+      - "Sales Analysis": exercises/advanced-07-sales-analysis.md
+      - "Customer & Operations": exercises/advanced-08-customer-ops.md
+      - "SQL Patterns": exercises/advanced-09-patterns.md
+      - "Interview Prep": exercises/advanced-10-interview.md
+      - "Challenge Problems": exercises/advanced-11-challenge.md
+
+plugins:
+  - search
+  - glightbox
+  - exporter:
+      formats:
+        pdf:
+          enabled: !ENV [MKDOCS_EXPORTER_PDF, false]
+          concurrency: 4
+          aggregator:
+            enabled: true
+            output: pdf/sql-tutorial-en.pdf
+            covers: none
+
+markdown_extensions:
+  - admonition
+  - pymdownx.details
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.inlinehilite
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_div_format
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.keys
+  - pymdownx.emoji:
+      emoji_index: !!python/name:material.extensions.emoji.twemoji
+      emoji_generator: !!python/name:material.extensions.emoji.to_svg
+  - attr_list
+  - md_in_html
+  - tables

@@ -1,0 +1,829 @@
+# 서브쿼리 완전 정복
+
+!!! info "사용 테이블"
+
+    `products` — 상품 (이름, 가격, 재고, 브랜드)  
+
+    `customers` — 고객 (등급, 포인트, 가입채널)  
+
+    `orders` — 주문 (상태, 금액, 일시)  
+
+    `order_items` — 주문 상세 (수량, 단가)  
+
+    `reviews` — 리뷰 (평점, 내용)  
+
+    `wishlists` — 위시리스트 (고객-상품)  
+
+    `categories` — 카테고리 (부모-자식 계층)  
+
+    `payments` — 결제 (방법, 금액, 상태)  
+
+
+
+!!! abstract "학습 범위"
+
+    `scalar subquery`, `IN`, `NOT IN`, `EXISTS`, `NOT EXISTS`, `FROM clause subquery`, `correlated subquery`
+
+
+
+### 1. 전체 평균 가격보다 비싼 상품의 이름과 가격을 조회하세요. 가격 내림차순, 상위 10개.
+
+
+전체 평균 가격보다 비싼 상품의 이름과 가격을 조회하세요. 가격 내림차순, 상위 10개.
+
+
+**힌트 1:** `WHERE price > (SELECT AVG(price) FROM products)` 형태의 스칼라 서브쿼리를 사용합니다.
+
+
+??? success "정답"
+    ```sql
+    SELECT name, price
+    FROM products
+    WHERE price > (SELECT AVG(price) FROM products)
+    ORDER BY price DESC
+    LIMIT 10;
+    ```
+
+
+    **실행 결과** (총 10행 중 상위 7행)
+
+    | name | price |
+    |---|---|
+    | MacBook Air 15 M3 실버 | 5,481,100.00 |
+    | ASUS TUF Gaming RTX 5080 화이트 | 4,526,600.00 |
+    | ASUS Dual RTX 5070 Ti [특별 한정판 에디션] 저소... | 4,496,700.00 |
+    | Razer Blade 18 블랙 | 4,353,100.00 |
+    | Razer Blade 16 실버 | 3,702,900.00 |
+    | ASUS ROG Strix G16CH 화이트 | 3,671,500.00 |
+    | ASUS ROG Zephyrus G16 | 3,429,900.00 |
+
+
+---
+
+
+### 2. 가장 비싼 상품의 이름, 가격, 카테고리 ID를 조회하세요.
+
+
+가장 비싼 상품의 이름, 가격, 카테고리 ID를 조회하세요.
+
+
+**힌트 1:** `WHERE price = (SELECT MAX(price) FROM products)` 형태로 최대값을 서브쿼리로 구합니다.
+
+
+??? success "정답"
+    ```sql
+    SELECT name, price, category_id
+    FROM products
+    WHERE price = (SELECT MAX(price) FROM products);
+    ```
+
+
+    **실행 결과** (1행)
+
+    | name | price | category_id |
+    |---|---|---|
+    | MacBook Air 15 M3 실버 | 5,481,100.00 | 9 |
+
+
+---
+
+
+### 3. 주문을 한 번이라도 한 고객의 이름과 이메일을 조회하세요. 이름순 정렬, 상위 15개.
+
+
+주문을 한 번이라도 한 고객의 이름과 이메일을 조회하세요. 이름순 정렬, 상위 15개.
+
+
+**힌트 1:** `WHERE id IN (SELECT customer_id FROM orders)` — 서브쿼리가 주문이 존재하는 고객 ID 목록을 반환합니다.
+
+
+??? success "정답"
+    ```sql
+    SELECT name, email
+    FROM customers
+    WHERE id IN (SELECT customer_id FROM orders)
+    ORDER BY name
+    LIMIT 15;
+    ```
+
+
+    **실행 결과** (총 15행 중 상위 7행)
+
+    | name | email |
+    |---|---|
+    | 강경수 | user3281@testmail.kr |
+    | 강경숙 | user2384@testmail.kr |
+    | 강경숙 | user3645@testmail.kr |
+    | 강경자 | user1109@testmail.kr |
+    | 강경희 | user2103@testmail.kr |
+    | 강광수 | user3374@testmail.kr |
+    | 강도윤 | user1492@testmail.kr |
+
+
+---
+
+
+### 4. 리뷰를 한 번도 작성하지 않은 고객의 이름과 등급을 조회하세요. 등급 내림차순, 이름순, 상위 15개.
+
+
+리뷰를 한 번도 작성하지 않은 고객의 이름과 등급을 조회하세요. 등급 내림차순, 이름순, 상위 15개.
+
+
+**힌트 1:** `WHERE id NOT IN (SELECT customer_id FROM reviews)` — reviews 테이블에 없는 고객을 찾습니다.
+
+
+??? success "정답"
+    ```sql
+    SELECT name, grade
+    FROM customers
+    WHERE id NOT IN (SELECT customer_id FROM reviews)
+    ORDER BY
+        CASE grade
+            WHEN 'VIP' THEN 1
+            WHEN 'GOLD' THEN 2
+            WHEN 'SILVER' THEN 3
+            ELSE 4
+        END,
+        name
+    LIMIT 15;
+    ```
+
+
+    **실행 결과** (총 15행 중 상위 7행)
+
+    | name | grade |
+    |---|---|
+    | 강지은 | VIP |
+    | 고상현 | VIP |
+    | 권상훈 | VIP |
+    | 김상철 | VIP |
+    | 김상철 | VIP |
+    | 김상호 | VIP |
+    | 김상호 | VIP |
+
+
+---
+
+
+### 5. 위시리스트에 담긴 적이 있는 상품의 이름과 가격을 조회하세요. 가격 내림차순, 상위 10개.
+
+
+위시리스트에 담긴 적이 있는 상품의 이름과 가격을 조회하세요. 가격 내림차순, 상위 10개.
+
+
+**힌트 1:** `WHERE id IN (SELECT product_id FROM wishlists)` — 위시리스트에 한 번이라도 등록된 상품 ID를 구합니다.
+
+
+??? success "정답"
+    ```sql
+    SELECT name, price
+    FROM products
+    WHERE id IN (SELECT product_id FROM wishlists)
+    ORDER BY price DESC
+    LIMIT 10;
+    ```
+
+
+    **실행 결과** (총 10행 중 상위 7행)
+
+    | name | price |
+    |---|---|
+    | MacBook Air 15 M3 실버 | 5,481,100.00 |
+    | ASUS Dual RTX 5070 Ti [특별 한정판 에디션] 저소... | 4,496,700.00 |
+    | Razer Blade 18 블랙 | 4,353,100.00 |
+    | Razer Blade 16 실버 | 3,702,900.00 |
+    | ASUS ROG Strix G16CH 화이트 | 3,671,500.00 |
+    | ASUS ROG Strix GT35 | 3,296,800.00 |
+    | Razer Blade 18 블랙 | 2,987,500.00 |
+
+
+---
+
+
+### 6. 한 번도 주문되지 않은 상품의 이름과 재고를 조회하세요.
+
+
+한 번도 주문되지 않은 상품의 이름과 재고를 조회하세요.
+
+
+**힌트 1:** `WHERE id NOT IN (SELECT product_id FROM order_items)` — 주문 상세에 없는 상품을 필터링합니다.
+
+
+??? success "정답"
+    ```sql
+    SELECT name, stock_qty
+    FROM products
+    WHERE id NOT IN (SELECT product_id FROM order_items)
+    ORDER BY stock_qty DESC;
+    ```
+
+
+    **실행 결과** (1행)
+
+    | name | stock_qty |
+    |---|---|
+    | FK 테스트 | 10 |
+
+
+---
+
+
+### 7. 평균 주문 금액보다 큰 주문의 주문번호, 금액, 주문일을 조회하세요. 취소 제외. 금액 내림차순, 상위 10
+
+
+평균 주문 금액보다 큰 주문의 주문번호, 금액, 주문일을 조회하세요. 취소 제외. 금액 내림차순, 상위 10개.
+
+
+**힌트 1:** 서브쿼리에서도 취소 주문을 제외해야 공정한 비교가 됩니다.
+
+
+??? success "정답"
+    ```sql
+    SELECT order_number, total_amount, ordered_at
+    FROM orders
+    WHERE status NOT IN ('cancelled')
+      AND total_amount > (
+          SELECT AVG(total_amount)
+          FROM orders
+          WHERE status NOT IN ('cancelled')
+      )
+    ORDER BY total_amount DESC
+    LIMIT 10;
+    ```
+
+
+    **실행 결과** (총 10행 중 상위 7행)
+
+    | order_number | total_amount | ordered_at |
+    |---|---|---|
+    | ORD-20201121-08810 | 50,867,500.00 | 2020-11-21 12:04:42 |
+    | ORD-20250305-32265 | 46,820,024.00 | 2025-03-05 09:01:08 |
+    | ORD-20200209-05404 | 43,677,500.00 | 2020-02-09 23:36:36 |
+    | ORD-20251218-37240 | 38,626,400.00 | 2025-12-18 17:09:12 |
+    | ORD-20220106-15263 | 37,987,600.00 | 2022-01-06 17:24:14 |
+    | ORD-20200820-07684 | 37,518,200.00 | 2020-08-20 19:00:29 |
+    | ORD-20220224-15869 | 35,397,700.00 | 2022-02-24 23:01:50 |
+
+
+---
+
+
+### 8. 카테고리별 평균 가격을 구한 뒤, 자기 카테고리 평균보다 비싼 상품을 조회하세요. 상위 15개.
+
+
+카테고리별 평균 가격을 구한 뒤, 자기 카테고리 평균보다 비싼 상품을 조회하세요. 상위 15개.
+
+
+**힌트 1:** `FROM products AS p INNER JOIN (SELECT category_id, AVG(price) AS avg_price FROM products GROUP BY category_id) AS ca ON ...` — 인라인 뷰를 테이블처럼 JOIN합니다.
+
+
+??? success "정답"
+    ```sql
+    SELECT p.name, p.price, ca.avg_price
+    FROM products AS p
+    INNER JOIN (
+        SELECT category_id, ROUND(AVG(price), 2) AS avg_price
+        FROM products
+        GROUP BY category_id
+    ) AS ca ON p.category_id = ca.category_id
+    WHERE p.price > ca.avg_price
+    ORDER BY p.price DESC
+    LIMIT 15;
+    ```
+
+
+    **실행 결과** (총 15행 중 상위 7행)
+
+    | name | price | avg_price |
+    |---|---|---|
+    | ASUS TUF Gaming RTX 5080 화이트 | 4,526,600.00 | 2,406,500.00 |
+    | ASUS Dual RTX 5070 Ti [특별 한정판 에디션] 저소... | 4,496,700.00 | 2,406,500.00 |
+    | Razer Blade 18 블랙 | 4,353,100.00 | 2,684,477.78 |
+    | Razer Blade 16 실버 | 3,702,900.00 | 2,684,477.78 |
+    | ASUS ROG Strix G16CH 화이트 | 3,671,500.00 | 1,719,809.09 |
+    | ASUS ROG Zephyrus G16 | 3,429,900.00 | 2,684,477.78 |
+    | ASUS ROG Strix GT35 | 3,296,800.00 | 1,719,809.09 |
+
+
+---
+
+
+### 9. 각 고객의 주문 횟수를 SELECT 절 스칼라 서브쿼리로 구하세요. 주문 3회 이상인 고객만, 주문 횟수 내
+
+
+각 고객의 주문 횟수를 SELECT 절 스칼라 서브쿼리로 구하세요. 주문 3회 이상인 고객만, 주문 횟수 내림차순 15개.
+
+
+**힌트 1:** `SELECT name, (SELECT COUNT(*) FROM orders WHERE customer_id = c.id) AS order_count FROM customers AS c` — 외부 쿼리의 `c.id`를 서브쿼리에서 참조합니다.
+
+
+??? success "정답"
+    ```sql
+    SELECT
+        c.name,
+        c.grade,
+        (SELECT COUNT(*)
+         FROM orders
+         WHERE customer_id = c.id
+           AND status NOT IN ('cancelled')) AS order_count
+    FROM customers AS c
+    WHERE (SELECT COUNT(*)
+           FROM orders
+           WHERE customer_id = c.id
+             AND status NOT IN ('cancelled')) >= 3
+    ORDER BY order_count DESC
+    LIMIT 15;
+    ```
+
+
+    **실행 결과** (총 15행 중 상위 7행)
+
+    | name | grade | order_count |
+    |---|---|---|
+    | 김병철 | VIP | 352 |
+    | 박정수 | VIP | 312 |
+    | 이영자 | VIP | 290 |
+    | 강명자 | VIP | 250 |
+    | 김성민 | VIP | 236 |
+    | 정유진 | VIP | 226 |
+    | 이미정 | VIP | 225 |
+
+
+---
+
+
+### 10. 상관 서브쿼리로 각 상품의 최근 리뷰 날짜를 함께 조회하세요. 상위 15개.
+
+
+상관 서브쿼리로 각 상품의 최근 리뷰 날짜를 함께 조회하세요. 상위 15개.
+
+
+**힌트 1:** `(SELECT MAX(created_at) FROM reviews WHERE product_id = p.id)` — 외부 쿼리의 `p.id`를 참조하는 상관 서브쿼리입니다.
+
+
+??? success "정답"
+    ```sql
+    SELECT
+        p.name,
+        p.price,
+        (SELECT MAX(created_at)
+         FROM reviews
+         WHERE product_id = p.id) AS last_review_at
+    FROM products AS p
+    ORDER BY last_review_at DESC NULLS LAST
+    LIMIT 15;
+    ```
+
+
+    **실행 결과** (총 15행 중 상위 7행)
+
+    | name | price | last_review_at |
+    |---|---|---|
+    | Kingston FURY Beast DDR4 32GB 블랙 | 83,300.00 | 2026-01-19 09:22:49 |
+    | Super Flower Leadex VII XG 850W 화이트 | 71,200.00 | 2026-01-14 10:58:04 |
+    | 삼성 DDR4 16GB PC4-25600 | 83,400.00 | 2026-01-13 12:39:53 |
+    | Norton AntiVirus Plus 실버 | 74,800.00 | 2026-01-13 12:09:18 |
+    | Razer DeathAdder V4 Pro 화이트 | 52,500.00 | 2026-01-12 10:35:41 |
+    | 넷기어 GS308 실버 | 194,800.00 | 2026-01-11 21:02:15 |
+    | CORSAIR HX1200 실버 | 122,200.00 | 2026-01-11 15:23:03 |
+
+
+---
+
+
+### 11. 고객별 총 주문 금액을 FROM 서브쿼리로 구한 뒤, 상위 10명을 조회하세요.
+
+
+고객별 총 주문 금액을 FROM 서브쿼리로 구한 뒤, 상위 10명을 조회하세요.
+
+
+**힌트 1:** `FROM (SELECT customer_id, SUM(total_amount) AS total_spent FROM orders WHERE ... GROUP BY customer_id) AS os` — 파생 테이블을 별칭으로 사용합니다.
+
+
+??? success "정답"
+    ```sql
+    SELECT c.name, c.grade, os.total_spent
+    FROM customers AS c
+    INNER JOIN (
+        SELECT customer_id, ROUND(SUM(total_amount), 2) AS total_spent
+        FROM orders
+        WHERE status NOT IN ('cancelled')
+        GROUP BY customer_id
+    ) AS os ON c.id = os.customer_id
+    ORDER BY os.total_spent DESC
+    LIMIT 10;
+    ```
+
+
+    **실행 결과** (총 10행 중 상위 7행)
+
+    | name | grade | total_spent |
+    |---|---|---|
+    | 박정수 | VIP | 409,734,279.00 |
+    | 김병철 | VIP | 382,314,874.00 |
+    | 이미정 | VIP | 266,184,349.00 |
+    | 강명자 | VIP | 254,525,838.00 |
+    | 정유진 | VIP | 248,498,783.00 |
+    | 이영자 | VIP | 248,168,491.00 |
+    | 김성민 | VIP | 244,859,844.00 |
+
+
+---
+
+
+### 12. EXISTS를 사용하여 리뷰가 1건 이상 있는 상품만 조회하세요. 이름순, 상위 15개.
+
+
+EXISTS를 사용하여 리뷰가 1건 이상 있는 상품만 조회하세요. 이름순, 상위 15개.
+
+
+**힌트 1:** `WHERE EXISTS (SELECT 1 FROM reviews WHERE product_id = p.id)` — 서브쿼리가 한 행이라도 반환하면 TRUE입니다.
+
+
+??? success "정답"
+    ```sql
+    SELECT p.name, p.price
+    FROM products AS p
+    WHERE EXISTS (
+        SELECT 1
+        FROM reviews
+        WHERE product_id = p.id
+    )
+    ORDER BY p.name
+    LIMIT 15;
+    ```
+
+
+    **실행 결과** (총 15행 중 상위 7행)
+
+    | name | price |
+    |---|---|
+    | AMD Ryzen 9 9900X | 335,700.00 |
+    | AMD Ryzen 9 9900X | 591,800.00 |
+    | APC Back-UPS Pro Gaming BGM1500B 블랙 | 516,300.00 |
+    | ASRock B850M Pro RS 블랙 | 201,000.00 |
+    | ASRock B850M Pro RS 실버 | 665,600.00 |
+    | ASRock B850M Pro RS 화이트 | 419,600.00 |
+    | ASRock B860M Pro RS 실버 | 351,700.00 |
+
+
+---
+
+
+### 13. 위시리스트에 담았지만 한 번도 주문하지 않은 고객-상품 조합을 찾으세요. 최근 20개.
+
+
+위시리스트에 담았지만 한 번도 주문하지 않은 고객-상품 조합을 찾으세요. 최근 20개.
+
+
+**힌트 1:** `WHERE NOT EXISTS (SELECT 1 FROM order_items AS oi INNER JOIN orders AS o ON ... WHERE o.customer_id = w.customer_id AND oi.product_id = w.product_id)` — 두 조건을 동시에 확인하는 상관 서브쿼리입니다.
+
+
+??? success "정답"
+    ```sql
+    SELECT
+        c.name AS customer,
+        p.name AS product,
+        w.created_at AS wishlisted_at
+    FROM wishlists AS w
+    INNER JOIN customers AS c ON w.customer_id = c.id
+    INNER JOIN products AS p ON w.product_id = p.id
+    WHERE NOT EXISTS (
+        SELECT 1
+        FROM order_items AS oi
+        INNER JOIN orders AS o ON oi.order_id = o.id
+        WHERE o.customer_id = w.customer_id
+          AND oi.product_id = w.product_id
+          AND o.status NOT IN ('cancelled')
+    )
+    ORDER BY w.created_at DESC
+    LIMIT 20;
+    ```
+
+
+    **실행 결과** (총 20행 중 상위 7행)
+
+    | customer | product | wishlisted_at |
+    |---|---|---|
+    | 박성호 | 주연 리오나인 미니PC | 2025-12-30 19:11:10 |
+    | 김영숙 | 삼성 갤럭시북4 360 블랙 | 2025-12-30 17:42:08 |
+    | 백지후 | TP-Link TL-SG108 | 2025-12-30 11:47:20 |
+    | 이영수 | Seagate IronWolf 4TB 블랙 | 2025-12-30 10:41:18 |
+    | 이정순 | SK하이닉스 Platinum P41 2TB 블랙 | 2025-12-30 10:16:54 |
+    | 문하은 | TeamGroup T-Force Vulcan DDR5 32GB 52... | 2025-12-30 09:25:54 |
+    | 김현주 | APC Back-UPS Pro Gaming BGM1500B 블랙 | 2025-12-30 06:38:37 |
+
+
+---
+
+
+### 14. 각 카테고리에서 가장 비싼 상품의 이름과 가격을 구하세요.
+
+
+각 카테고리에서 가장 비싼 상품의 이름과 가격을 구하세요.
+
+
+**힌트 1:** `WHERE p.price = (SELECT MAX(price) FROM products WHERE category_id = p.category_id)` — 같은 카테고리 내 최대 가격을 상관 서브쿼리로 구합니다.
+
+
+??? success "정답"
+    ```sql
+    SELECT p.name, p.price, p.category_id
+    FROM products AS p
+    WHERE p.price = (
+        SELECT MAX(price)
+        FROM products
+        WHERE category_id = p.category_id
+    )
+    ORDER BY p.price DESC;
+    ```
+
+
+    **실행 결과** (총 41행 중 상위 7행)
+
+    | name | price | category_id |
+    |---|---|---|
+    | MacBook Air 15 M3 실버 | 5,481,100.00 | 9 |
+    | ASUS TUF Gaming RTX 5080 화이트 | 4,526,600.00 | 28 |
+    | Razer Blade 18 블랙 | 4,353,100.00 | 7 |
+    | ASUS ROG Strix G16CH 화이트 | 3,671,500.00 | 3 |
+    | ASUS ExpertBook B5 [특별 한정판 에디션] RGB 라... | 2,121,600.00 | 6 |
+    | MSI Radeon RX 9070 XT GAMING X | 1,896,000.00 | 29 |
+    | ASUS ROG Swift PG32UCDM 실버 | 1,890,300.00 | 12 |
+
+
+---
+
+
+### 15. VIP 고객이 주문한 상품 중 평점 4 이상인 상품의 이름을 구하세요. 상위 15개.
+
+
+VIP 고객이 주문한 상품 중 평점 4 이상인 상품의 이름을 구하세요. 상위 15개.
+
+
+**힌트 1:** 3단계 중첩 IN 서브쿼리: VIP 고객 → 주문 → 상품. 평점 조건도 별도 서브쿼리로 필터링합니다.
+
+
+??? success "정답"
+    ```sql
+    SELECT DISTINCT p.name, p.price
+    FROM products AS p
+    WHERE p.id IN (
+        SELECT oi.product_id
+        FROM order_items AS oi
+        WHERE oi.order_id IN (
+            SELECT o.id
+            FROM orders AS o
+            WHERE o.status NOT IN ('cancelled')
+              AND o.customer_id IN (
+                  SELECT id FROM customers WHERE grade = 'VIP'
+              )
+        )
+    )
+    AND p.id IN (
+        SELECT product_id
+        FROM reviews
+        GROUP BY product_id
+        HAVING AVG(rating) >= 4.0
+    )
+    ORDER BY p.price DESC
+    LIMIT 15;
+    ```
+
+
+    **실행 결과** (총 15행 중 상위 7행)
+
+    | name | price |
+    |---|---|
+    | ASUS TUF Gaming RTX 5080 화이트 | 4,526,600.00 |
+    | Razer Blade 18 블랙 | 4,353,100.00 |
+    | ASUS ROG Strix G16CH 화이트 | 3,671,500.00 |
+    | Razer Blade 18 화이트 | 2,483,600.00 |
+    | ASUS ROG Strix Scar 16 | 2,452,500.00 |
+    | ASUS ROG Strix G16CH 실버 | 1,879,100.00 |
+    | 주연 리오나인 i9 하이엔드 | 1,849,900.00 |
+
+
+---
+
+
+### 16. 전체 평균 주문 금액과 자신의 평균 주문 금액을 비교하여, 전체 평균보다 높은 고객을 찾으세요. 상위 15개
+
+
+전체 평균 주문 금액과 자신의 평균 주문 금액을 비교하여, 전체 평균보다 높은 고객을 찾으세요. 상위 15개.
+
+
+**힌트 1:** 파생 테이블에서 고객별 평균 주문 금액을 구한 뒤, `WHERE avg_amount > (SELECT AVG(total_amount) FROM orders ...)` 조건으로 필터링합니다.
+
+
+??? success "정답"
+    ```sql
+    SELECT
+        c.name,
+        c.grade,
+        ca.avg_amount,
+        ca.order_count
+    FROM customers AS c
+    INNER JOIN (
+        SELECT
+            customer_id,
+            ROUND(AVG(total_amount), 2) AS avg_amount,
+            COUNT(*) AS order_count
+        FROM orders
+        WHERE status NOT IN ('cancelled')
+        GROUP BY customer_id
+    ) AS ca ON c.id = ca.customer_id
+    WHERE ca.avg_amount > (
+        SELECT AVG(total_amount)
+        FROM orders
+        WHERE status NOT IN ('cancelled')
+    )
+    ORDER BY ca.avg_amount DESC
+    LIMIT 15;
+    ```
+
+
+    **실행 결과** (총 15행 중 상위 7행)
+
+    | name | grade | avg_amount | order_count |
+    |---|---|---|---|
+    | 성진우 | VIP | 16,177,700.00 | 2 |
+    | 오서윤 | VIP | 13,895,400.00 | 1 |
+    | 오현준 | BRONZE | 10,428,340.00 | 5 |
+    | 김영미 | VIP | 9,889,465.75 | 4 |
+    | 한미영 | BRONZE | 8,659,350.00 | 2 |
+    | 이광수 | VIP | 8,319,100.00 | 1 |
+    | 손정자 | BRONZE | 8,301,220.00 | 5 |
+
+
+---
+
+
+### 17. 상품별 판매 수량이 전체 상품 평균 판매 수량보다 많은 상품을 찾으세요. 상위 15개.
+
+
+상품별 판매 수량이 전체 상품 평균 판매 수량보다 많은 상품을 찾으세요. 상위 15개.
+
+
+**힌트 1:** 먼저 상품별 총 판매량을 파생 테이블로 구합니다. 그 다음 `WHERE total_qty > (SELECT AVG(total_qty) FROM (...))` 형태로 평균과 비교하세요.
+
+
+??? success "정답"
+    ```sql
+    SELECT
+        p.name,
+        ps.total_qty
+    FROM products AS p
+    INNER JOIN (
+        SELECT product_id, SUM(quantity) AS total_qty
+        FROM order_items
+        GROUP BY product_id
+    ) AS ps ON p.id = ps.product_id
+    WHERE ps.total_qty > (
+        SELECT AVG(total_qty)
+        FROM (
+            SELECT SUM(quantity) AS total_qty
+            FROM order_items
+            GROUP BY product_id
+        )
+    )
+    ORDER BY ps.total_qty DESC
+    LIMIT 15;
+    ```
+
+
+    **실행 결과** (총 15행 중 상위 7행)
+
+    | name | total_qty |
+    |---|---|
+    | Crucial T700 2TB 실버 | 1503 |
+    | AMD Ryzen 9 9900X | 1447 |
+    | SK하이닉스 Platinum P41 2TB 실버 | 1359 |
+    | 로지텍 G502 X PLUS | 1087 |
+    | Kingston FURY Beast DDR4 16GB 실버 | 1061 |
+    | SteelSeries Prime Wireless 블랙 | 1034 |
+    | SteelSeries Aerox 5 Wireless 실버 | 1030 |
+
+
+---
+
+
+### 18. 리뷰 평점이 해당 상품의 평균 평점보다 낮은 리뷰를 찾으세요. 최근 15개.
+
+
+리뷰 평점이 해당 상품의 평균 평점보다 낮은 리뷰를 찾으세요. 최근 15개.
+
+
+**힌트 1:** `WHERE r.rating < (SELECT AVG(rating) FROM reviews WHERE product_id = r.product_id)` — 각 리뷰에 대해 같은 상품의 평균 평점을 상관 서브쿼리로 구합니다.
+
+
+??? success "정답"
+    ```sql
+    SELECT
+        r.id,
+        p.name AS product,
+        r.rating,
+        ROUND((SELECT AVG(rating) FROM reviews WHERE product_id = r.product_id), 2) AS avg_rating,
+        r.title,
+        r.created_at
+    FROM reviews AS r
+    INNER JOIN products AS p ON r.product_id = p.id
+    WHERE r.rating < (
+        SELECT AVG(rating)
+        FROM reviews
+        WHERE product_id = r.product_id
+    )
+    ORDER BY r.created_at DESC
+    LIMIT 15;
+    ```
+
+
+    **실행 결과** (총 15행 중 상위 7행)
+
+    | id | product | rating | avg_rating | title | created_at |
+    |---|---|---|---|---|---|
+    | 8546 | Kingston FURY Beast DDR4 32GB 블랙 | 2 | 3.96 | 개선 필요 | 2026-01-19 09:22:49 |
+    | 8538 | CORSAIR HX1200 실버 | 2 | 3.68 | 실망입니다 | 2026-01-11 15:23:03 |
+    | 8525 | SK하이닉스 Platinum P41 1TB | 2 | 4.13 | 개선 필요 | 2026-01-10 09:56:48 |
+    | 8544 | 로지텍 G715 화이트 | 4 | 4.09 | 좋아요 | 2026-01-09 20:41:38 |
+    | 8501 | Microsoft Ergonomic Keyboard 화이트 | 1 | 3.75 | NULL | 2026-01-05 20:37:52 |
+    | 8476 | TP-Link TL-SG108 | 3 | 3.88 | 평범해요 | 2025-12-31 10:11:39 |
+    | 8480 | V3 Endpoint Security 블랙 | 3 | 3.92 | NULL | 2025-12-30 09:05:01 |
+
+
+---
+
+
+### 19. 서브쿼리 vs JOIN 비교: "리뷰를 작성한 고객" 목록을 두 가지 방법으로 작성하세요.
+
+
+서브쿼리 vs JOIN 비교: "리뷰를 작성한 고객" 목록을 두 가지 방법으로 작성하세요.
+
+
+**힌트 1:** (A) `WHERE id IN (SELECT customer_id FROM reviews)`, (B) `INNER JOIN reviews ON ...`에서 DISTINCT를 사용합니다. 두 쿼리의 결과는 동일하지만 실행 방식이 다릅니다.
+
+
+??? success "정답"
+    ```sql
+    -- (A) IN 서브쿼리 방식
+    SELECT name, email
+    FROM customers
+    WHERE id IN (SELECT customer_id FROM reviews)
+    ORDER BY name
+    LIMIT 10;
+    
+    -- (B) JOIN 방식 (DISTINCT 필요)
+    SELECT DISTINCT c.name, c.email
+    FROM customers AS c
+    INNER JOIN reviews AS r ON c.id = r.customer_id
+    ORDER BY c.name
+    LIMIT 10;
+    ```
+
+
+---
+
+
+### 20. 3개 이상의 카테고리에서 상품을 구매한 고객의 이름과 구매 카테고리 수를 구하세요. 상위 15개.
+
+
+3개 이상의 카테고리에서 상품을 구매한 고객의 이름과 구매 카테고리 수를 구하세요. 상위 15개.
+
+
+**힌트 1:** orders → order_items → products를 JOIN하여 고객별 DISTINCT category_id 수를 구합니다. 이 집계를 파생 테이블로 만든 뒤 customers와 JOIN하세요.
+
+
+??? success "정답"
+    ```sql
+    SELECT c.name, c.grade, cc.cat_count
+    FROM customers AS c
+    INNER JOIN (
+        SELECT
+            o.customer_id,
+            COUNT(DISTINCT p.category_id) AS cat_count
+        FROM orders AS o
+        INNER JOIN order_items AS oi ON o.id = oi.order_id
+        INNER JOIN products AS p ON oi.product_id = p.id
+        WHERE o.status NOT IN ('cancelled')
+        GROUP BY o.customer_id
+        HAVING COUNT(DISTINCT p.category_id) >= 3
+    ) AS cc ON c.id = cc.customer_id
+    ORDER BY cc.cat_count DESC, c.name
+    LIMIT 15;
+    ```
+
+
+    **실행 결과** (총 15행 중 상위 7행)
+
+    | name | grade | cat_count |
+    |---|---|---|
+    | 강명자 | VIP | 38 |
+    | 김성민 | VIP | 38 |
+    | 박은서 | VIP | 38 |
+    | 이윤서 | VIP | 38 |
+    | 정유진 | VIP | 38 |
+    | 권정식 | VIP | 37 |
+    | 김민재 | BRONZE | 37 |
+
+
+---
