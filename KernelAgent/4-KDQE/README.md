@@ -78,11 +78,12 @@ $ openkb init
 # 문서 추가 (자동 OKF 변환)
 $ openkb add docs/sales_report.pdf
 
-# 위키 컴파일 (OKF 형식으로 변환)
-$ openkb compile
-
 # 질의
 $ openkb query "VIP 고객 정의가 무엇인가요?"
+
+# 문서 수정 시 위키 다시 컴파일
+$ openkb recompile
+
 ```
 
 ---
@@ -263,8 +264,8 @@ openkb add docs/vip_policy.md
 openkb add docs/sales_metrics.pdf
 openkb add docs/customer_segments.docx
 
-# OKF 컴파일
-openkb compile
+# 소스 문서 수정 시 OKF 재컴파일
+openkb recompile
 ```
 
 ### 3. KDQE 확장 구현
