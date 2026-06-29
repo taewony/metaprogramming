@@ -8,16 +8,16 @@ OKF 기반 "Cognitive Compiler" 에서 "Cognitive Knowledge Operating System"까
 LLM 및 agent stack을 바꾸거나 교체해도 TDD 및 평가체계는 그대로 유지 가능해야 해.
 전문가인 당신이 이 작업을 신중하게 진행해줘. project 성패가 달려 있다고 생각해.
 ```
-이 평가 설계 문서는 단순한 테스트 목록이 아닙니다.  
-LLM·Agent Stack이 바뀌어도 절대 무너지지 않을 **"OKF Cognitive Compiler/CKOS의 정밀한 검증 계약서"**입니다.  
-이 평가체계가 곧 프로젝트의 명세(Spec)이며, 품질의 유일한 기준선입니다.
+
+평가 설계는 LLM·Agent Stack이 바뀌어도 절대 무너지지 않을 **"OKF Cognitive Compiler/CKOS의 정밀한 검증 계약서"**이며,
+이 평가체계가 곧 KnowledgeChef 프로젝트의 명세(Spec)이며, 품질의 유일한 기준선입니다.
 
 ---
 
-# 'OKF 기반 Cognitive Knowledge Operating System'을 위한 TDD 및 평가 체계 설계
+# 'OKF 기반 Cognitive Knowledge Operating System'을 위한 TDD 및 평가체계 설계
 
 **문서 상태**: DRAFT v1.0  
-**대상 시스템**: OKF Bundle, Cognitive Compiler, Knowledge VM, KnowledgeChef(CKOS)  
+**대상 시스템**: OKF Bundle, Cognitive Compiler, Knowledge VM, KnowledgeChef  
 **원칙**: 평가는 LLM/AI 스택에 종속되지 않으며, **오직 입력과 출력의 규약(Contract)만 검증**한다.
 
 ---
@@ -366,23 +366,6 @@ DBMS TDD의 완성도와 쿼리 품질을 평가하기 위해 다음과 같은 �
 * 구체적인 관계대수 연산 예시 코드(예: MyBatis나 JPA 환경에서의 조인 쿼리 TDD 패턴)가 필요하신가요?
 * 혹은 학술적 연구 목적의 소프트웨어 공학 평가 방법론을 찾고 계시는가요? [8, 10, 14] 
 
-요구사항에 맞추어 맞춤형 심층 자료를 제공해 드리겠습니다.
-
-[1] [https://inpa.tistory.com](https://inpa.tistory.com/entry/DB-%F0%9F%93%9A-%EA%B4%80%EA%B3%84-%EB%8C%80%EC%88%98-%EA%B4%80%EA%B3%84-%ED%95%B4%EC%84%9D-SQL-%F0%9F%95%B5%EF%B8%8F-%EC%A0%95%EB%A6%AC)
-[2] [https://rud0503.tistory.com](https://rud0503.tistory.com/136)
-[3] [https://sugyoiii.tistory.com](https://sugyoiii.tistory.com/54)
-[4] [https://m.blog.naver.com](https://m.blog.naver.com/wisestone2007/220952351460)
-[5] [https://dev-with-precious-dreams.tistory.com](https://dev-with-precious-dreams.tistory.com/250)
-[6] [https://mangkyu.tistory.com](https://mangkyu.tistory.com/142)
-[7] [https://beyond-common-sense.tistory.com](https://beyond-common-sense.tistory.com/13)
-[8] [https://velog.io](https://velog.io/@anjinwoong/ML-TDD%EC%99%80-BDD-%EA%B0%9C%EC%9A%94-%ED%99%95%EB%A5%A0%EC%A0%81-%EC%86%8D%EC%84%B1-%EB%AC%B8%EC%A0%9C-ML-%EC%97%90-TDD-%EC%A0%81%EC%9A%A9%ED%95%98%EA%B8%B0)
-[9] [https://mainichibenkyo.tistory.com](https://mainichibenkyo.tistory.com/158)
-[10] [https://devlog-rueun.tistory.com](https://devlog-rueun.tistory.com/entry/TDD-%ED%85%8C%EC%8A%A4%ED%8A%B8-%EB%B2%94%EC%9C%84%EC%99%80-%EC%A2%85%EB%A5%98)
-[11] [https://m.blog.naver.com](https://m.blog.naver.com/wisestone2007/220952351460)
-[12] [https://mslim8803.tistory.com](https://mslim8803.tistory.com/61)
-[13] [https://sehun-kim.github.io](https://sehun-kim.github.io/sehun/tdd/)
-[14] [https://www.instagram.com](https://www.instagram.com/p/DQn2WOukrL5/)
-
 Google이 발표한 Open Knowledge Format (OKF)은 AI 에이전트와 사람 간의 지식 상호운용성을 위해 설계된 "Just Markdown, Just Files, Just YAML Frontmatter" 기반의 개방형 표준 명세입니다. [1, 2] 
 OKF 환경에서 Producer는 원시 데이터(DB 스키마, 문서, 코드 등)를 파싱하여 OKF 명세(YAML+Markdown)에 맞는 파일(Concept)로 생성하는 역할을 하며, Consumer는 이 파일들을 파싱·통합하여 지식 그래프를 구성하거나 LLM 컨텍스트로 소비합니다. [2, 3, 4] 
 이 가이드는 두 주체(Producer/Consumer) 간에 발생하는 지식 조작 행위를 관계대수(Relational Algebra) 연산 규칙으로 추상화하고, 이를 TDD(Test-Driven Development) 방식으로 구현·검증할 수 있는 체계적인 아키텍처적 절차를 제공합니다. [5, 6] 
@@ -529,5 +512,3 @@ user_table.md 본문 안에 [Order 데이터](concepts/order_table.md)와 같은
 1. **데이터셋 통제:** 방대한 데이터를 넣기보다, 계층 구조(연도 > 분기 > 부서)가 명확하고 파일 간 상호 참조가 있는 정제된 마크다운 데이터셋 100~200개 규모를 직접 구축하여 실험을 통제하십시오.
 2. **명세(Spec)의 규격화:** 보고서 템플릿(`quarterly_form.md`)의 구멍(Placeholder)을 단순히 빈칸으로 두지 말고, `{{ target: finance/budget, action: sum }}` 처럼 에이전트가 파싱하기 쉬운 명시적인 스키마로 설계하면 컴파일러라는 은유에 훨씬 잘 부합합니다.
 3. **로그 기록 (Tracer):** 에이전트가 어떤 `index.md`를 열어보고 어떤 가지를 쳐냈는지(Pruning) 경로를 시각화할 수 있는 로그 트레이서를 구현하십시오. 이 트리 탐색 시각화 자료는 논문의 핵심 피규어(Figure)가 됩니다.
-
-이러한 Cognitive Compiler 아키텍처를 검증하기 위한 실증 프로젝트의 타겟 데이터셋으로 학사/행정 데이터와 연구실 R&D 로그 중 어느 쪽에 더 중점을 두고 구축할 계획이신가요?

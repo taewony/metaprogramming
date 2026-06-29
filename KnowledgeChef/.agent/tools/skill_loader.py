@@ -11,7 +11,7 @@ def load_manifest():
     if not os.path.exists(MANIFEST):
         return []
     out = []
-    for line in open(MANIFEST):
+    for line in open(MANIFEST, encoding="utf-8"):
         line = line.strip()
         if not line:
             continue
@@ -62,10 +62,10 @@ def load_skill_full(name):
     skill_md = os.path.join(base, "SKILL.md")
     if not os.path.exists(skill_md):
         return None
-    content = open(skill_md).read()
+    content = open(skill_md, encoding="utf-8").read()
     knowledge = os.path.join(base, "KNOWLEDGE.md")
     if os.path.exists(knowledge):
-        content += "\n\n---\n## Accumulated knowledge\n" + open(knowledge).read()
+        content += "\n\n---\n## Accumulated knowledge\n" + open(knowledge, encoding="utf-8").read()
     return content
 
 

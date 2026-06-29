@@ -1,8 +1,10 @@
-Google이 제안한 Open Knowledge Format (OKF)은 AI 에이전트가 데이터베이스 구축(SDK), 복잡한 API 엔드포인트 관리, 벤더 종속 없이 "그저 마크다운 파일과 YAML 프론트매터"만으로 지식을 읽고 쓸 수 있게 만든 개방형 표준 규격입니다. [1, 2] 
-agentic-stack의 비동기 협업 루틴(.agent/brain) 위에 Google OKF 기반의 세계 모델(World-model)을 구축하고, 새로운 보고서 생성 및 신규 기능이 추가된 SW를 개발하기 위한 단계별 아키텍처 접근 방법을 가이드해 드립니다.
+- Google이 제안한 Open Knowledge Format (OKF)은 AI 에이전트가 데이터베이스 구축(SDK), 복잡한 API 엔드포인트 관리, 벤더 종속 없이 "그저 마크다운 파일과 YAML 프론트매터"만으로 지식을 읽고 쓸 수 있게 만든 개방형 표준 규격입니다.
+- agentic-stack의 비동기 협업 루틴(.agent/brain) 위에 Google OKF 기반의 세계 모델(World-model)을 구축하고, 새로운 보고서 생성 및 신규 기능이 추가된 SW를 개발하기 위한 단계별 아키텍처 접근 방법을 가이드해 드립니다.
+
 ------------------------------
+
 ## 1단계. .agent/brain 내부에 OKF 표준 구조 설계하기
-OKF는 복잡한 데이터베이스 대신 파일 시스템 그 자체를 API로 사용합니다. .agent/brain/ 하위에 지식의 최소 단위인 개념(Concept) 문서들을 아래 규격에 맞추어 배치합니다. [1, 3, 4] 
+OKF는 복잡한 데이터베이스 대신 파일 시스템 그 자체를 API로 사용합니다. .agent/brain/ 하위에 지식의 최소 단위인 개념(Concept) 문서들을 아래 규격에 맞추어 배치합니다.
 
 * 디렉토리 구조 표준화
 
@@ -15,18 +17,25 @@ OKF는 복잡한 데이터베이스 대신 파일 시스템 그 자체를 API로
 
 * OKF 개념 문서 예시 (rules/new-feature.md)
 
----type: Playbooktitle: "신규 결제 기능 트랜잭션 처리 규정"description: "새로 추가된 포인트 결제 모듈의 원자성(Atomicity) 보장 정책"resource: "git://://github.com"tags: [sw-architecture, payment, fault-tolerance]timestamp: 2026-06-28T19:50:00Z
----# Schema
+---
+type: Playbook
+title: "신규 결제 기능 트랜잭션 처리 규정"
+description: "새로 추가된 포인트 결제 모듈의 원자성(Atomicity) 보장 정책"
+resource: "git://://github.com"
+tags: [sw-architecture, payment, fault-tolerance]
+timestamp: 2026-06-28T19:50:00Z
+---
+# Schema
 - `point_balance`: 사용자 잔여 포인트
 - `order_id`: 고유 주문 번호
 # Examples
-```python# 에이전트가 코드를 작성할 때 참고할 실제 코드 블록 가이드라인
+```python
+# 에이전트가 코드를 작성할 때 참고할 실제 코드 블록 가이드라인
 if balance >= total_price:
     deduct_points(user_id, total_price)
-
+```
 ## Citations
 * 금융보안 표준 가이드라인 v3.2
-
 
 ------------------------------
 ## 2단계. agentic-stack을 활용한 파이프라인 엔진 구현 (Core)
@@ -59,13 +68,7 @@ agentic-stack의 Kinds 소통 규약을 통해 OKF 지식층을 다루는 특화
 이 아키텍처는 "코드로 표현된 메타데이터(Metadata-as-Code)" 환경을 지향합니다. 벤더 데이터베이스나 복잡한 지식 그래프 인프라를 설치하는 데 시간을 쓰지 마시고, 다음 단계를 먼저 시작해 보세요. [7] 
 현재 개발 중이거나 계획 중인 1) 신규 SW 기능의 도메인(예: 금융, 커머스, 인프라 관리 등)이나 2) 자동화가 필요한 보고서의 대략적인 양식을 알려주시면, 이를 Google OKF 명세서(YAML 프론트매터 표준 양식)와 agentic-stack 코드로 구현한 실제 목업(Mock-up) 프로토타입 소스 코드를 작성해 드리겠습니다. 구체적인 대상 도메인은 무엇인가요?
 
-[1] [https://discuss.pytorch.kr](https://discuss.pytorch.kr/t/open-knowledge-format-okf-google-ai-feat-llm-wiki/10701)
-[2] [https://www.youtube.com](https://www.youtube.com/watch?v=14C0E6pwBIQ)
-[3] [https://cloud.google.com](https://cloud.google.com/blog/products/data-analytics/how-the-open-knowledge-format-can-improve-data-sharing)
-[4] [https://flowtivity.ai](https://flowtivity.ai/blog/google-open-knowledge-format/)
-[5] [https://flowtivity.ai](https://flowtivity.ai/blog/google-open-knowledge-format/)
-[6] [https://cloud.google.com](https://cloud.google.com/blog/products/data-analytics/how-the-open-knowledge-format-can-improve-data-sharing)
-[7] [https://cut-the-saas.com](https://cut-the-saas.com/guides/open-knowledge-format)
+---
 
 질문하신 시스템 구성(agentic-stack + Google OKF)에 오픈소스 프로젝트인 OpenKB(VectifyAI/OpenKB)를 결합하는 것은 매우 강력하고 실현 가능한 접근법입니다.
 실제로 OpenKB는 Google OKF 스펙을 네이티브로 준수하며, 벡터 DB 없이 마크다운 위키 파일 시스템을 빌드하는 구조를 정확히 구현하고 있기 때문입니다.
@@ -113,22 +116,7 @@ OpenKB를 도입하기로 검토하셨다면, 인프라를 거대하게 만들�
    2. 개발하고자 하는 신규 SW 기능의 초안 문서나 원하는 보고서 양식의 샘플 PDF를 openkb add로 주입해 봅니다.
    3. 생성되는 .agent/brain/wiki 내부의 OKF 포맷 마크다운 파일들이 마음에 드는지 확인합니다.
 
-이 단계에서 테스트해 볼 샘플 보고서의 핵심 주제나 양식(예: "주간 아키텍처 변경점 보고서", "신규 API 명세 요약" 등)을 알려주시면, OpenKB가 읽을 수 있는 최적의 초기 데이터 입력 규칙(AGENTS.md 커스텀 가이드)을 설계해 드릴 수 있습니다. 어떤 주제로 첫 테스트를 시작해 볼까요?
-
-
-- 켄텍스트 엔지니어링으로 완성하는 AI 에이전트
-https://github.com/riskology/contextengineeringbook
-
-- 밑바닥부터 배우는 AI 에인전트
-https://github.com/gilbutITbook/080476
-
-- 올라마와 오픈소스 LLM을 활용한 AI 에이전트 개발 입문
-https://github.com/godstale/ollama-mcp-tutorials
-
-[구글 ADK] 에이전트 AI 시스템의 설계 패턴 선택
-https://docs.cloud.google.com/architecture/choose-design-pattern-agentic-ai-system?hl=ko
-
-
+---
 
  Claude Code, OpenAI Codex, 또는 Gemini CLI와 같은 개인용 범용 코딩 에이전트(Coding Agent)를 활용하면, 복잡한 백엔드 서버나 UI 개발 없이 오직 터미널과 로컬 마크다운 파일만으로 대학 프로젝트 지식베이스의 컴파일 및 증식 실험을 초고속(수 시간 내)으로 완료할 수 있습니다.
 코딩 에이전트를 개발자(실험자)의 '수석 엔지니어'로 삼아 파이프라인을 빠르게 구축하고 실험하는 구체적인 행동 가이드를 제시합니다.
@@ -136,7 +124,11 @@ https://docs.cloud.google.com/architecture/choose-design-pattern-agentic-ai-syst
 ## 1단계. 코딩 에이전트용 '행동 지침서(SKILL.md)' 작성
 코딩 에이전트(예: Claude Code)에게 프로젝트 디렉토리의 전체 구조와 작동 규칙을 이해시켜야 합니다. 프로젝트 루트에 .agents/skills/academic_vault/SKILL.md 파일을 만들고 아래 내용을 입력합니다.
 
-# Academic Project Vault Skill## 역할너는 대학 AI/SW 프로젝트 자산을 관리하고 기업 수요와 매칭하는 수석 아키텍트 에이전트이다.
+# Academic Project Vault Skill
+
+## 역할
+너는 대학 AI/SW 프로젝트 자산을 관리하고 기업 수요와 매칭하는 수석 아키텍트 에이전트이다.
+
 ## 핵심 규칙1. 모든 지식은 구글 OKF(Open Knowledge Format) 규격을 따르며, 마크다운 프론트매터(YAML)를 포함해야 한다.
 2. 에이전틱 스택 통신을 위해 모든 작업 시작 전 `claims.jsonl`에 `kind: claim`을 기록하고, 종료 시 `kind: release`를 기록한다.
 3. 4KB를 초과하는 대형 분석 보고서는 반드시 `.agent/brain/artifacts/` 폴더에 파일로 저장하고 메시지에는 경로만 남긴다.
@@ -447,10 +439,5 @@ agentic-stack 내부에서 에이전트가 이 문서를 다룰 때의 워크플
 
    1. 파일 해시(Hash) 기록: Archivist Agent가 artifacts/ 폴더에 증빙 문서를 처음 업로드할 때, 파일의 SHA-256 해시값을 추출하여 OKF 프론트매터에 기록합니다(file_hash: "a1b2c3d4...").
    2. 감사(Audit) 자동화: Lint Agent가 주기적으로 작동하며 로컬 파일의 실제 해시값을 측정하고, 마크다운에 적힌 해시값과 대조합니다. 누군가 증빙 이미지를 위조하거나 교체했다면 불일치를 감지하고 즉시 전체 시스템에 경고(kind: notice)를 방송하여 데이터 무결성을 보호합니다.
-
-------------------------------
-## 🚀 다음 행동을 위한 제안 (Proactive Proposal)
-개인용 코딩 에이전트(Claude Code 등)와 이 멀티모달 증빙 구조를 검증할 때, 가장 먼저 테스트해야 할 것은 "PDF/이미지 원본이 들어왔을 때 이를 artifacts로 격리하고 마크다운에 상대 경로와 텍스트 요약본을 자동으로 심어주는 흡수(Ingestion) 스크립트"입니다.
-이 실험을 위해 실제 테스트해보고 싶으신 증빙자료 포맷(예: "경진대회 제출 PPT 스캔본 PDF" 또는 "시스템 아키텍처 캡처 이미지")을 알려주시면, 코딩 에이전트에게 바로 입력해 구동할 수 있는 "멀티모달 증빙자료 파싱 및 OKF 자동 링킹 파이썬 자동화 스크립트" 코드를 전달해 드리겠습니다. 어떤 종류의 증빙자료로 첫 테스트를 열어볼까요?
 
 

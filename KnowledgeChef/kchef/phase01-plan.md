@@ -20,7 +20,7 @@ Phase-01의 목표는 Codex CLI를 설치하고, `.agent` 폴더를 연결한 �
 
 #### 2. `agentic-stack`을 프로젝트에 설치 (`.agent` 폴더 생성)
 
-`agentic-stack` 저장소를 클론한 후, PowerShell용 설치 스크립트(`install.ps1`)를 사용하여 `codex` 어댑터를 프로젝트(`4-KDQE`)에 설치합니다.
+`agentic-stack` 저장소를 클론한 후, PowerShell용 설치 스크립트(`install.ps1`)를 사용하여 `codex` 어댑터를 프로젝트 root에 설치합니다.
 
 ```powershell
 # 1. agentic-stack 저장소 클론
@@ -30,10 +30,10 @@ git clone https://github.com/codejunkie99/agentic-stack.git
 cd agentic-stack
 
 # 3. PowerShell 설치 스크립트 실행 (codex 어댑터 + 프로젝트 경로 지정)
-.\install.ps1 codex D:\code\metaprogramming\KernelAgent\4-KDQE
+.\install.ps1 codex D:\code\metaprogramming\KnowledgeChef
 ```
 
-이 명령어를 실행하면 프로젝트 루트(`4-KDQE`)에 `.agent/` 폴더가 생성되고, Codex가 이를 인식할 수 있도록 심볼릭 링크 등이 자동으로 설정됩니다. (만약 `.\install.ps1` 실행이 안 된다면, 관리자 권한으로 PowerShell을 실행해 보세요).
+이 명령어를 실행하면 KnowledgeChef 프로젝트 루트에 `.agent/` 폴더가 생성되고, Codex가 이를 인식할 수 있도록 심볼릭 링크 등이 자동으로 설정됩니다. (만약 `.\install.ps1` 실행이 안 된다면, 관리자 권한으로 PowerShell을 실행해 보세요).
 
 #### 3. `.agent` 폴더 구조 및 Data Layer 스킬 확인
 
@@ -85,7 +85,7 @@ cd agentic-stack
 이제 Codex CLI를 실행하여 Data Layer 스킬이 정상 작동하는지 확인합니다.
 
 ```powershell
-# 프로젝트 루트(4-KDQE)에서 Codex CLI 실행
+# 프로젝트 루트(KnowledgeChef)에서 Codex CLI 실행
 codex
 ```
 
@@ -103,12 +103,12 @@ Codex가 실행되면, 아래와 같은 방식으로 Data Layer 스킬을 호출
 
 #### 5. Data Layer 대시보드 생성 확인
 
-스킬 호출이 성공하면, 프로젝트 루트에 Data Layer 산출물이 생성됩니다.
+스킬 호출이 성공하면, 프로젝트 .agent에 Data Layer 산출물이 생성됩니다.
 
 *   **생성 파일 예시**:
     *   `dashboard.html`: 여러 에이전트의 활동, 비용, KPI를 한눈에 볼 수 있는 웹 대시보드.
     *   `daily-report.md`: 일일 요약 보고서.
-*   **확인 방법**: `dashboard.html` 파일을 브라우저로 열어 시각화된 데이터를 확인합니다.
+*   **확인 방법**: KnowledgeChef\.agent\data-layer\export `dashboard.html` 파일을 브라우저로 열어 시각화된 데이터를 확인합니다.
 
 ```
 • The reflection log was written. I’m doing one last memory-note update so the workspace state matches the completed
@@ -146,42 +146,5 @@ Codex가 실행되면, 아래와 같은 방식으로 Data Layer 스킬을 호출
 - [ ] **Codex 실행** (`codex`)
 - [ ] **Data Layer 스킬 호출** (`$data-layer "Generate dashboard"`)
 - [ ] **산출물 확인** (`dashboard.html`, `daily-report.md` 생성 여부)
-- [ ] (선택) **Data Flywheel 스킬** 호출 및 시험
 
-이 단계를 따라 진행하시면 Codex CLI 환경에서 `.agent` 기반의 Data Layer를 성공적으로 시험할 수 있을 것입니다. 각 단계에서 막히는 부분이 있으면 언제든지 질문해 주세요.
-
----
-
-### ❓ `kdqe Skill`이 무엇인가요?
-
-**`kdqe` Skill은 여러분이 지금 만들고 있는 커스텀 스킬입니다.** `agentic-stack` 자체에 포함된 기본 스킬이 아닙니다.
-
-`agentic-stack`은 `data-layer`나 `data-flywheel` 같은 **시드(seed) 스킬**들을 제공합니다. 이는 에이전트 활동을 모니터링하거나, 실행 기록을 재사용 가능한 형태로 가공하는 등의 기능을 합니다.
-
-여기서 **`kdqe` Skill은 여러분의 KDQE 프로젝트에 특화된 맞춤형 스킬**로, `.agent/skills/kdqe/` 디렉토리에 `SKILL.md` 파일을 만들어 정의하게 됩니다. 이 스킬의 목적은 에이전트(Codex 등)가 **KDQE의 핵심 기능을 활용할 수 있도록 안내하는 것**입니다.
-
-### 📊 그렇다면 `.agent` 안의 `data layer`는 무엇인가요?
-
-`.agent`가 포함하는 **Data Layer**는 **에이전트의 활동을 한눈에 모니터링하는 로컬 데이터 대시보드**입니다.
-
-*   **목적**: 여러 에이전트(Claude Code, Codex, Cursor 등)의 활동, 실행 로그, 토큰 사용량, 비용 추정치, KPI 요약 등을 하나의 대시보드에서 통합하여 보여줍니다.
-*   **기능**: `data-layer` 시드 스킬을 통해 `dashboard.html`이나 `daily-report.md` 같은 보고서를 생성할 수 있습니다.
-*   **성격**: 이 데이터는 모두 **로컬(Local-only)** 에 저장되며, 별도의 외부 서버로 전송되지 않습니다.
-
-### 🎯 정리: 여러분이 하려는 것과의 관계
-
-1.  **Data Layer**는 `agentic-stack`이 제공하는 **모니터링 도구**입니다. Codex와 같은 에이전트가 `.agent`를 통해 작업한 내역을 추적하고 분석하는 데 사용됩니다.
-2.  **`kdqe` Skill**은 여러분이 **직접 만드는 맞춤형 스킬**입니다. 이 스킬은 에이전트에게 "KDQE 프로젝트의 데이터를 조회하려면 `scripts/data_layer_query.py`를 실행해라"와 같은 구체적인 지침을 제공합니다.
-
-따라서, Phase-01의 목표는 `data-layer`가 생성하는 **실행 로그를 조회하는 기능**이 아니라, `kdqe` Skill을 통해 **KDQE의 데이터 조회 기능을 에이전트가 사용할 수 있도록 연결**하는 것입니다.
-
-이해를 돕기 위해 정리된 표를 첨부합니다.
-
-| 항목 | `kdqe` Skill (여러분이 만드는 것) | `data-layer` (agentic-stack 제공) |
-| :--- | :--- | :--- |
-| **정의** | KDQE 프로젝트를 위한 **맞춤형 지침 스킬** | 에이전트 **활동을 모니터링하는 로컬 데이터 레이어** |
-| **역할** | 에이전트(Codex 등)에게 KDQE 데이터 조회 방법을 안내 | 여러 에이전트의 실행 로그, 비용, KPI 등을 통합 대시보드로 제공 |
-| **생성 위치** | `.agent/skills/kdqe/SKILL.md` (직접 생성) | `agentic-stack` 설치 시 `.agent/`에 포함됨 |
-| **사용 방법** | Codex에서 `$kdqe` 명령어로 호출 | `data-layer` 시드 스킬을 통해 대시보드 생성 |
-
-이제 좀 더 명확해지셨을까요? 혹시 다른 궁금한 점이 있으시면 또 질문해 주세요.
+이 단계를 따라 진행하시면 Codex CLI 환경에서 `.agent` 기반의 Data Layer를 성공적으로 시험할 수 있을 것입니다.

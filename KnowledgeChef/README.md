@@ -1,12 +1,12 @@
-# KDQE (Knowledge and Data Query Engine)
+# KChef (Knowledge and Data Query Engine)
 
 > A Cognive Knowledge Operating System(CKOS) for Structured Data, Documents, and Agentic Semantic Query Execution
 
-KDQE는 **OpenKB**를 핵심 지식 엔진으로 활용하여 사용자의 자연어 질문을 해석하고, OKF(Open Knowledge Format) 기반의 지식 카탈로그와 SQLite 데이터베이스를 통합적으로 조회하는 시스템입니다.
+KChef는 **OpenKB**를 핵심 지식 엔진으로 활용하여 사용자의 자연어 질문을 해석하고, OKF(Open Knowledge Format) 기반의 지식 카탈로그와 SQLite 데이터베이스를 통합적으로 조회하는 시스템입니다.
 
 ---
 
-## Why KDQE?
+## Why KChef?
 
 대부분의 AI 시스템은 다음 두 가지 중 하나에 속합니다:
 
@@ -25,7 +25,7 @@ customers.total_purchase > 1000000
 
 **누락된 계층은 의미(Semantics)입니다.**
 
-KDQE는 OKF(Open Knowledge Format)와 OpenKB를 기반으로 한 **의미 계층(Semantic Layer)** 을 도입하여 이 문제를 해결합니다.
+KChef는 OKF(Open Knowledge Format)와 OpenKB를 기반으로 한 **의미 계층(Semantic Layer)** 을 도입하여 이 문제를 해결합니다.
 
 ```
 User Question
@@ -191,7 +191,7 @@ flowchart TD
         INDEX["PageIndex"]
     end
 
-    subgraph KDQE_Extension
+    subgraph KChef_Extension
         PLAN["Query Planner (확장)"]
         SQL["SQL Agent"]
         RAG["RAG Agent"]
@@ -244,7 +244,7 @@ sequenceDiagram
 
 ---
 
-## Implementation Guide: OpenKB + KDQE 확장
+## Implementation Guide: OpenKB + KChef 확장
 
 ### 1. OpenKB 설치 및 초기화
 
@@ -268,17 +268,17 @@ openkb add docs/customer_segments.docx
 openkb recompile
 ```
 
-### 3. KDQE 확장 구현
+### 3. KChef 확장 구현
 
 ```python
-# kdqe_engine.py
+# kchef_engine.py
 
 import subprocess
 import sqlite3
 import json
 from typing import Dict, Any
 
-class KDQEEngine:
+class KChefEngine:
     def __init__(self, db_path: str, wiki_path: str = "./wiki"):
         self.db_path = db_path
         self.wiki_path = wiki_path
@@ -331,8 +331,8 @@ class KDQEEngine:
 ### 4. CLI 인터페이스
 
 ```bash
-# KDQE CLI 명령어
-$ kdqe query "VIP 고객의 최근 3개월 평균 구매액은?"
+# kchef CLI 명령어
+$ kchef query "VIP 고객의 최근 3개월 평균 구매액은?"
 
 출력:
 📊 질의 결과:
@@ -348,18 +348,18 @@ $ kdqe query "VIP 고객의 최근 3개월 평균 구매액은?"
 ## Repository Structure
 
 ```
-kdqe/
+KnowledgeChef/
 ├── README.md
 ├── requirements.txt
 ├── setup.py
-├── kdqe/
+├── KChef/
 │   ├── __init__.py
-│   ├── engine.py          # KDQE 메인 엔진
+│   ├── engine.py          # KChef 메인 엔진
 │   ├── planner.py         # Query Planner
 │   ├── sql_agent.py       # SQL 생성/실행
 │   ├── synthesizer.py     # 응답 합성
 │   └── openkb_wrapper.py  # OpenKB API 래퍼
-├── wiki/                  # OpenKB OKF 위키
+├── brain/                  # OpenKB OKF 위키
 │   ├── index.md
 │   ├── concepts/
 │   ├── entities/
@@ -449,14 +449,14 @@ def generate_sql(question: str, okf_context: str) -> str:
 
 ---
 
-# KDQE (Knowledge and Data Query Engine) — OKF 기반 구현 프로젝트 정의 문서
+# KChef (Knowledge and Data Query Engine) — OKF 기반 구현 프로젝트 정의 문서
 
 
 ## 1. 프로젝트 개요
 
 ### 1.1 비전
 
-KDQE는 사용자의 자연어 질문을 해석하여 정형 데이터베이스(SQLite), 비정형 문서(RAG), 비즈니스 규칙, 지식 카탈로그를 통합적으로 조회하고, Agent 기반 Query Planning 과정을 통해 최종 답변을 생성하는 **Semantic Knowledge Operating System**이다.
+KChef는 사용자의 자연어 질문을 해석하여 정형 데이터베이스(SQLite), 비정형 문서(RAG), 비즈니스 규칙, 지식 카탈로그를 통합적으로 조회하고, Agent 기반 Query Planning 과정을 통해 최종 답변을 생성하는 **Cognitive Knowledge Operating System**이다.
 
 기존 Text-to-SQL 및 RAG 시스템이 '비즈니스 의미'를 이해하지 못하는 문제를 해결하기 위해, OKF(Open Knowledge Format)를 의미 계층(Semantic Layer)으로 도입한다.
 
@@ -474,7 +474,7 @@ KDQE는 사용자의 자연어 질문을 해석하여 정형 데이터베이스(
 
 ### 2.1 OKF 번들 구조
 
-OKF는 마크다운 파일과 YAML Frontmatter로 구성된 디렉토리 기반 포맷이다.KDQE는 다음과 같은 OKF 번들 구조를 채택한다:
+OKF는 마크다운 파일과 YAML Frontmatter로 구성된 디렉토리 기반 포맷이다.KChef는 다음과 같은 OKF 번들 구조를 채택한다:
 
 ```
 knowledge/
@@ -569,7 +569,7 @@ tags: [sales, kpi]
 
 ### 2.3 OKF Consumer (번들 로더)
 
-OKF는 별도의 SDK 없이 표준 라이브러리로 파싱 가능하다.KDQE는 다음 함수로 번들을 로드한다:
+OKF는 별도의 SDK 없이 표준 라이브러리로 파싱 가능하다. KChef는 다음 함수로 번들을 로드한다:
 
 ```python
 import pathlib, re, yaml
@@ -696,7 +696,7 @@ sequenceDiagram
 
 ### 3.3 Hermes OKF 연동 구조
 
-`hermes-okf`를 KDQE의 **세션 메모리 및 의사결정 기록 레이어**로 활용:
+`hermes-okf`를 KChef의 **세션 메모리 및 의사결정 기록 레이어**로 활용:
 
 | 레이어 | 역할 | OKF 연동 방식 |
 |--------|------|---------------|
@@ -818,7 +818,7 @@ plan:
 | Task | 설명 | 산출물 |
 |------|------|--------|
 | 4.1 | Web Dashboard | Streamlit/Gradio 기반 UI |
-| 4.2 | CLI 도구 | `kdqe query "..."` 명령어 |
+| 4.2 | CLI 도구 | `kchef query "..."` 명령어 |
 | 4.3 | 평가 프레임워크 | Exact Match, Execution Accuracy, Latency |
 | 4.4 | OKF 번들 자동 업데이트 | 에이전트 피드백 기반 지식 진화 |
 
@@ -839,7 +839,7 @@ plan:
 
 ## 7. OKF와 기존 접근법 비교
 
-| 비교 항목 | OKF (KDQE 채택) | RAG | Text-to-SQL |
+| 비교 항목 | OKF (kchef 채택) | RAG | Text-to-SQL |
 |-----------|-----------------|-----|-------------|
 | **지식 저장** | 큐레이션된 개념 (마크다운) | 원시 문서 청크 | 없음 (스키마만) |
 | **지식 갱신** | Git PR로 버전 관리 | 문서 재임베딩 | 스키마 변경 시 재학습 |
@@ -883,22 +883,22 @@ test_queries/
 
 ---
 
-KDQE가 완성되면 OKF 스키마를 기반으로 CSV, SQLite, JSONL 등 다양한 데이터 소스에서 조건에 맞는 데이터를 조회하고 응답을 생성하는 것은 **충분히 가능**합니다. 또한 OpenKB의 구현을 단계적으로 분해해 OKF 중심의 자기 진화형 시스템으로 발전시키는 것도 현실적인 로드맵 위에 있습니다.
+KChef가 완성되면 OKF Concept 및 스키마를 기반으로 CSV, SQLite, JSONL 등 다양한 데이터 소스에서 조건에 맞는 데이터를 조회하고 응답을 생성하는 것은 **충분히 가능**합니다. 또한 OpenKB의 구현을 단계적으로 분해해 OKF 중심의 자기 진화형 시스템으로 발전시키는 것도 현실적인 로드맵 위에 있습니다.
 
 ### 🔍 OKF 기반 다중 데이터 소스 질의 가능성 분석
 
-KDQE의 핵심은 **OKF(Open Knowledge Format)를 표준 인터페이스**로 삼는 것입니다. OKF는 마크다운 파일과 YAML Frontmatter로 구성된 벤더 중립적인 포맷으로, 개념을 정의하고 상호 연결하는 데 최적화되어 있습니다. 이 구조를 활용하면 다양한 데이터 소스에 대한 질의를 추상화할 수 있습니다.
+KChef의 핵심은 **OKF(Open Knowledge Format)를 표준 인터페이스**로 삼는 것입니다. OKF는 마크다운 파일과 YAML Frontmatter로 구성된 벤더 중립적인 포맷으로, 개념을 정의하고 상호 연결하는 데 최적화되어 있습니다. 이 구조를 활용하면 다양한 데이터 소스에 대한 질의를 추상화할 수 있습니다.
 
 *   **OKF를 통한 데이터 소스 추상화**: OKF의 `Concept`은 특정 데이터 소스(SQLite, CSV, JSONL 등)를 가리키는 `resource` 필드와 실제 데이터를 조회하기 위한 `query` 또는 `schema` 정보를 포함할 수 있습니다. 예를 들어, `customers`라는 개념은 `sqlite:///db.sqlite`의 `customers` 테이블을, `sales_log`는 `s3://bucket/logs/*.jsonl`을 가리키도록 정의할 수 있습니다.
-*   **통합 질의 엔진의 역할**: KDQE는 사용자의 자연어 질의를 받아 관련 OKF 개념들을 조회하고, 각 개념에 연결된 데이터 소스에 맞는 질의어(SQL, JSONPath, Pandas Query 등)를 생성한 뒤, 결과를 취합해 응답하는 **통합 질의 엔진** 역할을 수행하게 됩니다.
+*   **통합 질의 엔진의 역할**: KChef는 사용자의 자연어 질의를 받아 관련 OKF 개념들을 조회하고, 각 개념에 연결된 데이터 소스에 맞는 질의어(SQL, JSONPath, Pandas Query 등)를 생성한 뒤, 결과를 취합해 응답하는 **통합 질의 엔진** 역할을 수행하게 됩니다.
 *   **기술적 실현 가능성**: SQLite, CSV, JSONL 등은 모두 Python에서 쉽게 다룰 수 있는 데이터 포맷입니다. OKF의 메타데이터를 파싱해 각 소스에 맞는 Connector를 구현하면, 사용자는 데이터가 어디에 있든 OKF가 정의한 '의미'를 통해 질의할 수 있는 환경이 조성됩니다.
 
 ### 🧩 OpenKB 점진적 분해 및 OKF 중심 체계화 전략
 
-OpenKB는 문서를 LLM으로 컴파일해 OKF 위키를 구축하는 '컴파일러'이자 '지식 베이스'입니다. KDQE로의 점진적인 통합은 다음 단계로 가능합니다.
+OpenKB는 문서를 LLM으로 컴파일해 OKF 위키를 구축하는 '컴파일러'이자 '지식 베이스'입니다. KChef로의 점진적인 통합은 다음 단계로 가능합니다.
 
-*   **1단계: OpenKB를 Knowledge Catalog로 활용**: 현재 상태 그대로 OpenKB를 도입합니다. `openkb add`와 `openkb compile`을 통해 다양한 문서에서 OKF 형식의 위키를 생성하고, `openkb query`로 지식을 조회하는 기능을 KDQE의 일부로 사용합니다. 이 단계에서 KDQE는 OpenKB 위에 얹혀 동작하는 얇은 래퍼가 됩니다.
-*   **2단계: Query Planner를 OpenKB 위에 구현**: `openkb query`가 단순 텍스트 검색에 가깝다면, KDQE는 여기에 **의도 분석 및 실행 계획(Query Planning) 기능**을 추가합니다. 예를 들어, "작년 VIP 고객 수는?"이라는 질문에 대해, OpenKB에서 VIP의 정의를 가져오고, SQLite에서 데이터를 조회하는 일련의 계획을 수립하고 실행하는 레이어를 구현합니다.
+*   **1단계: OpenKB를 Knowledge Catalog로 활용**: 현재 상태 그대로 OpenKB를 도입합니다. `openkb add`와 `openkb compile`을 통해 다양한 문서에서 OKF 형식의 위키를 생성하고, `openkb query`로 지식을 조회하는 기능을 KChef의 일부로 사용합니다. 이 단계에서 KChef는 OpenKB 위에 얹혀 동작하는 얇은 래퍼가 됩니다.
+*   **2단계: Query Planner를 OpenKB 위에 구현**: `openkb query`가 단순 텍스트 검색에 가깝다면, KChef는 여기에 **의도 분석 및 실행 계획(Query Planning) 기능**을 추가합니다. 예를 들어, "작년 VIP 고객 수는?"이라는 질문에 대해, OpenKB에서 VIP의 정의를 가져오고, SQLite에서 데이터를 조회하는 일련의 계획을 수립하고 실행하는 레이어를 구현합니다.
 *   **3단계: Data Connector 계층으로 OpenKB 확장**: OpenKB의 Wiki Foundation을 그대로 두고, **Generator 계층을 확장**해 `query` 기능이 SQLite, CSV 등 다양한 데이터 소스를 직접 조회할 수 있도록 개선합니다. 이로써 OpenKB는 '지식 정의'와 '데이터 조회'를 함께 처리하는 통합 엔진으로 진화합니다.
 *   **4단계: OKF 중심의 완전한 재구현**: OKF 스키마와 상호 운용성에 대한 이해가 깊어지면, OpenKB 의존성을 줄이고 OKF를 직접 처리하는 **자체 코어 엔진**으로 전환합니다. 이 단계에서는 OKF의 `Concept` 링크를 따라 데이터 흐름을 오케스트레이션하는 완전한 **Knowledge Operating System**으로 성장할 수 있습니다.
 
@@ -907,7 +907,7 @@ OpenKB는 문서를 LLM으로 컴파일해 OKF 위키를 구축하는 '컴파일
 `hermes-okf`를 활용하면 Hermes Agent에 OKF 기반의 **영속적이고 구조화된 메모리**를 부여할 수 있습니다.
 
 *   **Hermes Memory Provider로서의 hermes-okf**: `hermes-okf`는 Hermes Agent의 `MemoryProvider` 추상 클래스를 구현한 플러그인입니다. 이를 통해 에이전트는 세션을 넘어 과거의 의사결정, 관찰, 도구 사용 이력을 OKF 번들 형태로 저장하고 검색할 수 있습니다.
-*   **Skill을 통한 행동 숙련화**: Hermes Agent에서 Skill은 에이전트가 특정 작업을 수행하는 방법을 담은 '작업 매뉴얼'입니다. KDQE가 특정 유형의 질의(예: 월간 매출 보고서 생성)를 성공적으로 수행할 때마다, 그 과정을 Hermes Skill로 추상화하고 저장할 수 있습니다.
+*   **Skill을 통한 행동 숙련화**: Hermes Agent에서 Skill은 에이전트가 특정 작업을 수행하는 방법을 담은 '작업 매뉴얼'입니다. KChef가 특정 유형의 질의(예: 월간 매출 보고서 생성)를 성공적으로 수행할 때마다, 그 과정을 Hermes Skill로 추상화하고 저장할 수 있습니다.
 *   **자기 진화의 완성 (Self-Evolution)**: Memory와 Skill이 결합되면 Hermes는 **자기 성찰(Self-Reflection)** 과 **능력 개선(Self-Improvement)** 의 선순환 구조에 돌입합니다. 에이전트는 자신의 실패했던 쿼리 계획을 Memory에서 검토해 개선하고, 성공적인 패턴은 Skill로 체화해 다음에 더 빠르고 정확하게 실행합니다.
 
 ### 🗺️ 단계별 통합 로드맵
@@ -923,9 +923,9 @@ OpenKB는 문서를 LLM으로 컴파일해 OKF 위키를 구축하는 '컴파일
 
 ### 💎 종합 결론
 
-KDQE가 완성되면 OKF는 단순한 문서 포맷을 넘어 **모든 데이터 소스에 대한 통합 질의의 추상화 계층**이자, **에이전트의 기억과 경험이 축적되는 자기 진화의 기반**이 될 것입니다.
+KChef가 완성되면 OKF는 단순한 문서 포맷을 넘어 **모든 데이터 소스에 대한 통합 질의의 추상화 계층**이자, **에이전트의 기억과 경험이 축적되는 자기 진화의 기반**이 될 것입니다.
 
-OpenKB는 초기 지식 기반을 빠르게 구축하는 훌륭한 도구이며, `hermes-okf`는 Hermes Agent와의 심층적인 통합을 통해 시스템의 지능을 지속적으로 향상시키는 핵심 동력이 될 것입니다. 두 도구를 KDQE의 목표에 맞게 점진적으로 흡수하고 발전시키는 전략은 매우 실현 가능하며, 장기적인 비전을 달성하는 가장 효율적인 경로가 될 것입니다.
+OpenKB는 초기 지식 기반을 빠르게 구축하는 훌륭한 도구이며, `hermes-okf`는 Hermes Agent와의 심층적인 통합을 통해 시스템의 지능을 지속적으로 향상시키는 핵심 동력이 될 것입니다. 두 도구를 KChef의 목표에 맞게 점진적으로 흡수하고 발전시키는 전략은 매우 실현 가능하며, 장기적인 비전을 달성하는 가장 효율적인 경로가 될 것입니다.
 
 
 ---
@@ -943,7 +943,7 @@ OpenKB는 초기 지식 기반을 빠르게 구축하는 훌륭한 도구이며,
 
 ---
 
-### ⚖️ OpenKB vs. hermes-okf: KDQE 관점에서의 비교
+### ⚖️ OpenKB vs. hermes-okf: KChef 관점에서의 비교
 
 | 비교 항목 | OpenKB | hermes-okf |
 | :--- | :--- | :--- |
@@ -954,7 +954,7 @@ OpenKB는 초기 지식 기반을 빠르게 구축하는 훌륭한 도구이며,
 | **🔍 질의 방식** | **자연어 질의/채팅** (`openkb query`, `openkb chat`) | **검색 및 조회** (`hermes okf search`, `show`, `list`) |
 | **🧠 핵심 기술** | **PageIndex**: 벡터 없는 트리 기반 인덱싱으로 장문 문서 검색 | **OKF Bundle**: 파일 기반 Concept CRUD, GraphExtractor, SearchIndex |
 | **🔌 Hermes 연동** | **간접적**: `SKILL.md`를 통해 Hermes 같은 Agent CLI가 위키를 읽을 수 있음 | **기본 (Native)**: `HermesOKFMemoryProvider`로 Hermes Memory ABC 구현, `install-plugin`으로 자동 연동 |
-| **🤖 KDQE에서의 역할** | **Knowledge Catalog (지식 저장소)**<br>비즈니스 규칙, 용어집, 메트릭 정의를 OKF로 관리 | **Session Memory & Decision Log (에이전트 기억)**<br>질의/분석 이력, 의사결정 과정, 실행 계획을 기록하고 참조 |
+| **🤖 KChef에서의 역할** | **Knowledge Catalog (지식 저장소)**<br>비즈니스 규칙, 용어집, 메트릭 정의를 OKF로 관리 | **Session Memory & Decision Log (에이전트 기억)**<br>질의/분석 이력, 의사결정 과정, 실행 계획을 기록하고 참조 |
 
 ---
 

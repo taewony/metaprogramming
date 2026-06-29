@@ -74,3 +74,9 @@ Triggers: "draw", "diagram", "sketch", "wireframe", "flowchart",
 Constraints: get_canvas before edits; max 200 shapes per create_shape call.
 Requires: tldraw MCP server wired in the harness's MCP config; user has
 http://localhost:3030 open. Opt-in via `.features.json` (`tldraw: true`).
+
+## kchef
+Unified schema and instructions for querying the TechShop e-commerce database.
+Triggers: "VIP", "고객", "매출", "주문", "제품"
+Constraints: treat the schema as customers/products/orders/order_items unless
+local DB inspection proves otherwise; prefer read-only SELECT queries.

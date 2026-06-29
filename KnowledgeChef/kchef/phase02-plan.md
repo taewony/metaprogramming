@@ -1,11 +1,25 @@
-Phase 2의 목표는 **Codex가 `kdqe` Skill을 통해 자연어 질문을 SQL로 변환하고, SQLite를 조회한 후 결과를 자연어로 응답하는 것**입니다. 즉, Codex가 KDQE의 "두뇌" 역할을 하도록 만드는 단계입니다.
+Phase #02의 목표는 **Codex가 `kchef` Skill을 통해 자연어 질문을 SQL로 변환하고, SQLite를 조회한 후 결과를 자연어로 응답하는 것**입니다. 즉, Codex가 kchef의 "Cognitive Compiler 및 Query Executor" 역할을 하도록 만드는 단계입니다.
 
 ---
 
-### 🎯 Phase 2 목표
+## `kchef Skill` 만들기
+
+`agentic-stack`은 `data-layer`은 **시드(seed) 스킬**로 제공됩니다. 이는 코딩 에이전트 활동을 모니터링하거나, 실행 기록을 재사용 가능한 형태로 가공하는 등의 기능을 합니다.
+
+`.agent`가 포함하는 **Data Layer**는 **에이전트의 활동을 한눈에 모니터링하는 로컬 데이터 대시보드**입니다.
+
+*   **목적**: 여러 에이전트(Claude Code, Codex, Cursor 등)의 활동, 실행 로그, 토큰 사용량, 비용 추정치, KPI 요약 등을 하나의 대시보드에서 통합하여 보여줍니다.
+*   **기능**: `data-layer` 시드 스킬을 통해 `dashboard.html`이나 `daily-report.md` 같은 보고서를 생성할 수 있습니다.
+*   **성격**: 이 데이터는 모두 **로컬(Local-only)** 에 저장되며, 별도의 외부 서버로 전송되지 않습니다.
+
+반면 **`kchef` Skill은 KnowledgeChef 프로젝트에 특화된 맞춤형 스킬**로, `.agent/skills/kchef/` 디렉토리에 `SKILL.md` 파일을 만들어 정의하게 됩니다. 이 스킬의 목적은 에이전트(Codex 등)가 **kchef의 핵심 기능을 활용할 수 있도록 안내하는 것**입니다.
+
+---
+
+## 🎯 Phase 02 실험목표
 
 - **자연어 질문** → Codex가 **SQL 생성** → SQLite 실행 → **자연어 응답** 생성
-- Codex가 `kdqe` Skill을 읽고 데이터베이스 스키마, VIP 정의, 질의 패턴을 이해하도록 함
+- Codex가 `kchef` Skill을 읽고 데이터베이스 스키마, VIP 정의, 질의 패턴을 이해하도록 함
 - 모든 과정이 Codex 내부에서 자연스럽게 이루어지도록 Skill 설계
 
 ---
@@ -15,18 +29,18 @@ Phase 2의 목표는 **Codex가 `kdqe` Skill을 통해 자연어 질문을 SQL�
 #### Step 0: 사전 준비 확인
 
 - [x] SQLite DB (`data/techshop.db`)에 4개 테이블(customers, products, orders, order_items)이 정상 로드됨
-- [x] `.agent/skills/kdqe/SKILL.md` 파일이 존재함
-- [x] Codex가 `kdqe` Skill을 인식함 (`/skills` 목록에 나타남)
+- [x] `.agent/skills/kchef/SKILL.md` 파일이 존재함
+- [x] Codex가 `kchef` Skill을 인식함 (`/skills` 목록에 나타남)
 
-#### Step 1: `kdqe` Skill 내용 고도화 (가장 중요)
+#### Step 1: `kchef` Skill 내용 고도화 (가장 중요)
 
 Codex가 데이터를 이해하려면 Skill에 다음 정보가 상세히 포함되어야 합니다:
 
-**`4-KDQE\.agent\skills\kdqe\SKILL.md`** 파일을 편집합니다.
+**`KnowledgeChef\.agent\skills\kchef\SKILL.md`** 파일을 편집합니다.
 
 ```markdown
 ---
-name: kdqe
+name: kchef
 description: Unified schema and instructions for querying the TechShop e-commerce database.
 triggers:
   - "VIP"
@@ -36,7 +50,7 @@ triggers:
   - "제품"
 ---
 
-# KDQE: TechShop E-Commerce Database Query Skill
+# kchef: TechShop E-Commerce Database Query Skill
 
 ## 📊 데이터베이스 스키마
 
@@ -153,7 +167,7 @@ Codex가 직접 SQL을 생성하고 실행할 수도 있지만, **Python 스크�
 #!/usr/bin/env python3
 """
 Data Layer Query Script - SQLite 질의 실행 및 결과 반환
-Codex의 kdqe Skill에 의해 호출됨
+Codex의 kchef Skill에 의해 호출됨
 """
 
 import sqlite3
@@ -212,11 +226,11 @@ if __name__ == "__main__":
     main()
 ```
 
-#### Step 3: Codex에서 kdqe Skill 테스트
+#### Step 3: Codex에서 kchef Skill 테스트
 
 1. Codex를 실행합니다:
    ```powershell
-   cd D:\code\metaprogramming\KernelAgent\4-KDQE
+   cd D:\code\metaprogramming\KnowledgeChef\
    codex
    ```
 
@@ -225,7 +239,7 @@ if __name__ == "__main__":
    VIP 고객은 몇 명이고, 누구야?
    ```
 
-3. Codex가 `kdqe` Skill을 읽고 다음을 수행할 것으로 기대합니다:
+3. Codex가 `kchef` Skill을 읽고 다음을 수행할 것으로 기대합니다:
    - Skill에서 VIP 정의(`grade='VIP'`)를 찾음
    - SQL 생성: `SELECT id, name, email FROM customers WHERE grade='VIP'`
    - SQL 실행 (또는 `data_layer_query.py` 호출)
@@ -272,10 +286,10 @@ Codex가 잘못된 SQL을 생성하면:
 ### 📁 Phase 2 완료 시 파일 구조
 
 ```
-4-KDQE/
+KnowledgeChef/
 ├── .agent/
 │   └── skills/
-│       └── kdqe/
+│       └── kchef/
 │           └── SKILL.md          # ✅ 고도화 완료
 ├── data/
 │   └── techshop.db               # ✅ 4개 테이블 데이터
@@ -288,9 +302,9 @@ Codex가 잘못된 SQL을 생성하면:
 
 ### ✅ Phase 2 체크리스트
 
-- [ ] `kdqe/SKILL.md`에 스키마, VIP 정의, SQL 패턴 추가
+- [ ] `kchef/SKILL.md`에 스키마, VIP 정의, SQL 패턴 추가
 - [ ] `scripts/data_layer_query.py` 생성 및 테스트
-- [ ] Codex에서 `kdqe` Skill 인식 확인 (`/skills` 목록)
+- [ ] Codex에서 `kchef` Skill 인식 확인 (`/skills` 목록)
 - [ ] "VIP 고객은 몇 명이고, 누구야?" 질의 테스트
 - [ ] 추가 질문 5개 이상 테스트 및 응답 확인
 - [ ] 오류 케이스(예: 존재하지 않는 컬럼) 처리 확인
@@ -300,3 +314,37 @@ Codex가 잘못된 SQL을 생성하면:
 ### 💡 팁: Codex의 자동 SQL 생성 능력 활용
 
 Codex는 이미 자연어를 SQL로 변환하는 능력이 뛰어납니다. 따라서 **Skill에 모든 SQL 패턴을 미리 적을 필요는 없고**, 스키마와 비즈니스 규칙(VIP 정의)만 명확히 알려주면 Codex가 스스로 적절한 SQL을 생성합니다. Skill은 "가이드북" 역할에 집중하세요.
+
+---
+
+• Ran sqlite3 -separator "|" data/techshop.db "SELECT id, name, email FROM customers WHERE grade = 'VIP' ORDER BY id;"
+  └ 4|정민호|dave@test.kr
+    16|문창호|peter@test.kr
+    20|황미소|tina@test.kr
+  └ 5
+
+• VIP 고객은 총 5명입니다.
+
+  VIP 고객 목록:
+
+  1. 정민호 (dave@test.kr)
+  2. 오세훈 (hank@test.kr)
+  3. 강태영 (leo@test.kr)
+  4. 문창호 (peter@test.kr)
+  5. 황미소 (tina@test.kr)
+
+• Ran sqlite3 -separator "|" data/techshop.db "SELECT name, price FROM products ORDER BY price DESC LIMIT 3;"
+  └ 삼성 비스포크 냉장고|2150000.0
+    애플 아이폰 15 프로|1550000.0
+    LG 그램 16인치|1520000.0
+
+• 가장 비싼 상품 3개는 다음과 같습니다.
+
+  1. 삼성 비스포크 냉장고: 2,150,000원
+  2. 애플 아이폰 15 프로: 1,550,000원
+  3. LG 그램 16인치: 1,520,000원
+  
+• Ran sqlite3 data/techshop.db "SELECT COUNT(*) FROM orders;"
+  └ 30
+
+• 전체 주문 수는 총 30건입니다.

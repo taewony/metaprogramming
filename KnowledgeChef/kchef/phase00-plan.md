@@ -1,6 +1,6 @@
-## 1. 4개 테이블 + JSONL 샘플만으로 충분할까?
+## 자연어 기반 데이터 조회 기능의 핵심 시나리오 구축
 
-**네, 충분합니다.** customers, orders, order_items, products 4개 테이블만으로도 자연어 데이터 조회 기능의 핵심 시나리오 대부분을 테스트할 수 있습니다.
+### 1. 4개 테이블 ** customers, orders, order_items, products 4개 테이블만으로도 
 
 | 시나리오 | 필요 테이블 | 비고 |
 |----------|-------------|------|
@@ -19,9 +19,9 @@
 
 ---
 
-## 2. 데이터 구축 방법: JSONL vs SQLite
+### 2. 데이터 구축 방법: SQLite
 
-### 결론: **SQLite를 권장**합니다.
+- 테스트 data 생성 방안: JSONL data → SQLite table 변환
 
 | 항목 | JSONL 단독 | SQLite |
 |------|-----------|--------|
@@ -32,7 +32,7 @@
 | **데이터 크기** | 수백 건까지만 적합 | 수만~수백만 건도 가능 |
 | **확장성** | 낮음 | 높음 |
 
-### 추천 접근법: JSONL → SQLite 변환
+
 
 ```python
 # jsonl_to_sqlite.py
@@ -273,10 +273,10 @@ if __name__ == "__main__":
 
 ---
 
-## 5. 프로젝트 폴더 구조 (최종)
+## 5. 프로젝트 및 DB data 폴더 구조
 
 ```
-nldqa-project/                          # 프로젝트 루트
+KnowledgeCheef/                          # 프로젝트 루트
 ├── README.md                           # 프로젝트 개요 및 실행 방법
 ├── requirements.txt                    # Python 의존성 목록
 │
@@ -300,10 +300,10 @@ nldqa-project/                          # 프로젝트 루트
 │   │   ├── data_layer_export.py        # 기존 Export
 │   │   └── data_layer_query.py         # [신규] DB/OKF 쿼리
 │   └── skills/
-│       └── kdqe/
+│       └── kchef/
 │           └── SKILL.md                # [신규] TechShop DB Query Skill
 │
-├── okf-kb/                             # ✅ OKF 지식베이스 (Phase 1-2에서 구축)
+├── brain/                             # ✅ OKF 지식베이스 (Phase 1-2에서 구축, .agent 폴더 밑으로 이동 예정
 │   ├── index.md
 │   ├── schemas/
 │   │   ├── customers.md
@@ -331,24 +331,18 @@ nldqa-project/                          # 프로젝트 루트
 
 ```bash
 # 1. 프로젝트 디렉토리 생성
-mkdir -p nldqa-project/{data/raw,scripts,tests,docs}
-cd nldqa-project
+mkdir -p KnowledgeCheef/{data/raw,scripts,tests,docs}
+cd KnowledgeCheef
 
 # 2. 가상환경 생성 및 활성화
-python3 -m venv venv
-source venv/bin/activate  # Windows: venv\Scripts\activate
+python3 -m venv wenv
+wenv\Scripts\activate  # Windows
 
 # 3. 필요 패키지 설치
-pip install sqlite3 pandas pytest
+pip install pandas pytest
 
 # 4. requirements.txt 생성
 pip freeze > requirements.txt
-
-# 5. Git 초기화
-git init
-echo "venv/\ndata/techshop.db\n.agent/" > .gitignore
-git add .
-git commit -m "Project init: NLDQA structure"
 ```
 
 ### Step 2: JSONL 샘플 데이터 생성 (Day 2)
@@ -458,19 +452,23 @@ print(engine.query("가장 비싼 상품 3개 알려줘"))
 
 ## 8. 다음 단계 
 
-1. **agentic-stack 설치 및 Data Layer 확장**
+Phase-01. **agentic-stack 설치 및 Data Layer 확장**
    - `.agent/` 디렉토리 생성
    - `data_layer_query.py` 구현 
 
-2. **Coding Agent 통합 실험**
-   - `kdqe` Skill 작성
-   - Antigravity CLI에서 Skill 호출 테스트
+Phase-02. **Coding Agent 데이터 질의/응답 실험**
+   - `kchef` Skill 작성
+   - Codex CLI에서 Skill 호출 테스트
    - 자연어 질의→SQL→응답 전체 플로우 검증
 
-3. **전용 Agent로 전환**
-   - Local LLM 기반 독립 실행형 Agent 개발
-   - 성능 비교 및 최적화
-   
-4. **OKF 지식베이스 구축**
+Phase-03. **TDD 기반 지식-데이터 통합 질의/응답 실험**
+   - 시험 시나리오 설계
+   - TDD 기반 시험 체계 구현 및 실험
+
+Phase-04. **OKF 지식베이스 구축 및 지식/concept 질의/응답 실험**
    - `okf-kb/` 디렉토리에 스키마 문서화
    - openkb로 컴파일 및 테스트
+
+Phase-10. **전용 Agent로 전환**
+   - Local LLM 기반 독립 실행형 Agent 개발
+   - 성능 비교 및 최적화
