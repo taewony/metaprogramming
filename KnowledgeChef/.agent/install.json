@@ -1,0 +1,29 @@
+{
+  "schema_version": 1,
+  "agentic_stack_version": "0.18.0",
+  "abs_target": "D:\\code\\metaprogramming\\KernelAgent\\4-KDQE",
+  "installed_at": "2026-06-26T06:00:09Z",
+  "adapters": {
+    "codex": {
+      "installed_at": "2026-06-26T06:00:09Z",
+      "files_written": [
+        "AGENTS.md"
+      ],
+      "files_overwritten": [],
+      "files_alerted": [],
+      "file_results": [
+        {
+          "dst": "AGENTS.md",
+          "result": "left_alone"
+        }
+      ],
+      "post_install_results": [],
+      "skills_link": {
+        "target": ".agent/skills",
+        "dst": ".agents/skills",
+        "fallback": "rsync_with_delete"
+      },
+      "skills_link_pre_existed": false
+    }
+  }
+}

@@ -1,0 +1,5 @@
+language: ko
+model: ollama/qwen3:8b
+pageindex_threshold: 20
+litellm_settings:
+  drop_params: true

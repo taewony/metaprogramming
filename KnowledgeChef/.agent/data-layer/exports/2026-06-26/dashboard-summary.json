@@ -1,0 +1,68 @@
+{
+  "generated_at": "2026-06-26T06:32:26.636443Z",
+  "project": "4-KDQE",
+  "window": "30d",
+  "bucket": "day",
+  "request": null,
+  "privacy_model": "local_only",
+  "counts": {
+    "agent_events": 1,
+    "cron_runs": 0,
+    "harnesses": 1,
+    "categories": 1,
+    "active_agents": 1
+  },
+  "resources": {
+    "tokens_in_estimate": 0,
+    "tokens_out_estimate": 0,
+    "tokens_total_estimate": 0,
+    "cost_estimate_usd": 0
+  },
+  "top_harnesses": {
+    "proactive_recall": 1
+  },
+  "top_skills": {
+    "proactive-recall": 1
+  },
+  "top_workflows": {
+    "proactive_recall": 1
+  },
+  "categories": {
+    "uncategorized": 1
+  },
+  "data_quality": {
+    "episodic": {
+      "missing": false,
+      "malformed_lines": 0
+    },
+    "extra_events": {
+      "missing": true,
+      "malformed_lines": 0
+    },
+    "cron_runs": {
+      "missing": true,
+      "malformed_lines": 0
+    },
+    "category_rules": {
+      "missing": true,
+      "malformed": false
+    },
+    "note": "Local-only export. Review categories, token/cost estimates, and PII status before sharing."
+  },
+  "daily_report": {
+    "screenshot_target": "dashboard.html",
+    "recommended_sections": [
+      "Resource Overview",
+      "Activity By Bucket",
+      "Tokens By Bucket",
+      "Cron Runs",
+      "Task Categories",
+      "Harness Mix",
+      "Workflow Outcomes",
+      "KPI Summary",
+      "Cron Gantt",
+      "Cron Timeline"
+    ],
+    "delivery": "user-approved channel only"
+  }
+}

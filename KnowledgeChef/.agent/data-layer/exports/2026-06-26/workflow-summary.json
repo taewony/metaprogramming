@@ -1,0 +1,12 @@
+[
+  {
+    "workflow": "proactive_recall",
+    "agent_events": 1,
+    "cron_runs": 0,
+    "successes": 1,
+    "errors": 0,
+    "tokens_total_estimate": 0,
+    "cost_estimate_usd": 0,
+    "success_rate": 1.0
+  }
+]

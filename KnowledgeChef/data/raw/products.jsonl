@@ -1,0 +1,15 @@
+{"id":1,"name":"LG 그램 16인치","brand":"LG","sku":"LG-GEN-00001","price":1520000,"cost_price":1100000,"stock_qty":45,"is_active":1,"created_at":"2024-01-01 00:00:00"}
+{"id":2,"name":"삼성 갤럭시 S24","brand":"Samsung","sku":"SS-GEN-00002","price":1350000,"cost_price":980000,"stock_qty":120,"is_active":1,"created_at":"2024-01-15 00:00:00"}
+{"id":3,"name":"애플 맥북 에어 M3","brand":"Apple","sku":"AP-GEN-00003","price":1490000,"cost_price":1120000,"stock_qty":30,"is_active":1,"created_at":"2024-02-01 00:00:00"}
+{"id":4,"name":"다이슨 V15 무선청소기","brand":"Dyson","sku":"DY-GEN-00004","price":890000,"cost_price":620000,"stock_qty":25,"is_active":1,"created_at":"2024-02-15 00:00:00"}
+{"id":5,"name":"LG전자 퓨리케어 공기청정기","brand":"LG","sku":"LG-GEN-00005","price":550000,"cost_price":380000,"stock_qty":18,"is_active":1,"created_at":"2024-03-01 00:00:00"}
+{"id":6,"name":"삼성 비스포크 냉장고","brand":"Samsung","sku":"SS-GEN-00006","price":2150000,"cost_price":1550000,"stock_qty":12,"is_active":1,"created_at":"2024-03-15 00:00:00"}
+{"id":7,"name":"애플 아이폰 15 프로","brand":"Apple","sku":"AP-GEN-00007","price":1550000,"cost_price":1180000,"stock_qty":85,"is_active":1,"created_at":"2024-04-01 00:00:00"}
+{"id":8,"name":"소니 WH-1000XM5","brand":"Sony","sku":"SN-GEN-00008","price":450000,"cost_price":310000,"stock_qty":60,"is_active":1,"created_at":"2024-04-15 00:00:00"}
+{"id":9,"name":"로지텍 MX 마스터 3S","brand":"Logitech","sku":"LG-GEN-00009","price":139000,"cost_price":95000,"stock_qty":200,"is_active":1,"created_at":"2024-05-01 00:00:00"}
+{"id":10,"name":"삼성 T7 실드 외장SSD","brand":"Samsung","sku":"SS-GEN-00010","price":189000,"cost_price":130000,"stock_qty":75,"is_active":1,"created_at":"2024-05-15 00:00:00"}
+{"id":11,"name":"애플 워치 SE 2세대","brand":"Apple","sku":"AP-GEN-00011","price":420000,"cost_price":290000,"stock_qty":40,"is_active":1,"created_at":"2024-06-01 00:00:00"}
+{"id":12,"name":"LG전자 32인치 모니터","brand":"LG","sku":"LG-GEN-00012","price":380000,"cost_price":260000,"stock_qty":0,"is_active":0,"created_at":"2024-01-20 00:00:00"}
+{"id":13,"name":"샤오미 미밴드 9","brand":"Xiaomi","sku":"XM-GEN-00013","price":48000,"cost_price":32000,"stock_qty":500,"is_active":1,"created_at":"2024-03-20 00:00:00"}
+{"id":14,"name":"닌텐도 스위치 OLED","brand":"Nintendo","sku":"NT-GEN-00014","price":420000,"cost_price":300000,"stock_qty":35,"is_active":1,"created_at":"2024-04-20 00:00:00"}
+{"id":15,"name":"구글 픽셀 8a","brand":"Google","sku":"GG-GEN-00015","price":590000,"cost_price":420000,"stock_qty":28,"is_active":1,"created_at":"2024-05-20 00:00:00"}
