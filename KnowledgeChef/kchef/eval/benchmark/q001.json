@@ -1,0 +1,43 @@
+{
+  "intent": "COMPOUND",
+  "sub_intents": [
+    "COUNT",
+    "LIST"
+  ],
+  "description": "복합 의도를 분해해 고객 수와 목록을 조회한다",
+  "concepts": [
+    "Customer",
+    "Grade"
+  ],
+  "steps": [
+    {
+      "type": "data",
+      "source": "customers",
+      "filters": [
+        {
+          "field": "grade",
+          "operator": "=",
+          "value": "VIP"
+        }
+      ],
+      "join": null,
+      "group_by": null,
+      "order_by": null,
+      "limit": null,
+      "projections": [
+        "id",
+        "name",
+        "email",
+        "point_balance"
+      ],
+      "aggregation": null
+    }
+  ],
+  "output_structure": {
+    "count": "integer",
+    "list": "array<{id, name, email, point_balance}>"
+  },
+  "ambiguity_resolutions": [],
+  "confidence": 0.9,
+  "playbook_used": "FILTER_AND_LIST"
+}

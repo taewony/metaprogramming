@@ -1,0 +1,33 @@
+{
+  "intent": "EXISTENCE",
+  "sub_intents": null,
+  "description": "조건에 맞는 상품의 존재 여부를 확인한다",
+  "concepts": [
+    "Product"
+  ],
+  "steps": [
+    {
+      "type": "data",
+      "source": "products",
+      "filters": [
+        {
+          "field": "stock_qty",
+          "operator": "=",
+          "value": 0
+        }
+      ],
+      "join": null,
+      "group_by": null,
+      "order_by": null,
+      "limit": 1,
+      "projections": null,
+      "aggregation": null
+    }
+  ],
+  "output_structure": {
+    "exists": "boolean"
+  },
+  "ambiguity_resolutions": [],
+  "confidence": 0.9,
+  "playbook_used": "EXISTENCE_CHECK"
+}

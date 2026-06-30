@@ -1,0 +1,24 @@
+id: Q003
+question: "재고가 없는 상품이 있나?"
+difficulty: easy
+ambiguity_type: null
+
+schema_context: |
+  customers(id, name, email, phone, grade, point_balance, is_active, created_at)
+  products(id, name, brand, sku, price, cost_price, stock_qty, is_active, created_at)
+  orders(id, order_number, customer_id, status, total_amount, ordered_at)
+  order_items(id, order_id, product_id, quantity, unit_price, subtotal)
+
+expected_ir:
+  intent: EXISTENCE
+  concepts: [Product]
+  steps:
+    - type: data
+      source: products
+      filters:
+        - field: stock_qty
+          operator: "="
+          value: 0
+      limit: 1
+  output_structure:
+    exists: boolean

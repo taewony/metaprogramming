@@ -1,0 +1,26 @@
+id: Q002
+question: "가장 비싼 상품은?"
+difficulty: easy
+ambiguity_type: polysemy
+
+schema_context: |
+  customers(id, name, email, phone, grade, point_balance, is_active, created_at)
+  products(id, name, brand, sku, price, cost_price, stock_qty, is_active, created_at)
+  orders(id, order_number, customer_id, status, total_amount, ordered_at)
+  order_items(id, order_id, product_id, quantity, unit_price, subtotal)
+
+expected_ir:
+  intent: TOPK
+  concepts: [Product]
+  steps:
+    - type: data
+      source: products
+      order_by:
+        - field: price
+          direction: DESC
+      limit: 1
+  output_structure:
+    items: list
+  ambiguity_resolutions_expected:
+    - element: "비싼"
+      selected: "price_DESC"

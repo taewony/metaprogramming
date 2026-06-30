@@ -1,0 +1,28 @@
+# eval/benchmark/q001.yaml
+id: Q001
+question: "VIP 고객은 몇 명이고, 누구야?"
+difficulty: easy
+ambiguity_type: null  # none | ellipsis | polysemy | implicit_constraint
+
+schema_context: |
+  customers(id, name, email, phone, grade, point_balance, is_active, created_at)
+  products(id, name, brand, sku, price, cost_price, stock_qty, is_active, created_at)
+  orders(id, order_number, customer_id, status, total_amount, ordered_at)
+  order_items(id, order_id, product_id, quantity, unit_price, subtotal)
+
+expected_ir:
+  intent: COMPOUND
+  sub_intents: [COUNT, LIST]
+  concepts: [Customer, Grade]
+  steps:
+    - type: data
+      source: customers
+      filters:
+        - field: grade
+          operator: "="
+          value: VIP
+      projections: [id, name, email, point_balance]
+  output_structure:
+    count: integer
+    list: "array<{id, name, email, point_balance}>"
+  confidence_min: 0.90

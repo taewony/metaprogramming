@@ -1,0 +1,46 @@
+id: Q006
+question: "올해와 작년 매출을 비교해줘"
+difficulty: medium
+ambiguity_type: implicit_constraint
+
+schema_context: |
+  customers(id, name, email, phone, grade, point_balance, is_active, created_at)
+  products(id, name, brand, sku, price, cost_price, stock_qty, is_active, created_at)
+  orders(id, order_number, customer_id, status, total_amount, ordered_at)
+  order_items(id, order_id, product_id, quantity, unit_price, subtotal)
+
+expected_ir:
+  intent: COMPARE
+  concepts: [Order, Revenue]
+  steps:
+    - type: data
+      source: orders
+      filters:
+        - field: ordered_at
+          operator: LIKE
+          value: "2026%"
+        - field: status
+          operator: IN
+          value: [confirmed, delivered, shipped]
+      aggregation:
+        function: SUM
+        field: total_amount
+    - type: data
+      source: orders
+      filters:
+        - field: ordered_at
+          operator: LIKE
+          value: "2025%"
+        - field: status
+          operator: IN
+          value: [confirmed, delivered, shipped]
+      aggregation:
+        function: SUM
+        field: total_amount
+  output_structure:
+    comparison: dict
+  ambiguity_resolutions_expected:
+    - element: "올해"
+      selected: "2026"
+    - element: "매출"
+      selected: "status_not_cancelled"

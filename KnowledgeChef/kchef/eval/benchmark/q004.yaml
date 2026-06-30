@@ -1,0 +1,33 @@
+id: Q004
+question: "월별 매출 추세"
+difficulty: medium
+ambiguity_type: implicit_constraint
+
+schema_context: |
+  customers(id, name, email, phone, grade, point_balance, is_active, created_at)
+  products(id, name, brand, sku, price, cost_price, stock_qty, is_active, created_at)
+  orders(id, order_number, customer_id, status, total_amount, ordered_at)
+  order_items(id, order_id, product_id, quantity, unit_price, subtotal)
+
+expected_ir:
+  intent: TREND
+  concepts: [Order, Revenue]
+  steps:
+    - type: data
+      source: orders
+      filters:
+        - field: status
+          operator: IN
+          value: [confirmed, delivered, shipped]
+      group_by: [ordered_at]
+      order_by:
+        - field: ordered_at
+          direction: ASC
+      aggregation:
+        function: SUM
+        field: total_amount
+  output_structure:
+    trend: list
+  ambiguity_resolutions_expected:
+    - element: "매출"
+      selected: "status_not_cancelled"

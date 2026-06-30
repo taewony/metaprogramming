@@ -1,0 +1,98 @@
+{
+  "intent": "COMPARE",
+  "sub_intents": null,
+  "description": "올해와 작년의 매출을 비교한다",
+  "concepts": [
+    "Order",
+    "Revenue"
+  ],
+  "steps": [
+    {
+      "type": "data",
+      "source": "orders",
+      "filters": [
+        {
+          "field": "ordered_at",
+          "operator": "LIKE",
+          "value": "2026%"
+        },
+        {
+          "field": "status",
+          "operator": "IN",
+          "value": [
+            "confirmed",
+            "delivered",
+            "shipped"
+          ]
+        }
+      ],
+      "join": null,
+      "group_by": null,
+      "order_by": null,
+      "limit": null,
+      "projections": null,
+      "aggregation": {
+        "function": "SUM",
+        "field": "total_amount"
+      }
+    },
+    {
+      "type": "data",
+      "source": "orders",
+      "filters": [
+        {
+          "field": "ordered_at",
+          "operator": "LIKE",
+          "value": "2025%"
+        },
+        {
+          "field": "status",
+          "operator": "IN",
+          "value": [
+            "confirmed",
+            "delivered",
+            "shipped"
+          ]
+        }
+      ],
+      "join": null,
+      "group_by": null,
+      "order_by": null,
+      "limit": null,
+      "projections": null,
+      "aggregation": {
+        "function": "SUM",
+        "field": "total_amount"
+      }
+    }
+  ],
+  "output_structure": {
+    "comparison": "dict"
+  },
+  "ambiguity_resolutions": [
+    {
+      "element": "올해",
+      "candidates": [
+        "2026",
+        "전체 기간"
+      ],
+      "selected": "2026",
+      "method": "default",
+      "confidence": 0.95,
+      "rationale": "AMBIGUITY.md 규칙: '올해' → 2026"
+    },
+    {
+      "element": "매출",
+      "candidates": [
+        "status_not_cancelled",
+        "alternative"
+      ],
+      "selected": "status_not_cancelled",
+      "method": "default",
+      "confidence": 0.9,
+      "rationale": "AMBIGUITY.md 규칙 적용"
+    }
+  ],
+  "confidence": 0.9500000000000001,
+  "playbook_used": "COMPARE_ENTITY"
+}

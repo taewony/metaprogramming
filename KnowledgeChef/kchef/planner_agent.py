@@ -13,6 +13,7 @@ import json
 import re
 import sqlite3
 import sys
+from datetime import date
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -164,15 +165,21 @@ class AmbiguityResolver:
         for token in ("이번 달", "올해", "최근"):
             if token in question:
                 rule = self.DEFAULT_RULES[token]
-                constraints["temporal"] = rule["resolve_to"]
+                if token == "이번 달":
+                    resolved_value = f"{date.today():%Y-%m}"
+                elif token == "올해":
+                    resolved_value = f"{date.today():%Y}"
+                else:
+                    resolved_value = rule["resolve_to"]
+                constraints["temporal"] = resolved_value
                 ambiguity_log.append(
                     AmbiguityResolution(
                         element=token,
-                        candidates=[rule["resolve_to"], "전체 기간"],
-                        selected=rule["resolve_to"],
+                        candidates=[resolved_value, "전체 기간"],
+                        selected=resolved_value,
                         method="default",
                         confidence=0.95,
-                        rationale=f"AMBIGUITY.md 규칙: '{token}' → {rule['resolve_to']}",
+                        rationale=f"AMBIGUITY.md 규칙: '{token}' → {resolved_value}",
                     )
                 )
 
@@ -224,8 +231,14 @@ class PlaybookEngine:
             return {"id": "FILTER_AND_COUNT", "strategy": "sqlite"}
         if intent == "TOPK":
             return {"id": "RANK_AND_LIMIT", "strategy": "sqlite"}
+        if intent == "EXISTENCE":
+            return {"id": "EXISTENCE_CHECK", "strategy": "sqlite"}
         if intent == "AGGREGATE":
             return {"id": "TEMPORAL_AGGREGATE", "strategy": "sqlite"}
+        if intent == "TREND":
+            return {"id": "TREND_OVER_TIME", "strategy": "sqlite"}
+        if intent == "COMPARE":
+            return {"id": "COMPARE_ENTITY", "strategy": "sqlite"}
         return {"id": "DIRECT_LOOKUP", "strategy": "sqlite"}
 
     def select_alternative(self, intent: str, concepts: list[str], exclude: list[str] | None = None) -> dict[str, str]:
@@ -268,21 +281,103 @@ class RecipeCompiler:
                     projections=resolved.projections,
                 )
             )
+        elif resolved.intent == "TOPK":
+            steps.append(
+                KnowledgeStep(
+                    type="data",
+                    source="products",
+                    order_by=[{"field": "price", "direction": "DESC"}],
+                    limit=1,
+                )
+            )
+        elif resolved.intent == "EXISTENCE":
+            steps.append(
+                KnowledgeStep(
+                    type="data",
+                    source="products",
+                    filters=[{"field": "stock_qty", "operator": "=", "value": 0}],
+                    limit=1,
+                )
+            )
         elif resolved.intent == "AGGREGATE":
+            filters = [{"field": "status", "operator": "IN", "value": ["confirmed", "delivered", "shipped"]}]
+            temporal = resolved.constraints.get("temporal")
+            if temporal:
+                if re.fullmatch(r"\d{4}-\d{2}", temporal):
+                    filters.insert(0, {"field": "ordered_at", "operator": "LIKE", "value": f"{temporal}%"})
+                elif re.fullmatch(r"\d{4}", temporal):
+                    filters.insert(0, {"field": "ordered_at", "operator": "LIKE", "value": f"{temporal}%"})
+                elif temporal == "current_month":
+                    today = date.today()
+                    filters.insert(0, {"field": "ordered_at", "operator": "LIKE", "value": f"{today:%Y-%m}%"})
+                elif temporal == "current_year":
+                    today = date.today()
+                    filters.insert(0, {"field": "ordered_at", "operator": "LIKE", "value": f"{today:%Y}%"})
             steps.append(
                 KnowledgeStep(
                     type="data",
                     source="orders",
-                    filters=[{"field": "status", "operator": "!=", "value": "cancelled"}],
+                    filters=filters,
+                    aggregation={"function": "SUM", "field": "total_amount"},
+                )
+            )
+        elif resolved.intent == "TREND":
+            steps.append(
+                KnowledgeStep(
+                    type="data",
+                    source="orders",
+                    filters=[{"field": "status", "operator": "IN", "value": ["confirmed", "delivered", "shipped"]}],
+                    group_by=["ordered_at"],
+                    order_by=[{"field": "ordered_at", "direction": "ASC"}],
+                    aggregation={"function": "SUM", "field": "total_amount"},
+                )
+            )
+        elif resolved.intent == "COMPARE":
+            today = date.today()
+            current_year = today.year
+            previous_year = current_year - 1
+            steps.append(
+                KnowledgeStep(
+                    type="data",
+                    source="orders",
+                    filters=[
+                        {"field": "ordered_at", "operator": "LIKE", "value": f"{current_year}%"},
+                        {"field": "status", "operator": "IN", "value": ["confirmed", "delivered", "shipped"]},
+                    ],
+                    aggregation={"function": "SUM", "field": "total_amount"},
+                )
+            )
+            steps.append(
+                KnowledgeStep(
+                    type="data",
+                    source="orders",
+                    filters=[
+                        {"field": "ordered_at", "operator": "LIKE", "value": f"{previous_year}%"},
+                        {"field": "status", "operator": "IN", "value": ["confirmed", "delivered", "shipped"]},
+                    ],
                     aggregation={"function": "SUM", "field": "total_amount"},
                 )
             )
         else:
             steps.append(KnowledgeStep(type="data", source="customers", projections=resolved.projections))
 
-        output_structure = {"count": "integer", "list": "array<{id, name, email, point_balance}>"}
-        if resolved.intent == "AGGREGATE":
+        output_structure = {"result": "unknown"}
+        if resolved.intent == "COUNT":
+            output_structure = {"count": "integer"}
+        elif resolved.intent == "LIST":
+            output_structure = {"items": "list"}
+        elif resolved.intent == "COMPOUND":
+            output_structure = {"count": "integer", "list": "array<{id, name, email, point_balance}>"}
+        elif resolved.intent == "AGGREGATE":
             output_structure = {"total_revenue": "number", "period": "string"}
+        elif resolved.intent == "TOPK":
+            output_structure = {"items": "list"}
+        elif resolved.intent == "EXISTENCE":
+            output_structure = {"exists": "boolean"}
+        elif resolved.intent == "TREND":
+            output_structure = {"trend": "list"}
+        elif resolved.intent == "COMPARE":
+            output_structure = {"comparison": "dict"}
 
         return KnowledgeIR(
             intent=resolved.intent,
@@ -303,6 +398,14 @@ class RecipeCompiler:
             return "대상을 집계하여 개수를 계산한다"
         if resolved.intent == "AGGREGATE":
             return "확정 상태 기준 매출 합계를 계산한다"
+        if resolved.intent == "TOPK":
+            return "가장 값비싼 상품을 찾는다"
+        if resolved.intent == "EXISTENCE":
+            return "조건에 맞는 상품의 존재 여부를 확인한다"
+        if resolved.intent == "TREND":
+            return "주문 추이를 시간 순으로 집계한다"
+        if resolved.intent == "COMPARE":
+            return "올해와 작년의 매출을 비교한다"
         return "자연어 질의를 Knowledge IR로 변환한다"
 
     def _confidence(self, resolved: ResolvedQuery) -> float:

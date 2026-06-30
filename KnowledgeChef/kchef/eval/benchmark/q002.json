@@ -1,0 +1,44 @@
+{
+  "intent": "TOPK",
+  "sub_intents": null,
+  "description": "가장 값비싼 상품을 찾는다",
+  "concepts": [
+    "Product"
+  ],
+  "steps": [
+    {
+      "type": "data",
+      "source": "products",
+      "filters": null,
+      "join": null,
+      "group_by": null,
+      "order_by": [
+        {
+          "field": "price",
+          "direction": "DESC"
+        }
+      ],
+      "limit": 1,
+      "projections": null,
+      "aggregation": null
+    }
+  ],
+  "output_structure": {
+    "items": "list"
+  },
+  "ambiguity_resolutions": [
+    {
+      "element": "비싼",
+      "candidates": [
+        "price_DESC",
+        "alternative"
+      ],
+      "selected": "price_DESC",
+      "method": "default",
+      "confidence": 0.9,
+      "rationale": "AMBIGUITY.md 규칙 적용"
+    }
+  ],
+  "confidence": 0.9500000000000001,
+  "playbook_used": "RANK_AND_LIMIT"
+}

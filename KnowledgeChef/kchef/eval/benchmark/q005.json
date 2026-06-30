@@ -1,0 +1,70 @@
+{
+  "intent": "AGGREGATE",
+  "sub_intents": null,
+  "description": "확정 상태 기준 매출 합계를 계산한다",
+  "concepts": [
+    "Order",
+    "Revenue"
+  ],
+  "steps": [
+    {
+      "type": "data",
+      "source": "orders",
+      "filters": [
+        {
+          "field": "ordered_at",
+          "operator": "LIKE",
+          "value": "2026-06%"
+        },
+        {
+          "field": "status",
+          "operator": "IN",
+          "value": [
+            "confirmed",
+            "delivered",
+            "shipped"
+          ]
+        }
+      ],
+      "join": null,
+      "group_by": null,
+      "order_by": null,
+      "limit": null,
+      "projections": null,
+      "aggregation": {
+        "function": "SUM",
+        "field": "total_amount"
+      }
+    }
+  ],
+  "output_structure": {
+    "total_revenue": "number",
+    "period": "string"
+  },
+  "ambiguity_resolutions": [
+    {
+      "element": "이번 달",
+      "candidates": [
+        "2026-06",
+        "전체 기간"
+      ],
+      "selected": "2026-06",
+      "method": "default",
+      "confidence": 0.95,
+      "rationale": "AMBIGUITY.md 규칙: '이번 달' → 2026-06"
+    },
+    {
+      "element": "매출",
+      "candidates": [
+        "status_not_cancelled",
+        "alternative"
+      ],
+      "selected": "status_not_cancelled",
+      "method": "default",
+      "confidence": 0.9,
+      "rationale": "AMBIGUITY.md 규칙 적용"
+    }
+  ],
+  "confidence": 0.9500000000000001,
+  "playbook_used": "TEMPORAL_AGGREGATE"
+}

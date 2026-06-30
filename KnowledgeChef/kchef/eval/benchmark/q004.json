@@ -1,0 +1,60 @@
+{
+  "intent": "TREND",
+  "sub_intents": null,
+  "description": "주문 추이를 시간 순으로 집계한다",
+  "concepts": [
+    "Order",
+    "Revenue"
+  ],
+  "steps": [
+    {
+      "type": "data",
+      "source": "orders",
+      "filters": [
+        {
+          "field": "status",
+          "operator": "IN",
+          "value": [
+            "confirmed",
+            "delivered",
+            "shipped"
+          ]
+        }
+      ],
+      "join": null,
+      "group_by": [
+        "ordered_at"
+      ],
+      "order_by": [
+        {
+          "field": "ordered_at",
+          "direction": "ASC"
+        }
+      ],
+      "limit": null,
+      "projections": null,
+      "aggregation": {
+        "function": "SUM",
+        "field": "total_amount"
+      }
+    }
+  ],
+  "output_structure": {
+    "trend": "list"
+  },
+  "ambiguity_resolutions": [
+    {
+      "element": "매출",
+      "candidates": [
+        "status_not_cancelled",
+        "alternative"
+      ],
+      "selected": "status_not_cancelled",
+      "method": "default",
+      "confidence": 0.9,
+      "rationale": "AMBIGUITY.md 규칙 적용"
+    }
+  ],
+  "confidence": 0.9500000000000001,
+  "playbook_used": "TREND_OVER_TIME"
+}
