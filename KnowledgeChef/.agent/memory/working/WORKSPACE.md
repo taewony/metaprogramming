@@ -4,27 +4,26 @@
 > this file after 2 days of inactivity — don't keep long-lived notes here.
 
 ## Current task
-Register and enable `.agent/skills/kchef/SKILL.md` for Codex discovery.
+Implement standalone `kchef/planner-agent.py` from `kchef/planner_design_document.md`.
 
 ## Open files
 - .agent/memory/working/WORKSPACE.md
-- .agent/skills/kchef/SKILL.md
-- .agent/skills/_index.md
-- .agent/skills/_manifest.jsonl
-- .agent/tools/skill_loader.py
+- kchef/planner_design_document.md
+- kchef/planner_agent.py
+- kchef/planner-agent.py
+- tests/test_planner_agent.py
 
 ## Active hypotheses
-- `kchef` exists under `.agent/skills` but is missing from `_index.md` and `_manifest.jsonl`.
-- `.agents/skills` currently links to another repository and must be repointed to this workspace.
+- Planner should be executor-free and emit Knowledge IR plus dry-run validation.
+- A standalone CLI should expose `plan`, `ask`, `doctor`, and `loop`.
 
 ## Checkpoints
-- [x] Loaded startup guidance and kchef skill.
-- [x] Ran recall for skill setup.
-- [x] Registered kchef in skill index and manifest.
-- [x] Repoint `.agents/skills` to this workspace's `.agent/skills`.
-- [x] Fixed UTF-8 loading for Korean triggers in skill_loader.
-- [x] Verify progressive loader can load kchef.
-- [x] Log outcome with memory_reflect.
+- [x] Read `kchef/planner_design_document.md`.
+- [x] Implemented standalone planner agent module and wrapper.
+- [x] Added tests for command help and IR compilation.
+- [x] Verified `--help` output and `doctor`.
+- [x] Verified unit tests pass.
+- [ ] Log outcome with memory_reflect.
 
 ## Next step
-Done. `kchef` is discoverable through `.agent/skills` and `.agents/skills`.
+Log outcome with memory_reflect.
