@@ -39,7 +39,7 @@ KernelAgent/
 │   │   └── generate_cutile.py         # Generation helper (cuTile)
 │   └── study/                         # Design specifications and design documents
 │       └── compare_infer.md           # Engineering guide for the E2E benchmark
-└── 3-nano-vllm/                       # Multi-User Serving & PagedAttention (Completed)
+└── micro-vllm/                       # Multi-User Serving & PagedAttention (Completed)
     ├── nanovllm/                      # Custom lightweight vLLM inference engine
     │   ├── layers/
     │   │   ├── cutile_attention.py    # Custom cuTile prefill & paged decode kernels (GQA, causal padding)
@@ -71,7 +71,7 @@ KernelAgent/
 | **0 - MatMul** | Tiled GEMM with vectorized loads, unrolled loops | `torch.matmul` (FP16) | Explicit shared memory tiling and register blocking optimized for Tensor Cores. |
 | **1 - FMHA** | Online softmax Fused MHA (64×64 tile) | `F.scaled_dot_product_attention` | Reduces memory bandwidth pressure by fusing QK multiplication, Softmax, and PV reduction. |
 | **2 - LLM-from-scratch** | FMHA Prefill + Decode (KV-Cache & CUDA Graph enabled) | GPT-2 Block with PyTorch attention | Bypasses Python launch latency during token-by-token decoding via static graphs. |
-| **3 - nano-vllm** | Fused Prefill & Paged Decode (GQA, Causal Padding) | PyTorch SDPA & Triton `store_kvcache` | **Completed.** Bypasses Linux-only Triton/FlashAttention dependencies, allowing native Windows GPU serving. Achieves 1,900+ tok/s throughput. |
+| **micro-vllm** | Fused Prefill & Paged Decode (GQA, Causal Padding) | PyTorch SDPA & Triton `store_kvcache` | **Completed.** Bypasses Linux-only Triton/FlashAttention dependencies, allowing native Windows GPU serving. Achieves 1,900+ tok/s throughput. |
 
 All measurements use **warm-up (5–20×) and repeated runs (20–100×)** with `torch.cuda.synchronize()` to guarantee accurate GPU timings. Numerical correctness is verified using `torch.allclose` or exact output token matching.
 
@@ -132,30 +132,30 @@ To run the full comparison showing the speedup obtained by bypassing Python laun
 python 2-LLM-from-scratch/compare_infer_cuda_graph.py
 ```
 
-### Step 5: Native Windows Multi-User Serving (`3-nano-vllm`)
+### Step 5: Native Windows Multi-User Serving (`micro-vllm`)
 
 1. **Download & Rename Model**:
    ```powershell
-   python 3-nano-vllm/src/download_model.py --repo Qwen/Qwen2.5-3B-Instruct --dest ~/huggingface
+   python micro-vllm/src/download_model.py --repo Qwen/Qwen2.5-3B-Instruct --dest ~/huggingface
    Move-Item -Path ~/huggingface/Qwen2.5-3B-Instruct -Destination ~/huggingface/Qwen3-0.6B
    ```
 2. **Run TDD Verification Test Suite**:
    Runs 5 logical and GPU-compiled kernel correctness checks against Golden PyTorch references:
    ```powershell
-   python 3-nano-vllm/src/tests/test_migration.py
+   python micro-vllm/src/tests/test_migration.py
    ```
 3. **Run E2E Eager-mode Text Generation**:
    ```powershell
    $env:NANO_VLLM_USE_CUTILE="1"
-   python 3-nano-vllm/example.py
+   python micro-vllm/example.py
    ```
 4. **Run serving Benchmark**:
    ```powershell
-   python 3-nano-vllm/bench.py --use-cutile
+   python micro-vllm/bench.py --use-cutile
    ```
 5. **Run Asynchronous Dynamic User Simulation**:
    ```powershell
-   python 3-nano-vllm/test_asynchronous.py
+   python micro-vllm/test_asynchronous.py
    ```
 
 ---
@@ -168,5 +168,5 @@ On the target RTX 5070 GPU, we aim for the following outcomes:
 - **FMHA**: Stable prefill latencies and lower memory bandwidth bottlenecking.
 - **LLM-from-scratch (Raw)**: Consistent prefill performance with `T >= 64` sequences.
 - **LLM-from-scratch (CUDA Graphs)**: **>2.0× speedup** in token-per-second decoding throughput over raw cuTile execution by resolving host-side dispatch overhead.
-- **nano-vllm (cuTile)**: Multi-user batched serving performance reaching **1,900+ tok/s** overall throughput natively on Windows GPUs.
+- **micro-vllm (cuTile)**: Multi-user batched serving performance reaching **1,900+ tok/s** overall throughput natively on Windows GPUs.
 

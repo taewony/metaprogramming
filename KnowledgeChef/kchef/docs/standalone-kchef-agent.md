@@ -1,21 +1,21 @@
-## 'kchef' standalone agent
+## 'kchef' standalone agent for Text-to-SQL
 
 `codex` 없이도 동일한 기능을 수행하는 독립 실행형 에이전트로 전환하는 구체적인 과정을 안내해 드리겠습니다.
 
-### 🧭 Phase 3 개발 로드맵
+### 🧭 Phase 4 개발 로드맵
 
-Phase 3의 목표는 `codex`라는 강력한 도구의 도움을 받아 프로토타입을 빠르게 완성하고, 이후 이를 로컬 환경에 최적화된 독립 실행형 에이전트로 발전시키는 것입니다.
+Phase 4의 목표는 `codex`라는 강력한 도구의 도움을 받아 프로토타입을 빠르게 완성하고, 이후 이를 로컬 환경에 최적화된 독립 실행형 에이전트로 발전시키는 것입니다.
 
 ---
 
 ### 📝 1단계: Codex CLI를 활용한 프로토타입 개발
 
-`codex`는 이미 훌륭한 코딩 에이전트이므로, 이를 활용해 Phase 3의 핵심 로직을 빠르게 구현할 수 있습니다.
+`codex`는 이미 훌륭한 코딩 에이전트이므로, 이를 활용해 Phase 4의 핵심 로직을 빠르게 구현할 수 있습니다.
 
 *   **자동화 스크립트 작성**: `codex`가 반복적인 개발 작업을 수행하도록 프롬프트를 작성합니다.
     ```powershell
     # 예시: codex에게 독립 실행형 에이전트의 뼈대를 작성하도록 지시
-    codex -p "Create a standalone Python agent that uses Ollama and Qwen to answer questions about an SQLite database. The agent should have a simple CLI interface." 
+    codex -p "Create a standalone Python agent that uses Ollama and qwen3:8B to answer questions about an SQLite database. The agent should have a simple CLI interface." 
     ```
 *   **핵심 로직 구현**: `codex`와 대화하며 다음 요소들을 하나씩 구현합니다.
     *   **로컬 LLM 연결**: Ollama 서버와 통신하여 Qwen 모델을 호출하는 모듈 (`ollama_client.py`).

@@ -191,10 +191,10 @@ sequenceDiagram
 
 | 단계 | 목표 | 핵심 학습 내용 |
 | :--- | :--- | :--- |
-| **1) MatMul** | Tiled GEMM 커널 구현 및 최적화 | Shared memory, Register blocking, Bank conflict |
-| **2) FMHA** | Fused Multi-Head Attention 구현 | Online softmax, Causal mask, Wavefront 병렬화 |
-| **3) LLM from scratch** | 전체 Transformer 추론 루프 구축 | KV Cache, LayerNorm, Feed-forward 통합 |
-| **4) nano-vLLM kernel migration** | PagedAttention + Continuous Batching 통합 | Dynamic shape, Memory allocator, Green Contexts |
+| **0) MatMul** | Tiled GEMM 커널 구현 및 최적화 | Shared memory, Register blocking, Bank conflict |
+| **1) FMHA** | Fused Multi-Head Attention 구현 | Online softmax, Causal mask, Wavefront 병렬화 |
+| **2) LLM from scratch** | 전체 Transformer 추론 루프 구축 | KV Cache, LayerNorm, Feed-forward 통합 |
+| **3) micro-vLLM kernel migration** | PagedAttention + Continuous Batching 통합 | Dynamic shape, Memory allocator, Green Contexts |
 
 각 단계를 완료할 때마다, 해당 커널의 최적 설계 패턴과 제약 조건이 `v7.dsl.md`에 누적되며, 다음 단계의 실험 설계에 활용된다.
 

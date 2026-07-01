@@ -29,6 +29,9 @@ Implement standalone `kchef/planner-agent.py` from `kchef/planner_design_documen
 - [x] Fixed direct-execution `ModuleNotFoundError: No module named 'kchef'`.
 - [x] Expanded planner benchmarks to `q002`-`q006` and wired direct pytest execution.
 - [x] Exported each benchmark IR to `kchef/eval/benchmark/*.json`.
+- [x] Wrote `kchef/docs/phase03-eval-plan.md`.
+- [x] Wrote `kchef/docs/overall_evaluation_method.md`.
+- [x] Converted `kchef/docs/ch09_text_to_sql.ipynb` into `kchef/docs/ch09_text_to_sql.py` and `kchef/docs/ch09_text_to_sql.design.md`.
 - [x] Log outcome with memory_reflect.
 
 ## Next step

@@ -5,7 +5,7 @@
 
 ---
 
-## 1. [matmul.dsl.html (0-MatMul)](file:///D:/Capstone/metaprogramming/KernelAgent/0-MatMul/matmul.dsl.html)
+## 1. [matmul.dsl.html (0-MatMul)](file:///D:/code/metaprogramming/KernelAgent/0-MatMul/matmul.dsl.html)
 * **핵심 설계**: Persistent CTA 스케줄링 및 L2 Cache Swizzling (M-fast, N-slow 레이아웃 그룹 스위즐링).
 * **튜닝 파라미터**: 
   - `num_ctas = 192` (RTX 5070의 48개 SM에 SM당 4개 블록을 배정하여 글로벌 메모리 로드 지연을 은닉).
@@ -17,7 +17,7 @@
 
 ---
 
-## 2. [FMHA.dsl.html (1-FMHA)](file:///D:/Capstone/metaprogramming/1-FMHA/FMHA.dsl.html)
+## 2. [FMHA.dsl.html (1-FMHA)](file:///D:/code/metaprogramming/1-FMHA/FMHA.dsl.html)
 * **핵심 설계**: Fused Multi-Head Attention, Pipelined Global Load Latency Hints, Causal Loop Bounding.
 * **튜닝 파라미터**: 
   - QK 로드 시 `latency=2` (레지스터/SRAM 사전 프리페치), V 로드 시 `latency=4` (DRAM 지연을 $QK^T$ Tensor Core 연산과 오버랩).
@@ -42,7 +42,7 @@
       
 ---
 
-## 3. [LLM-from-scratch.dsl.html (2-LLM-from-scratch)](file:///D:/Capstone/metaprogramming/KernelAgent/2-LLM-from-scratch/LLM-from-scratch.dsl.html)
+## 3. [LLM-from-scratch.dsl.html (2-LLM-from-scratch)](file:///D:/code/metaprogramming/KernelAgent/2-LLM-from-scratch/LLM-from-scratch.dsl.html)
 * **핵심 설계**: Causal Padding (SDPA 폴백 방지), 정적 KV 캐시 (`scatter_` 인플레이스), E2E CUDAGraph Capture.
 * **물리적 제약 조치**:
   - $T < 64$ 경계 오정렬로 인한 PyTorch SDPA 강제 폴백을 방지하고자 $64$ 크기로 텐서를 causal padding 후 복원하는 기법 탑재.
@@ -67,7 +67,7 @@
       
 ---
 
-## 4. [micro-vllm.dsl.html (3-nano-vllm)](file:///D:/Capstone/metaprogramming/KernelAgent/3-nano-vllm/micro-vllm.dsl.html)
+## 4. [micro-vllm.dsl.html (micro-vllm)](file:///D:/code/metaprogramming/KernelAgent/micro-vllm/micro-vllm.dsl.html)
 * **핵심 설계**: Paged KV Cache (GPU vectorized block mapping), CUDA Green Contexts SM 물리 분할.
 * **튜닝 파라미터**: Prefill Context (32 SMs), Decode Context (16 SMs) 분할.
 * **물리적 제약 조치**:
