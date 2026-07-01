@@ -24,7 +24,7 @@ Total Tokens Processed: Baseline = 2183 tok, Green = 2183 tok
 Total Elapsed Time:     Baseline = 5.25 s, Green = 4.75 s
 ======================================================================
 
-python bench.py --use-cutile
+PS D:\Capstone\metaprogramming\KernelAgent\3-nano-vllm> python bench.py --use-cutile
 🚀 Using cuTile attention backend
 `torch_dtype` is deprecated! Use `dtype` instead!
 Generating: 100%|███████████████████████████████████████| 1/1 [00:03<00:00,  3.15s/it, Prefill=23tok/s, Decode=23tok/s]
