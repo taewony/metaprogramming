@@ -182,11 +182,7 @@ taewony@wsu.ac.kr</p>
 </header>
 <section class="abstract">
 <h2>요약 (Abstract)</h2>
-<p>거대 언어 모델(LLM) 서빙 엔진의 지연 시간 및 처리량 성능은 GPU 메모리 접근과 연산 대역폭 병목을 완화하기 위한 하드웨어 수준의 커널 최적화에 크게 좌우된다. 그러나 vLLM을 비롯한 기존 고성능 LLM 서빙 프레임워크는 Linux 환경에 강하게 의존하는 구성 요소가 많아, 연구 및 교육 목적의 로컬 온프레미스 장비가 주로 배치된 Windows OS 생태계에서는 이식성과 활용성이 제한된다. 본 연구는 이러한 한계를 완화하기 위해 JIT 컴파일 기반 Python DSL인 cuTile과 CUDA Python 1.0을 적용한 Windows-native LLM 추론 엔진 <strong>micro-vllm</strong>을 설계하고 구현하였다. <strong>micro-vllm</strong>은 Windows OS 기반 GPU 환경에서 LLM 추론 커널을 직접 실행하고 분석할 수 있도록 구성되며, 이를 통해 범용 로컬 개발 환경에서도 LLM 추론 엔진의 동작 원리와 최적화 과정을 실험할 수 있도록 한다. 구체적으로 본 연구는 flash_attn 라이브러리와 Linux 기반 nano-vllm의 핵심 커널을 단계적으로 마이그레이션하고, MatMul, FMHA, 초소형 llm-from-scratch 구현을 포함하는 실습 가능한 최적화 경로를 제시한다.</p>
-<p>또한 본 연구는 커널 최적화 과정을 단발성 코드 생성이 아니라 DSL 기반의 통제된 과학실험 루프로 구조화하였다. MatMul, FMHA, LLM-from-scratch, micro-vllm 단계에서 각 실험의 가설, 튜닝 파라미터, 하드웨어 제약, acceptance criteria, 실행 결과, 실패 원인, 후속 insight를 DSL 형식으로 누적하고 다음 실험 설계에 재사용하였다. 이 과정에서 TechLead 에이전트는 실험을 직접 실행하지 않고 실험 설계, 코드 패치, 로그 분석, 결과 해석만 담당하도록 제한하여, 주어진 시스템에 대한 멘탈 모델을 일관되게 유지하도록 하였다.</p>
-<p>실험적으로는 WSL2 FlashAttention 기준선과 Windows native cuTile 경로를 동일한 dynamic multi-user benchmark에서 비교하였다. FlashAttention은 평균 2138.55 tok/s를 기록하여 현재 cuTile backend의 평균 463.35 tok/s보다 약 4.62배 높은 처리량을 보였다. 이 결과를 바탕으로 본 논문은 cuTile 구현을 생산 환경용 optimized attention kernel의 대체재로 주장하지 않고, Windows 환경에서 LLM serving kernel을 단계적으로 이식하고 병목을 관찰하기 위한 연구 및 교육용 실험 플랫폼으로 위치시킨다.</p>
-<p>시스템 수준에서는 vLLM 계열 serving에서 병목 특성이 다른 Prefill과 Decode의 자원 간섭을 줄이기 위해 CUDA Python 1.0의 Green Contexts API를 적용하였다. 단일 RTX 5070 GPU 내부에서 SM 자원을 Prefill 32 SM, Decode 16 SM으로 분리함으로써 별도 GPU나 분산 런타임 없이 Decode 작업의 L2 cache residency를 보호하는 설계를 검토하였다. 총 8회 반복 실행에서는 Decode P99 ITL이 평균 3.9% 감소했지만, P50 ITL과 전체 처리량은 각각 5.2%, 2.6% 악화되었다. 따라서 본 논문은 Green Contexts 결과를 안정적인 성능 개선 주장보다는 단일 GPU 내 Prefill/Decode 자원 격리의 구현 가능성, tail-latency trade-off, 그리고 추가 profiling 필요성을 보이는 실험으로 해석한다.</p>
-<p>마지막으로 CUDA Graph 적용이나 shape padding처럼 kernel launch 및 JIT compile 반복을 줄이려는 최적화가 동적 배치와 Paged KV cache가 결합된 Eager-mode serving에서는 오히려 PyTorch caching allocator와 가비지 컬렉터의 메모리 할당 스래싱을 촉발하여 전체 생성 처리량을 67.0% 저하시킬 수 있음을 분석하였다. 이를 통해 LLM inference engine 최적화에서는 launch/JIT 회피 전략뿐 아니라 메모리 할당 패턴, KV cache 갱신 방식, 호스트-디바이스 동기화 비용을 함께 평가해야 함을 보였다.</p>
+<p>본 연구는 Linux 중심 LLM 서빙 프레임워크의 Windows 환경 이식성 제약을 완화하기 위해 cuTile과 CUDA Python 1.0 기반 Windows-native LLM 추론 엔진 <strong>micro-vllm</strong>을 설계하고 구현하였다. micro-vllm은 flash_attn 및 nano-vllm의 핵심 커널을 MatMul, FMHA, llm-from-scratch 단계로 마이그레이션하며, 실험 설계와 실패 insight를 DSL로 누적하는 코딩 에이전트 협력 프레임워크를 함께 제시한다. WSL2 FlashAttention은 평균 2138.55 tok/s로 현재 cuTile backend보다 약 4.62배 높은 처리량을 보였으며, Green Contexts 기반 Prefill/Decode SM 분할은 Decode P99 ITL을 평균 3.9% 낮추었지만 P50 ITL과 처리량은 각각 5.2%, 2.6% 악화되었다. 또한 shape padding 기반 launch/JIT 회피 시도가 PyTorch caching allocator 스래싱을 유발하여 전체 생성 처리량을 67.0% 저하시킬 수 있음을 관찰하였다.</p>
 <p><strong>핵심어(Keywords):</strong> 거대 언어 모델(LLM) 서빙, cuTile, CUDA Python 1.0, Windows OS, 단계적 커널 마이그레이션, 코딩 에이전트 공동 설계, Green Contexts</p>
 </section>
 <h1 id="서론">서론</h1>
@@ -334,27 +330,18 @@ Spec Kit Agents가 단계별 context-grounding hook과 validation hook을 통해
 실험 DSL을 통해 TechLead의 판단 근거를 명시적으로 고정한다는 점에서 관련된다.</p>
 <h1 id="인지-컴파일러-및-과학실험-기반-3계층-공동-설계-방법론">인지
 컴파일러 및 과학실험 기반 3계층 공동 설계 방법론</h1>
-<p>단일 GPU의 제한된 하드웨어 자원 하에서 LLM 추론 엔진 커널을
-효과적으로 마이그레이션 및 최적화하기 위해서는, 고수준 아키텍처 모델과
-저수준 물리 연산 간의 긴밀한 상호작용이 필수적이다. 본 연구는
-시스템 개발 과정의 과학적 엄밀성과 탐색 효율성을 높이기 위해, 커널
-엔지니어링을 <strong>통제된 과학실험(Controlled Scientific
-Experiment)</strong>으로 모델링하고, 인간 개발자와 AI 코딩 에이전트가
-협력하여 시스템 모델을 스스로 진화시키는 <strong>인지 컴파일러(Cognitive
-Compiler)</strong> 방법론을 제안한다.</p>
 <h2 id="프레임워크-개요-및-과학적-방법론-도입">프레임워크 개요 및 과학적
 방법론 도입</h2>
-<p>전통적인 컴파일러가 정적이고 고정된 규칙에 기초해 소스 코드를
-기계어로 매핑하는 것과 달리, 본 연구에서 제안하는 <strong>인지
-컴파일러</strong>는 실험 결과를 지식으로 동적 흡수하여 컴파일 제약
-규칙을 점진적으로 갱신한다. 이는 GPU 커널 튜닝의 복잡한 설계
-공간 속에서 시행착오(Trial-and-Error)를 소거하고 시스템 지식을
-체계적으로 누적하기 위한 과학적 방법론 사이클에 기초한다.</p>
+<p>단일 GPU의 제한된 하드웨어 자원 하에서 LLM 추론 엔진 커널을
+마이그레이션하려면, 고수준 아키텍처 모델과 저수준 물리 연산 사이의
+제약을 함께 관리해야 한다. 본 연구는 이 과정을 <strong>통제된
+과학실험(Controlled Scientific Experiment)</strong>으로 모델링하고,
+실험 결과를 DSL 지식으로 누적하여 다음 패치와 튜닝 제약을 갱신하는
+<strong>인지 컴파일러(Cognitive Compiler)</strong> 방법론으로 정리한다.</p>
 <h2 id="계층-위계-구조-및-통제-경계">3계층 위계 구조 및 통제 경계</h2>
-<p>본 프레임워크는 정보의 추상화 수준, 실행 권한 및 하드웨어 접근 수준에
+<p>본 프레임워크는 정보의 추상화 수준과 실행 권한에
 따라 <strong>Architect(상위)</strong>, <strong>TechLead(중위)</strong>,
-<strong>Executor(하위)</strong>의 3계층 위계로 분할되어 작용한다. 이는 과학실험실 팀의 역할 분담을 모방하여 각 에이전트와 인간의 행동
-통제 영역을 엄격하게 규정한다.</p>
+<strong>Executor(하위)</strong>의 3계층으로 역할을 분리한다.</p>
 <ul>
 <li><p><strong>상위 계층: Architect (인간 개발자 + 클라우드
 LLM)</strong>: 시스템 궁극 의도(Intent) 정의, 전역 제약 수립, 지식 최종
@@ -365,14 +352,14 @@ LLM)</strong>: 시스템 궁극 의도(Intent) 정의, 전역 제약 수립, 지
 제약을 연결하여 시스템 지식을 누적하고 정합성을 유지하는 중심 계층이다.
 Architect가 정의한 전역 의도와 제약을 구체적인 패치 후보, 튜닝 탐색 범위,
 acceptance criteria로 변환하고, Executor가 반환한 측정 결과를 다시 DSL
-지식으로 구조화한다. 이 과정에서 아키텍처 불변성, 컴파일러 제약, 하드웨어
-물리 제약 사이의 일관성을 점검하되, 타겟 머신에서 코드를 직접
+지식으로 구조화한다. 아키텍처 불변성, 컴파일러 제약, 하드웨어 물리 제약
+사이의 일관성을 점검하되, 타겟 머신에서 코드를 직접
 컴파일/실행하지 않는다.</p></li>
 <li><p><strong>하위 계층: Executor (인간 개발자 + 로컬 실행 환경 +
 Nsight)</strong>: 패치를 물리적으로 로드하여 GPU 상에서 JIT 컴파일 및
 론칭, 실행 에러에 대한 로컬 자율 디버깅 수행, 프로파일 텔레메트리 계측을
-수행한다. 전역적 아키텍처 설계에는 관여하지 않으며, 오직 로컬
-오류 극복과 정량 데이터 수집에 한정된다.</p></li>
+수행한다. 전역적 아키텍처 설계에는 관여하지 않고 정량 데이터 수집에
+집중한다.</p></li>
 </ul>
 <h2 id="dsl-기반-실험-지식-명세와-재사용">DSL 기반 실험 지식 명세와 재사용</h2>
 <p>본 연구의 DSL은 단순한 설정 파일이 아니라 실험 설계, 실행 결과,
@@ -382,8 +369,8 @@ Nsight)</strong>: 패치를 물리적으로 로드하여 GPU 상에서 JIT 컴�
 <code>hardware_constraints</code>, <code>knowledge_rules</code>,
 <code>milestones</code>, <code>agent_eval_loop</code>,
 <code>acceptance_criteria</code> 필드를 가진다. 이 구조를 통해 TechLead는
-이전 실험의 결과를 임시 대화 맥락이 아니라 명시적인 규칙과 측정 기준으로
-다시 읽고, 다음 패치와 실험 조건을 설계할 수 있었다.</p>
+이전 실험의 결과를 명시적인 규칙과 측정 기준으로 다시 읽고, 다음 패치와
+실험 조건을 설계할 수 있었다.</p>
 <table>
 <thead>
 <tr>
@@ -443,9 +430,8 @@ Nsight)</strong>: 패치를 물리적으로 로드하여 GPU 상에서 JIT 컴�
 <code>agent_eval_loop</code>에는 256명 동시 사용자 continuous batching
 서빙 부하와 Green Contexts 벤치마크를 기록하고,
 <code>acceptance_criteria</code>에는 Decode P50 ITL 개선률, Prefill TTFT
-변동률, peak VRAM 한계를 포함하였다. 따라서 Green Contexts 실험은 단순한
-수동 튜닝이 아니라, 사전에 정의된 설계 공간과 성공 기준에 따라 실행되고
-평가되는 절차로 관리되었다.</p>
+변동률, peak VRAM 한계를 포함하였다. 따라서 Green Contexts 실험은
+사전에 정의된 설계 공간과 성공 기준에 따라 관리되었다.</p>
 <p>실패한 실험 역시 DSL의 <code>knowledge_rules</code>로 영속화되었다.
 대표적으로 dynamic shape padding은 JIT compile 반복을 줄이기 위한
 시도였지만, Eager-mode serving에서 매 decode step마다 대형 임시 tensor
@@ -453,8 +439,8 @@ Nsight)</strong>: 패치를 물리적으로 로드하여 GPU 상에서 JIT 컴�
 증가시켰다. 이 결과는 <code>Allocator_Thrashing_Prevention</code> 및
 <code>Caching_Allocator_Thrashing_Prevention</code> 규칙으로 기록되었고,
 후속 micro-vllm 실험에서는 no-padding Eager serving을 기본 제약으로
-사용하였다. 즉, 실패 로그가 단순한 시행착오로 끝나지 않고 다음 실험의
-금지 조건과 설계 규칙으로 재사용되었다.</p>
+사용하였다. 즉, 실패 로그가 다음 실험의 금지 조건과 설계 규칙으로
+재사용되었다.</p>
 <h1 id="micro-vllm-아키텍처-및-핵심-최적화">micro-vllm 아키텍처 및 핵심
 최적화</h1>
 <p>본 장에서는 Windows OS와 단일 소비자용 GPU 환경에 맞추어
