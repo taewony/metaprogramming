@@ -132,10 +132,12 @@ To run the full comparison showing the speedup obtained by bypassing Python laun
 python 2-LLM-from-scratch/compare_infer_cuda_graph.py
 ```
 
-### Step 5: Native Windows Multi-User Serving (`micro-vllm`)
+### Step 5-1: Native Windows Multi-User Serving (`micro-vllm`)
+출력 결과: micro-vllm/test-result-cutile.md
 
 1. **Download & Rename Model**:
    ```powershell
+   pip install huggingface_hub
    python micro-vllm/src/download_model.py --repo Qwen/Qwen2.5-3B-Instruct --dest ~/huggingface
    Move-Item -Path ~/huggingface/Qwen2.5-3B-Instruct -Destination ~/huggingface/Qwen3-0.6B
    ```
@@ -156,6 +158,36 @@ python 2-LLM-from-scratch/compare_infer_cuda_graph.py
 5. **Run Asynchronous Dynamic User Simulation**:
    ```powershell
    python micro-vllm/test_asynchronous.py
+   ```
+
+---
+
+### Step 5-2: Linux(WSL) Multi-User Serving (`nano-vllm`)
+출력 결과: micro-vllm/test-result-flash_attn.md
+
+1. **Download & Rename Model**:
+   ```bash
+   cd micro-vllm
+   pip install huggingface_hub
+   python3 src/download_model.py --repo Qwen/Qwen2.5-3B-Instruct --dest ~/huggingface
+   mv ~/huggingface/Qwen2.5-3B-Instruct ~/huggingface/Qwen3-0.6B
+   ```
+2. **Check Downloaded & Renamed qwen Model**:
+   ```bash
+   pip install transformers
+   python src/inspect_model.py /home/linux/huggingface/Qwen3-0.6B >> test-result-flash_attn.md
+   ```
+3. **Run E2E flash_attn mode Text Generation**:
+   ```bash
+   python example.py
+   ```
+4. **Run serving Benchmark in flash_attn mode**:
+   ```bash
+   python bench.py
+   ```
+5. **Run Asynchronous Dynamic User Simulation**:
+   ```bash
+   python test_asynchronous.py
    ```
 
 ---

@@ -5,7 +5,7 @@
   <meta name="generator" content="pandoc" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
   <meta name="author" content="김태원 우송대학교 소프트웨어학부(AI·컴퓨터공학과) taewony@wsu.ac.kr" />
-  <title>cuTile 기반 고성능 LLM 추론 엔진 최적화 및 코딩 에이전트 협력 설계 실증 연구</title>
+  <title>cuTile 기반 Windows-native LLM 추론 엔진 이식 및 코딩 에이전트 협력 설계 실증 연구</title>
   <style>
     /* Default styles provided by pandoc.
     ** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
@@ -173,18 +173,19 @@
 </head>
 <body>
 <header id="title-block-header">
-<h1 class="title">cuTile 기반 고성능 LLM 추론 엔진 최적화 및 코딩
+<h1 class="title">cuTile 기반 Windows-native LLM 추론 엔진 이식 및 코딩
 에이전트 협력 설계 실증 연구</h1>
-<p class="subtitle">Optimizing High-Performance LLM Inference Engine via cuTile and Human-Agent Co-Design: An Empirical Study</p>
+<p class="subtitle">Windows-Native LLM Inference Engine Migration via cuTile and Human-Agent Co-Design: An Empirical Study</p>
 <p class="author">김태원<br />
 우송대학교 소프트웨어학부(AI·컴퓨터공학과)<br />
 taewony@wsu.ac.kr</p>
 </header>
 <section class="abstract">
 <h2>요약 (Abstract)</h2>
-<p>거대 언어 모델(LLM) 서빙 엔진의 지연 시간 및 처리량 성능은 GPU 메모리 접근과 연산 대역폭 병목을 완화하기 위한 하드웨어 수준의 커널 최적화에 크게 좌우된다. 그러나 vLLM을 비롯한 기존 고성능 LLM 서빙 프레임워크는 Linux 환경에 강하게 의존하는 구성 요소가 많아, 연구 및 교육 목적의 로컬 온프레미스 장비가 주로 배치된 Windows OS 생태계에서는 이식성과 활용성이 제한된다. 본 연구는 이러한 한계를 해결하기 위해 JIT 컴파일 기반 Python DSL인 cuTile과 CUDA Python 1.0을 적용한 LLM 추론 엔진 <strong>micro-vllm</strong>을 설계하고 구현하였다. <strong>micro-vllm</strong>은 Windows OS 기반 GPU 환경에서 LLM 추론 커널을 직접 실행하고 최적화할 수 있도록 구성되며, 이를 통해 범용 로컬 개발 환경에서도 고성능 LLM 추론 엔진의 동작 원리와 최적화 과정을 실험할 수 있도록 한다. 구체적으로 본 연구는 flash_attn 라이브러리와 Linux 기반 nano-vllm의 핵심 커널을 단계적으로 마이그레이션하고, MatMul, FMHA, 초소형 llm-from-scratch 구현을 포함하는 실습 가능한 최적화 경로를 제시한다.</p>
+<p>거대 언어 모델(LLM) 서빙 엔진의 지연 시간 및 처리량 성능은 GPU 메모리 접근과 연산 대역폭 병목을 완화하기 위한 하드웨어 수준의 커널 최적화에 크게 좌우된다. 그러나 vLLM을 비롯한 기존 고성능 LLM 서빙 프레임워크는 Linux 환경에 강하게 의존하는 구성 요소가 많아, 연구 및 교육 목적의 로컬 온프레미스 장비가 주로 배치된 Windows OS 생태계에서는 이식성과 활용성이 제한된다. 본 연구는 이러한 한계를 완화하기 위해 JIT 컴파일 기반 Python DSL인 cuTile과 CUDA Python 1.0을 적용한 Windows-native LLM 추론 엔진 <strong>micro-vllm</strong>을 설계하고 구현하였다. <strong>micro-vllm</strong>은 Windows OS 기반 GPU 환경에서 LLM 추론 커널을 직접 실행하고 분석할 수 있도록 구성되며, 이를 통해 범용 로컬 개발 환경에서도 LLM 추론 엔진의 동작 원리와 최적화 과정을 실험할 수 있도록 한다. 구체적으로 본 연구는 flash_attn 라이브러리와 Linux 기반 nano-vllm의 핵심 커널을 단계적으로 마이그레이션하고, MatMul, FMHA, 초소형 llm-from-scratch 구현을 포함하는 실습 가능한 최적화 경로를 제시한다.</p>
 <p>또한 본 연구는 커널 최적화 과정을 단발성 코드 생성이 아니라 DSL 기반의 통제된 과학실험 루프로 구조화하였다. MatMul, FMHA, LLM-from-scratch, micro-vllm 단계에서 각 실험의 가설, 튜닝 파라미터, 하드웨어 제약, acceptance criteria, 실행 결과, 실패 원인, 후속 insight를 DSL 형식으로 누적하고 다음 실험 설계에 재사용하였다. 이 과정에서 TechLead 에이전트는 실험을 직접 실행하지 않고 실험 설계, 코드 패치, 로그 분석, 결과 해석만 담당하도록 제한하여, 주어진 시스템에 대한 contextual mental model과 성능 인과관계를 일관되게 유지하도록 하였다.</p>
-<p>시스템 수준에서는 vLLM 계열 serving에서 병목 특성이 다른 Prefill과 Decode의 자원 간섭을 줄이기 위해 CUDA Python 1.0의 Green Contexts API를 적용하였다. 단일 RTX 5070 GPU 내부에서 SM 자원을 Prefill 32 SM, Decode 16 SM으로 분리함으로써 별도 GPU나 분산 런타임 없이 Decode 작업의 L2 cache residency를 보호하는 설계를 검토하였다. 본 구현 범위에서 <strong>중간값 Decode 지연시간(P50 ITL) 14.0% 단축 및 전체 토큰 처리량 10.6% 향상(459.73 tok/s)</strong>을 관찰하였다.</p>
+<p>실험적으로는 WSL2 FlashAttention 기준선과 Windows native cuTile 경로를 동일한 dynamic multi-user benchmark에서 비교하였다. FlashAttention은 평균 2138.55 tok/s를 기록하여 현재 cuTile backend의 평균 463.35 tok/s보다 약 4.62배 높은 처리량을 보였다. 이 결과를 바탕으로 본 논문은 cuTile 구현을 생산 환경용 optimized attention kernel의 대체재로 주장하지 않고, Windows 환경에서 LLM serving kernel을 단계적으로 이식하고 병목을 관찰하기 위한 연구 및 교육용 실험 플랫폼으로 위치시킨다.</p>
+<p>시스템 수준에서는 vLLM 계열 serving에서 병목 특성이 다른 Prefill과 Decode의 자원 간섭을 줄이기 위해 CUDA Python 1.0의 Green Contexts API를 적용하였다. 단일 RTX 5070 GPU 내부에서 SM 자원을 Prefill 32 SM, Decode 16 SM으로 분리함으로써 별도 GPU나 분산 런타임 없이 Decode 작업의 L2 cache residency를 보호하는 설계를 검토하였다. 총 8회 반복 실행에서는 Decode P99 ITL이 평균 3.9% 감소했지만, P50 ITL과 전체 처리량은 각각 5.2%, 2.6% 악화되었다. 따라서 본 논문은 Green Contexts 결과를 안정적인 성능 개선 주장보다는 단일 GPU 내 Prefill/Decode 자원 격리의 구현 가능성, tail-latency trade-off, 그리고 추가 profiling 필요성을 보이는 실험으로 해석한다.</p>
 <p>마지막으로 CUDA Graph 적용이나 shape padding처럼 kernel launch 및 JIT compile 반복을 줄이려는 최적화가 동적 배치와 Paged KV cache가 결합된 Eager-mode serving에서는 오히려 PyTorch caching allocator와 가비지 컬렉터의 메모리 할당 스래싱을 촉발하여 전체 생성 처리량을 67.0% 저하시킬 수 있음을 분석하였다. 이를 통해 LLM inference engine 최적화에서는 launch/JIT 회피 전략뿐 아니라 메모리 할당 패턴, KV cache 갱신 방식, 호스트-디바이스 동기화 비용을 함께 평가해야 함을 보였다.</p>
 <p><strong>핵심어(Keywords):</strong> 거대 언어 모델(LLM) 서빙, cuTile, CUDA Python 1.0, Windows OS, 단계적 커널 마이그레이션, 코딩 에이전트 공동 설계, Green Contexts</p>
 </section>
@@ -227,10 +228,13 @@ step마다 임시 텐서 할당과 KV cache 갱신 비용이 증가할 수 있�
 병목으로 이어지는 과정을 분석하였다. 또한 Prefill과 Decode가 같은 GPU
 자원을 경쟁적으로 사용할 때 발생하는 간섭을 줄이기 위해 CUDA Green
 Contexts 기반 SM 분할[5]을 적용하고, 그에 따른 디코딩 지연시간과 처리량
-변화를 측정 및 분석하였다.</p>
+변화를 반복 측정 및 분석하였다. 추가로 WSL2 환경에서 FlashAttention
+backend를 구동하여, Windows native cuTile 경로와 성숙한 Linux 기반
+attention stack 사이의 성능 차이를 기준선으로 확인하였다.</p>
 <h2 id="본-연구의-주요-기여">본 연구의 주요 기여</h2>
-<p>본 논문이 제시하는 학술적 및 시스템적 주요 기여점은 그 중요도 순에
-따라 다음과 같다.</p>
+<p>본 논문이 제시하는 학술적 및 시스템적 주요 기여점은 성능 우위 주장보다
+재현 가능한 구현 산출물, 실험 절차, 그리고 병목 분석에 초점을 맞추어
+다음과 같이 정리된다.</p>
 <ul>
 <li><p><strong>[Education &amp; Kernel Migration] 단계적 커널 마이그레이션 기반 LLM 추론 엔진 학습 자료</strong>:
 flash_attn 라이브러리 및 Linux 기반 nano-vllm의 핵심 커널을 cuTile 및 CUDA Python 1.0 기반으로 마이그레이션하여,
@@ -246,7 +250,7 @@ DSL 형식으로 누적하여 다음 실험 설계에 재사용하였다. 특히
 실험 설계, 코드 패치, 로그 분석, 결과 해석만 담당하도록 제한하였다. 이 실행 권한의 분리는 TechLead가
 로컬 디버깅의 우발적 세부사항에 매몰되지 않고, 주어진 시스템에 대한 정확한 contextual mental model을
 유지하면서 아키텍처 불변성, 물리 제약, 성능 인과관계를 일관되게 추론하도록 강제하는 역할을 했다.</p></li>
-<li><p><strong>[System &amp; Methodology] 단일 GPU 내 Prefill/Decode 자원 격리를 통한 추론 성능 안정화
+<li><p><strong>[System &amp; Methodology] 단일 GPU 내 Prefill/Decode 자원 격리 구현 및 평가
 (Single-GPU Prefill/Decode Isolation with Green Contexts)</strong>:
 vLLM 계열 LLM serving에서는 대량 토큰을 한 번에 처리하는 Prefill 단계와
 1토큰 단위로 반복되는 Decode 단계의 병목 특성이 다르기 때문에, 두 단계의
@@ -255,8 +259,11 @@ Green Contexts API를 이용하여 단일 RTX 5070 GPU 안에서 SM 자원을 Pr
 32 SM, Decode 16 SM으로 물리적으로 나누는 방식을 <strong>micro-vllm</strong>에 적용하였다.
 이를 통해 별도 GPU나 분산 런타임 없이 하나의 소비자용 GPU 내부에서 Prefill과
 Decode의 실행 영역을 분리하고, Decode 작업의 L2 cache residency를 보호하는
-설계를 검토하였다. 실험 결과 본 구현 범위에서 Decode P50 ITL 14.0% 단축과
-전체 Throughput 10.6% 개선을 관찰하였다.</p></li>
+설계를 검토하였다. 총 8회 반복 실행에서는 Decode P99 ITL이 평균 3.9%
+감소했지만, P50 ITL과 전체 Throughput은 각각 5.2%, 2.6% 악화되었다.
+따라서 본 연구는 Green Contexts를 확정적인 성능 향상 기법으로 단정하지
+않고, 단일 GPU 내부에서 Prefill/Decode 자원 격리를 구현하고 tail latency와
+throughput 사이의 trade-off를 검토하기 위한 실험적 기반으로 제시한다.</p></li>
 <li><p><strong>[Engineering Analysis] CUDA Graph/JIT 회피 최적화의 역효과 분석
 (Allocator Thrashing under Shape Stabilization)</strong>:
 LLM serving에서 빈번한 kernel launch와 JIT compile 반복을 줄이기 위해 CUDA Graph 적용이나 shape padding을 통한
@@ -526,6 +533,56 @@ Contexts</strong>를 적용하여 RTX 5070 GPU의 전체 48개 SM 자원을
 CUDA 13.3) 및 Qwen2.5-3B-Instruct 모델을 사용해 평가를 실시하였다. 동시 사용자 수는 256명으로 고정하고, 입력 및 출력의 크기를 100에서
 1024 토큰 범위 내에서 동적으로 조율하는 continuous batching 상황을
 재현하였다.</p>
+<p>성능 평가는 세 가지 관점에서 수행하였다. 첫째, Windows native
+cuTile backend가 동일한 multi-user serving workload를 끝까지 수행할 수
+있는지 확인하였다. 둘째, WSL2 Linux 환경에서 FlashAttention backend를
+구동하여 성숙한 optimized attention stack을 기준선으로 삼았다. 셋째,
+CUDA Green Contexts를 이용해 Prefill과 Decode의 SM partitioning을
+적용했을 때 지연시간 및 처리량이 반복 실행에서 어떻게 변하는지
+측정하였다.</p>
+<h2 id="wsl-flashattention-기준선과-cutile-비교">WSL FlashAttention 기준선과 cuTile 비교</h2>
+<p>동일하게 133,966개 생성 토큰을 처리하는 dynamic multi-user benchmark에서
+Windows native cuTile backend와 WSL2 FlashAttention backend를 비교하였다.
+FlashAttention은 Linux/WSL2 환경에서 Triton 및 optimized attention kernel을
+활용하는 성숙한 기준선으로 사용하였으며, cuTile backend는 Windows native
+kernel migration 경로의 현재 구현 성능을 확인하는 대상으로 사용하였다.</p>
+<table>
+<thead>
+<tr>
+<th>Backend</th>
+<th>Runs</th>
+<th>Mean time (s)</th>
+<th>Mean throughput (tok/s)</th>
+<th>Std. (tok/s)</th>
+<th>Relative</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Windows native cuTile</td>
+<td>3</td>
+<td>289.16</td>
+<td>463.35</td>
+<td>6.49</td>
+<td>1.00x</td>
+</tr>
+<tr>
+<td>WSL2 FlashAttention</td>
+<td>4</td>
+<td>62.65</td>
+<td>2138.55</td>
+<td>13.22</td>
+<td>4.62x</td>
+</tr>
+</tbody>
+</table>
+<p>반복 측정 결과 FlashAttention 기준선은 평균 2138.55 tok/s를 기록하여
+현재 cuTile backend 평균 463.35 tok/s 대비 약 4.62배 높은 처리량을
+보였다. 최신 반복 로그만 비교해도 FlashAttention은 2142.04 tok/s,
+cuTile은 459.62 tok/s로 약 4.66배 차이를 보였다. 따라서 본 연구의
+Windows native cuTile 구현은 production-grade Linux attention kernel을
+능가한다는 주장이 아니라, Windows 환경에서 LLM serving kernel을 단계적으로
+마이그레이션하고 병목을 분석할 수 있는 구현 및 학습 경로로 해석해야 한다.</p>
 <h2 id="패딩-여부에-따른-할당-오버헤드-실증-eager-vs-padded">패딩 여부에
 따른 할당 오버헤드 실증 (Eager vs Padded)</h2>
 <p>실험 측정 결과, dynamic padding 설정은 Eager 설정에 비해 전체 시스템
@@ -533,10 +590,58 @@ Throughput이 67.0% 하락하는 병목을 유발하는 것으로 관찰되었�
 <h2 id="green-contexts-적용에-따른-성능-비교">Green Contexts 적용에 따른
 성능 비교</h2>
 <p>Green Contexts를 활성화하여 SM 자원을 Prefill 32개, Decode 16개로
-분할 구획한 타겟 설정은 베이스라인 대비 <strong>중간값 Decode
-지연시간(P50 ITL)을 14.0% 단축</strong>시키는 성과를 보였다.
-더불어 전체 토큰 처리량(Throughput) 역시 <strong>10.6% 증가</strong>하는
-성능 향상을 보였다. 다만 더 다양한 모델과 워크로드에서 추가 검증이 필요하다.</p>
+분할 구획한 설정을 baseline과 비교하였다. 초기 단일 실행에서는
+Decode P50 ITL이 48.63 ms에서 41.83 ms로 감소하고, 전체 throughput이
+415.50 tok/s에서 459.73 tok/s로 증가하여 각각 14.0%, 10.6%의 개선을
+관찰하였다. 그러나 추가 반복 실행을 포함한 총 8회 측정에서는 그 효과가
+일관된 throughput 개선으로 재현되지 않았다.</p>
+<table>
+<thead>
+<tr>
+<th>Metric</th>
+<th>Green OFF mean</th>
+<th>Green ON mean</th>
+<th>Mean delta</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>TTFT</td>
+<td>251.79 ms</td>
+<td>250.30 ms</td>
+<td>-0.6%</td>
+</tr>
+<tr>
+<td>Decode P50 ITL</td>
+<td>49.76 ms</td>
+<td>52.33 ms</td>
+<td>+5.2%</td>
+</tr>
+<tr>
+<td>Decode P99 ITL</td>
+<td>91.14 ms</td>
+<td>87.60 ms</td>
+<td>-3.9%</td>
+</tr>
+<tr>
+<td>Throughput</td>
+<td>397.07 tok/s</td>
+<td>386.92 tok/s</td>
+<td>-2.6%</td>
+</tr>
+</tbody>
+</table>
+<p>8회 반복 결과는 Green Contexts 기반 SM 분할이 단일 GPU 내부에서
+Prefill과 Decode의 실행 영역을 물리적으로 나누는 데에는 유효하지만,
+현재의 순차적 Python engine loop에서는 안정적인 처리량 개선으로 직접
+이어지지 않는다는 점을 보여준다. 다만 Decode P99 ITL은 평균 3.9% 감소하여
+tail latency 완화 가능성이 관찰되었다. 반면 P50 ITL과 throughput은 각각
+5.2%, 2.6% 악화되었으므로, 본 결과는 성능 개선의 증명이 아니라 자원
+격리와 tail-latency trade-off에 대한 초기 실증으로 해석하는 것이 타당하다.
+특히 현재 구현은 Prefill과 Decode를 서로 다른 stream 및 CPU thread에서
+동시에 overlap시키지 못하므로, SM partitioning의 효과가 cache residency나
+scheduling 안정성으로 얼마나 연결되는지는 L2 hit rate, kernel overlap,
+achieved occupancy와 같은 profiling counter를 통해 추가 검증이 필요하다.</p>
 <h1 id="결론-및-향후-연구">결론 및 향후 연구</h1>
 <p>본 논문은 Windows OS 환경에서 cuTile DSL과 CUDA Python 1.0을 결합한
 cuTile 기반 LLM 추론 엔진인 micro-vllm을 구현하고 E2E 수준의 병목
@@ -545,8 +650,20 @@ cuTile 기반 LLM 추론 엔진인 micro-vllm을 구현하고 E2E 수준의 병�
 변환 레이어를 구축하였으며, eager 모드 서빙에서 launch/JIT 회피를 위한 shape stabilization 시도가
 메모리 할당자 스래싱을 유발하여 Throughput을 67.0% 저하시키는
 역효과가 있음을 engineering 분석 관점에서 정리하였다.
-아울러 Green Contexts 기반 SM 파티셔닝 튜닝을 통해 Decode P50 ITL을
-14.0% 단축하는 시스템 개선을 실현하였다. 향후 연구로는 엔진 루프를
+아울러 WSL2 FlashAttention 기준선과 비교하여 현재 Windows native cuTile
+backend가 평균 463.35 tok/s를 기록한 반면, 성숙한 Linux optimized
+attention stack은 평균 2138.55 tok/s를 기록함을 확인하였다. 이 결과는
+micro-vllm의 현재 기여가 production-grade kernel 대비 성능 우위가 아니라
+Windows native migration, 교육 가능한 실험 경로, 그리고 병목 분석
+프레임워크에 있음을 보여준다. Green Contexts 기반 SM 파티셔닝은 총 8회
+반복 실행에서 Decode P99 ITL을 평균 3.9% 낮추었지만, P50 ITL과 throughput은
+각각 5.2%, 2.6% 악화되었다. 따라서 본 논문은 이를 단일 GPU 내
+Prefill/Decode 자원 격리의 구현 가능성과 tail-latency trade-off에 대한
+초기 실증으로 해석하며, 안정적인 성능 개선 주장은 추가 검증 대상으로
+남긴다. 본 연구의 한계는 FlashAttention 대비 성능 격차가 여전히 크고,
+Green Contexts 실험이 아직 순차적 engine loop 위에서 수행되었으며,
+Nsight 수준의 L2 hit rate 및 kernel overlap counter를 충분히 포함하지
+못했다는 점이다. 향후 연구로는 엔진 루프를
 비동기 멀티스레드 구조로 확장하여, 서로 다른 GPU stream과 Green Contexts
 기반 SM 파티션에서 Prefill과 Decode가 동시에 진행되도록 할 계획이다. 이를
 통해 긴 Prefill 요청이 Decode 지연시간에 미치는 영향을 줄이고, 단일 GPU

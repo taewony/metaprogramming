@@ -1073,3 +1073,376 @@ BEGIN
     UPDATE products SET updated_at = datetime('now') WHERE id = NEW.id;
 END;
 ```
+
+---
+
+## 1. agentic-stack이 전용 Agent 구현에 도움이 될까?
+
+**결론부터 말씀드리면, agentic-stack은 전용 Agent의 '뼈대'와 '지식/메모리 관리' 측면에서 매우 유용하지만, Multi-user 서비스로 확장하려면 상당한 추가 개발이 필요합니다.**
+
+### ✅ agentic-stack의 강점 (활용 가능한 부분)
+
+| 기능 | 설명 | 전용 Agent에서의 활용 |
+|------|------|----------------------|
+| **포터블 `.agent/` 브레인** | 메모리(working/episodic/semantic/personal), 스킬, 프로토콜을 하나의 폴더에 담아 다양한 코딩 에이전트(Claude Code, Cursor, Hermes, Codex 등)와 공유 | 지식 베이스와 에이전트 설정을 표준화된 구조로 관리할 수 있어, 로컬 LLM 기반 에이전트도 동일한 인터페이스로 지식을 읽고 쓸 수 있음 |
+| **외부 Brain 통합 (v0.18.0)** | `codejunkie99/brain`이라는 Git-backed 장기 메모리 CLI/TUI/MCP 서버와 브릿지 제공 | LLM-Wiki를 External Brain으로 연결하면, 에이전트가 프로젝트 간 지식을 Recall하고, 장기 기억을 유지할 수 있음 |
+| **Data Layer (모니터링)** | 여러 에이전트의 활동, 토큰/비용 추정, KPI 요약, 일일 대시보드를 로컬에서 제공 | 전용 Agent 서비스의 운영 모니터링, 사용량 추적, 비용 관리에 그대로 활용 가능 |
+| **Flywheel (자기 진화)** | 승인된 실행 기록을 Trace, Eval Case, Training-ready JSONL 등으로 변환 | 에이전트의 자가 진단 및 지속적 학습 파이프라인 구축에 활용 가능 |
+| **다양한 Harness 지원** | Claude Code, Cursor, Hermes, Codex, Gemini CLI, DIY Python 등과 연결 가능 | Coding Agent 단계에서는 원하는 도구로 자유롭게 테스트하고, 이후 전용 Agent로 전환할 때도 `.agent/` 구조를 재사용 가능 |
+
+### ⚠️ agentic-stack의 한계 (직접 개발 필요한 부분)
+
+| 한계 | 설명 | 전용 Agent 개발 시 대응 방안 |
+|------|------|------------------------------|
+| **Multi-user 미지원** | agentic-stack은 단일 사용자/단일 프로젝트 환경을 가정 | 사용자 인증, 멀티테넌시, 세션 격리, 권한 관리 등을 직접 구현해야 함 |
+| **로컬 LLM 연결 부재** | agentic-stack 자체는 LLM을 내장하지 않고, Harness(Codex 등)에 위임 | Ollama, vLLM, Llama.cpp 등 로컬 LLM 서버와 연동하는 Adapter/API를 직접 개발 |
+| **서비스형 API 미제공** | CLI/TUI 기반 도구로, REST API나 WebSocket 서버를 제공하지 않음 | FastAPI, Flask 등으로 HTTP API 서버를 구축하고, agentic-stack의 내부 함수를 호출하는 Wrapper 개발 필요 |
+| **사용자별 데이터 격리** | `.agent/` 폴더가 프로젝트 단위로 단일 저장소를 사용 | 사용자/조직별로 별도의 `.agent/` 브랜치나 디렉토리를 분리하고, DB로 메타데이터를 관리해야 함 |
+
+---
+
+## 2. Coding Agent → 전용 Agent Service 전환을 위한 개발 가이드
+
+### 🏗️ 전체 아키텍처 제안
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                     전용 Agent Service                          │
+├─────────────────────────────────────────────────────────────────┤
+│  ┌─────────────┐    ┌─────────────┐    ┌─────────────────────┐ │
+│  │  API Layer  │───▶│  Agent      │───▶│  Knowledge VM       │ │
+│  │  (FastAPI)  │    │  Orchestrator│    │  (실행 엔진)        │ │
+│  └─────────────┘    └─────────────┘    └─────────────────────┘ │
+│         │                  │                      │             │
+│         ▼                  ▼                      ▼             │
+│  ┌─────────────────────────────────────────────────────────────┐│
+│  │              agentic-stack .agent/ (포터블 브레인)         ││
+│  │  - memory/ (working/episodic/semantic/personal)            ││
+│  │  - skills/ (kdqe, data-layer, brain 등)                   ││
+│  │  - protocols/ (도구 권한, 스키마)                          ││
+│  └─────────────────────────────────────────────────────────────┘│
+│         │                                                       │
+│         ▼                                                       │
+│  ┌─────────────────────────────────────────────────────────────┐│
+│  │              External Brain (LLM-Wiki + OKF)               ││
+│  │  - Git-backed 장기 지식 저장소                             ││
+│  │  - brain_bridge.py로 연동                                 ││
+│  └─────────────────────────────────────────────────────────────┘│
+│         │                                                       │
+│         ▼                                                       │
+│  ┌─────────────────────────────────────────────────────────────┐│
+│  │              Local LLM (Ollama + Qwen)                     ││
+│  └─────────────────────────────────────────────────────────────┘│
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### 📋 단계별 개발 로드맵
+
+#### Phase 1: agentic-stack 기반 Coding Agent 고도화 (현재 단계)
+
+| 작업 | 설명 | 비고 |
+|------|------|------|
+| **LLM-Wiki → External Brain 연결** | `agentic-stack brain` 명령어로 Brain 상태 확인, 프로젝트 온보딩, 글로벌 메모리 검색, durable note 작성 등 가능 | `.agent/tools/brain_bridge.py`를 활용해 Host Agent가 Cross-project Recall을 수행하도록 구성 |
+| **Brain Seed Skill 활성화** | Brain Skill이 에이전트에게 Brain 메모리 Query/Write 시점을 알려주고, Secret handling을 명시적으로 관리 | Coding Agent가 지식 추가/검색/자가진단을 자동으로 수행하도록 Skill 내장 |
+| **Data Layer로 모니터링** | `agentic-stack doctor`, `data-layer` 스킬로 Agent 활동, 토큰/비용, KPI를 대시보드화 | Coding Agent 실행 로그를 수집하고, Flywheel Artifact(Trace, Eval Case)를 생성하여 자기 진화 기반 마련 |
+
+#### Phase 2: 전용 Agent Service 코어 개발
+
+| 작업 | 설명 | 구현 포인트 |
+|------|------|-------------|
+| **로컬 LLM Adapter 구현** | Ollama, vLLM 등 OpenAI-compatible API를 호출하는 Wrapper | `langchain_community.llms.Ollama` 또는 `openai` 클라이언트로 Qwen/Gemma 등 연결 |
+| **API 서버 구축** | FastAPI로 `/query`, `/add_knowledge`, `/search`, `/diagnose` 등 엔드포인트 제공 | agentic-stack의 `plan()` 함수를 호출하고, 결과를 JSON으로 반환 |
+| **Multi-user 인증/세션** | JWT 또는 API Key 기반 사용자 인증, 사용자별 `.agent/` 브랜치 격리 | 각 user_id에 대해 별도의 `.agent/` 디렉토리(또는 Git 브랜치)를 생성하고, `system_model`을 동적으로 로드 |
+| **지식 추가/검색/자가진단 API** | LLM-Wiki(OKF)에 새로운 Concept/Data를 추가하고, 검색하며, 무결성을 진단하는 엔드포인트 | `kchef add`, `kchef validate`, `brain_bridge.py`를 호출하는 Service Layer 구현 |
+
+#### Phase 3: 확장 및 최적화
+
+| 작업 | 설명 |
+|------|------|
+| **멀티테넌시 데이터 격리** | 사용자/조직별 OKF 번들, SQLite DB, Vector DB를 분리 |
+| **캐싱 및 성능 최적화** | 자주 조회되는 Concept, IR 결과를 Redis 등에 캐싱 |
+| **Webhook/Event 기반 자가진화** | 에이전트 실행 완료 시 Flywheel Artifact를 자동 생성하고, Brain에 학습 피드백을 기록 |
+| **관리자 대시보드** | 사용자별 사용량, 토큰 소비, 에이전트 활동 로그를 시각화 |
+
+---
+
+### 🔧 핵심 구현 예시 (Python)
+
+```python
+# agent_service/api.py
+from fastapi import FastAPI, Depends, HTTPException
+from kchef.planner.pipeline import PlannerPipeline, load_system_model
+from kchef.planner.simulator import MentalSimulator
+from langchain_community.llms import Ollama
+
+app = FastAPI()
+
+# 사용자별 .agent/ 경로 매핑
+USER_AGENT_PATHS = {
+    "user1": "/path/to/user1/.agent",
+    "user2": "/path/to/user2/.agent",
+}
+
+def get_planner(user_id: str):
+    agent_path = USER_AGENT_PATHS.get(user_id)
+    if not agent_path:
+        raise HTTPException(404, "User not found")
+    system_model = load_system_model(bundle_path=f"{agent_path}/wiki")
+    return PlannerPipeline(system_model, skills_dir=f"{agent_path}/skills")
+
+@app.post("/query")
+def query(question: str, user_id: str):
+    planner = get_planner(user_id)
+    ir = planner.plan(question)
+    # 로컬 LLM으로 최종 응답 생성
+    llm = Ollama(model="qwen2.5:7b")
+    response = llm.invoke(f"Based on this plan: {ir.dict()}, answer: {question}")
+    return {"answer": response, "ir": ir.dict()}
+```
+
+---
+
+### 📌 결론
+
+agentic-stack은 **포터블 브레인(.agent/)** 과 **External Brain(brain_bridge)** 을 통해 지식과 메모리를 표준화하고, **Data Layer**와 **Flywheel**로 모니터링과 자기 진화의 기반을 제공합니다. 이는 전용 Agent Service의 **'지식 관리 및 메모리 계층'**을 단기간에 구축할 수 있게 해주는 강력한 자산입니다.
+
+다만, **Multi-user 지원, 로컬 LLM 연동, REST API 서버**는 직접 개발해야 하며, agentic-stack은 이 부분을 대체하지 않고 **'내부 엔진'**으로 활용하는 것이 바람직합니다.
+
+> 💡 **권장 전략**: Coding Agent 단계에서는 agentic-stack의 모든 기능을 활용해 지식베이스와 에이전트 워크플로를 완성하고, 전용 Agent Service로 전환할 때는 agentic-stack의 `.agent/` 폴더와 `brain_bridge`를 그대로 재사용하면서, 상위에 Multi-user API와 로컬 LLM Adapter를 씌우는 **Adapter 패턴**을 적용하세요.
+
+---
+
+**정확히 지적하셨습니다.** 일반적인 AI 업계 용어로 `Brain`은 종종 **LLM 자체(추론 엔진)**를 의미합니다. (예: "이 챗봇의 Brain은 GPT-4다").
+
+하지만 `agentic-stack`과 `codejunkie99/brain` 저장소에서 말하는 **`Brain`**은 **LLM이 아닌, 에이전트의 '장기 기억 저장소 (Long-term Memory Store)'**를 뜻합니다. 
+비유하자면, LLM은 `CPU/두뇌`이고, `Brain` 저장소는 `하드디스크/도서관`입니다. 에이전트가 과거에 쓴 노트(Note)나 지식(Knowledge)을 보관해 두고, 나중에 LLM이 참고할 수 있도록 꺼내는 저장소 역할을 합니다.
+
+### 🧠 `Brain` vs `LLM-Wiki` 용어 비교
+
+| 용어 | 의미 | 장점 | 단점 |
+| :--- | :--- | :--- | :--- |
+| **Brain** | 에이전트의 지속적이고 구조화된 **지식 저장소** | agentic-stack 공식 문서 및 CLI와 정확히 일치함. "외부 뇌"라는 개념이 에이전트 워크플로우에 직관적임. | LLM 자체와 혼동하기 쉬움. 기술이 아닌 사람에게 설명할 때 오해를 부를 수 있음. |
+| **LLM-Wiki** | 사람과 LLM이 함께 읽고 쓰는 **OKF 기반 위키** | 의미가 완전히 명확함. LLM이 사용하는 **지식 베이스(Knowledge Base)**임을 바로 알 수 있음. 프로젝트 이름으로 매우 직관적임. | agentic-stack이 `brain`이라는 용어를 사용하므로, 코드 내부 변수명과 문서화 용어가 달라질 수 있음. |
+
+---
+
+### 💡 제안: 상황별 용어 전략
+
+저는 **프로젝트 명칭은 `llm-wiki`**로 하고, **기술/아키텍처 용어로는 `Brain`을 병행** 사용하시기를 권장합니다.
+
+1.  **폴더명/저장소명**: `llm-wiki` (직관적이고 명확)
+2.  **설정 파일 내부 변수명**: `EXTERNAL_BRAIN_PATH` 또는 `KNOWLEDGE_STORE_PATH` (agentic-stack과의 호환성 유지)
+3.  **사용자/팀원 설명 시**: "이건 LLM이 참고하는 **지식 위키(Knowledge Wiki)**입니다. agentic-stack에서는 이 위키를 **'External Brain(외부 뇌)'**라고 부릅니다."
+
+**결론적으로**, `llm-wiki`가 **이해하기 훨씬 쉬운 용어**입니다. 단, 기술적으로 agentic-stack을 연동할 때는 내부에서 `brain`이라는 용어를 사용하므로, 팀 문서 최상단에 *"llm-wiki는 agentic-stack의 External Brain 저장소 역할을 합니다"*라고 명시해 두면 혼동을 완전히 피할 수 있습니다. 😊
+
+---
+
+# OKF 기반 자연어 질의응답 시스템의 성능 평가 및 KTCP 논문 게재 가이드
+
+KTCP(한국정보과학회 컴퓨팅의 실제 논문지)에 논문을 게재하기 위해서는 **체계적인 실험 설계, 객관적인 평가 지표, 그리고 기존 방법론과의 공정한 비교**가 필수적입니다. OKF 기반 시스템이 일반 RAG나 단순 Text-to-SQL 대비 얼마나 우수한지를 과학적으로 입증하기 위한 구체적인 로드맵을 제시해 드립니다.
+
+
+## 1. 연구의 차별성: OKF가 해결하는 문제
+
+KTCP 논문에서 강조해야 할 핵심 차별점은 OKF가 **'의미적 단절(Semantic Gap)'** 을 해소하는 계층이라는 점입니다.
+
+| 기존 접근법 | 한계 | OKF 기반 접근법 |
+|------------|------|----------------|
+| **Text-to-SQL** | "VIP 고객"과 같은 비즈니스 용어를 SQL 조건(`total_purchase > 1000000`)으로 매핑하는 로직이 없음 | OKF Concept(`vip_customer.md`)에 비즈니스 규칙을 정의하고, Planner가 이를 자동으로 SQL 조건으로 변환 |
+| **RAG** | 벡터 유사도 기반 검색으로 인해 **환각(Hallucination)** 과 **출처 미상의 답변** 문제가 발생 | OKF는 **인용(Citation)**을 강제하여 모든 답변이 원본 데이터를 가리키도록 함 |
+| **단순 Hybrid** | 정형 데이터와 비정형 문서를 통합적으로 조회하는 계층 부재 | OKF의 계층적 `index.md`가 **심볼 테이블** 역할을 하여 구조화된 탐색 지원 |
+
+
+## 2. 평가 프레임워크 설계 (Contract-First 원칙)
+
+KTCP 논문의 신뢰성을 높이려면 **LLM/Agent Stack에 독립적인 평가 체계**를 구축해야 합니다. 다음 5가지 원칙을 제안합니다.
+
+### 2.1 평가 원칙
+
+| 원칙 | 설명 |
+|------|------|
+| **Stack Independence** | 특정 LLM(Gemini, GPT, Qwen)에 종속되지 않는 테스트 코드 작성 |
+| **Contractual Precision** | 답변을 JSON/YAML 같은 **구조화된 형식**으로 출력하고 검증 |
+| **Data Provenance (인용)** | 모든 답변에 OKF 내 원본 데이터 경로를 **강제 인용** |
+| **Hierarchical Failure Analysis** | IR(Intermediate Representation) 단계별 실패 모드를 구분 |
+| **Reproducible Test Sets** | Ground Truth가 포함된 **불변 데이터셋** 사용 |
+
+### 2.2 평가 지표 (Metrics)
+
+#### A. 답변 정확도 (Answer Accuracy) — **핵심 지표**
+- **정의**: 구조화된 답변(JSON) 내 각 필드가 Ground Truth와 일치하는 비율
+- **측정**: 필드별 `assert response['total_students'] == gt['total_students']`
+- **목표**: 98% 이상
+- **참고**: dbt Labs의 2026년 벤치마크에 따르면 Text-to-SQL 정확도는 32.7%에서 64.5%로 향상되었습니다. OKF 기반 시스템은 이보다 현저히 높은 정확도를 목표로 해야 합니다.
+
+#### B. Recipe/IR 정확도 (Plan Accuracy)
+- **정의**: Planner가 생성한 IR(Intermediate Representation)이 Expected IR과 일치하는 정도
+- **측정**: `goal`, `constraints` 정확 일치, `traversal`은 필수 경로 포함 여부로 Precision/Recall 측정
+- **목표**: Precision 95%, Recall 100%
+
+#### C. 환각률 (Hallucination Rate)
+- **정의**: OKF 번들 외부의 정보가 답변에 포함된 비율
+- **탐지**: 답변 텍스트를 분해하여 각 문장의 출처가 OKF 내에 존재하는지 LLM Critic이 판별
+- **목표**: 0%
+
+#### D. 인용 정밀도/재현율 (Citation F1)
+- **정의**: Agent가 제공한 출처가 실제 정답 도출에 사용된 올바른 데이터인지 측정
+- **정밀도**: Agent가 인용한 출처 중 실제 정답과 관련된 비율
+- **재현율**: 실제 정답에 필요한 모든 출처를 Agent가 인용했는지
+
+#### E. 탐색 효율성 (Traversal Efficiency)
+- **정의**: 정답을 찾기 위해 Agent가 열어본 총 index.md 및 데이터 파일 수
+- **목표**: 계층적 index.md로 인해 RAG 방식 대비 파일 I/O 50% 감소
+
+
+## 3. 실험 설계 (Experimental Design)
+
+### 3.1 비교 대상 (Baselines)
+
+| 시스템 | 설명 |
+|--------|------|
+| **Text-to-SQL (Baseline 1)** | Spider/WikiSQL 벤치마크에서 SOTA 성능을 내는 오픈소스 모델 |
+| **RAG (Baseline 2)** | Vector DB 기반의 표준 RAG 파이프라인 (예: LangChain + Chroma) |
+| **Hybrid (Baseline 3)** | Text-to-SQL + RAG을 단순 결합한 시스템 |
+| **OKF-based (Ours)** | OKF Knowledge Catalog + Cognitive Compiler + Knowledge VM |
+
+### 3.2 테스트 데이터셋
+
+| 데이터셋 | 출처 | 규모 | 특징 |
+|----------|------|------|------|
+| **OKF-Bench** | 자체 구축 | 200+ 질의 | OKF 개념(VIP, 매출 등)이 포함된 실제 비즈니스 질문 |
+| **Spider** | 공개 벤치마크 | 200개 DB, 10,000+ 질의 | 복잡한 JOIN, GROUP BY, 서브쿼리 포함 |
+| **WikiSQL** | 공개 벤치마크 | 80,654개 질의 | 단일 테이블 기반 단순 질의 |
+| **OKGQA-style** | 자체 변형 | 500+ 질의 | 개방형(Open-ended) 질문, 환각 측정용 |
+
+> OKGQA는 Knowledge Graph를 활용한 LLM의 개방형 질의응답을 평가하는 벤치마크로, OKF 기반 시스템의 평가에 직접 참고할 수 있습니다.
+
+### 3.3 실험 조건
+
+1. **동일한 LLM 백본 사용**: 모든 Baseline과 OKF 시스템이 동일한 LLM(Gemini 2.5 Pro 또는 Qwen 2.5)을 사용하도록 통제
+2. **동일한 하드웨어 환경**: GPU, 메모리 등 동일 조건에서 실행
+3. **Cold Start vs. Warm Start**: 캐싱 효과를 분리하여 측정
+4. **Multi-hop 질의**: 2-hop, 3-hop 질의에 대한 성능 비교
+
+
+## 4. KTCP 논문 구조 제안
+
+### 제목 (가칭)
+> *"OKF 기반 계층적 지식베이스를 활용한 자연어 질의응답 시스템의 성능 평가"*
+> 또는
+> *"Open Knowledge Format을 활용한 의미적 질의 계층의 효용성 검증: RAG 및 Text-to-SQL과의 비교 연구"*
+
+### 초록 (Abstract)
+- OKF의 개념과 문제 해결 방식을 2~3문장으로 요약
+- 실험 설계 (3개 Baseline과 비교)
+- 주요 결과 (정확도, 환각률, 탐색 효율성 수치)
+- 학술적/실용적 기여
+
+### 1. 서론 (Introduction)
+- 기존 RAG/Text-to-SQL의 한계 (의미적 단절, 환각, 출처 미상)
+- OKF의 등장 배경과 특장점
+- 연구 질문: *"OKF 기반 시스템이 기존 접근법 대비 정확도, 환각률, 효율성 측면에서 유의미한 개선을 보이는가?"*
+
+### 2. 관련 연구 (Related Work)
+- Text-to-SQL 발전 동향 (Spider, WikiSQL, BIRD-SQL)
+- RAG 평가 방법론 (RAGEval, Faithfulness, Context Relevance)
+- Knowledge Graph QA (KGQA) 평가 프레임워크 (Chronos, OKGQA)
+- OKF 및 agentic-stack 관련 연구
+
+### 3. 시스템 아키텍처 (System Architecture)
+- OKF Knowledge Catalog 구조 (Concept, Metric, Business Rule)
+- Cognitive Compiler 파이프라인 (Intent Recognition → Concept Matching → IR Generation → Execution)
+- Knowledge VM (SQLite + Document 검색 통합 실행)
+
+### 4. 실험 설계 (Experimental Setup)
+- 4.1 평가 지표 (Answer Accuracy, Hallucination Rate, Citation F1, Traversal Efficiency)
+- 4.2 테스트 데이터셋 (OKF-Bench, Spider, WikiSQL)
+- 4.3 Baseline 시스템 구성
+- 4.4 실험 환경 (LLM, 하드웨어)
+
+### 5. 실험 결과 (Results)
+- **RQ1**: OKF 기반 시스템의 Answer Accuracy는 Baseline 대비 얼마나 높은가?
+- **RQ2**: OKF 기반 시스템의 Hallucination Rate는 얼마나 낮은가?
+- **RQ3**: OKF 기반 시스템의 Traversal Efficiency는 RAG 대비 얼마나 효율적인가?
+- **RQ4**: 질의 복잡도(단일 hop vs multi-hop)에 따라 성능 차이는 어떻게 달라지는가?
+
+### 6. 분석 및 토론 (Analysis & Discussion)
+- 성공 사례 분석 (OKF Concept이 정확히 매핑된 경우)
+- 실패 사례 분석 (Concept 누락, 모호한 질의)
+- OKF의 한계점 (수동 큐레이션 의존성, 초기 구축 비용)
+
+### 7. 결론 (Conclusion)
+- 주요 발견 요약
+- 학술적 기여 (OKF 기반 질의 계층의 효용성 입증)
+- 실용적 기여 (RAG/Text-to-SQL 대비 OKF의 우수성 정량적 제시)
+- 향후 연구 (자가 진화형 Knowledge Base, Multi-modal OKF)
+
+
+## 5. 성능 개선 수치 예측 (Hypothesis)
+
+다음은 OKF 기반 시스템이 기존 접근법 대비 기대되는 성능 향상치입니다 (논문에서 입증해야 할 가설).
+
+| 지표 | Text-to-SQL | RAG | OKF-based (예상) | 개선율 |
+|------|-------------|-----|------------------|--------|
+| Answer Accuracy | 65-75% | 60-70% | **90-95%** | +20~30%p |
+| Hallucination Rate | 15-25% | 20-30% | **< 5%** | -70% 이상 |
+| Citation F1 | N/A | 40-60% | **> 90%** | +50%p |
+| Traversal Efficiency | 1 query (SQL) | 10-50 chunks | **3-5 files** | -70% I/O |
+
+
+## 6. TDD 기반 평가 파이프라인 (구현 가이드)
+
+KTCP 논문의 재현성을 위해 **이미 구현된 TDD 평가체계**를 활용하세요.
+
+```python
+# tests/evaluation/test_okf_benchmark.py
+import pytest
+from kchef.planner.pipeline import PlannerPipeline
+from kchef.eval.scorer import PlanningScorer
+
+def test_okf_vs_baselines():
+    """OKF, RAG, Text-to-SQL의 동일 질의에 대한 성능 비교"""
+    questions = load_benchmark("okf_benchmark.jsonl")
+    
+    for q in questions:
+        # 1. OKF 기반
+        okf_ir = okf_planner.plan(q.question)
+        okf_score = scorer.score(okf_ir, q.ground_truth)
+        
+        # 2. Text-to-SQL (Baseline)
+        sql = text_to_sql_generator.generate(q.question)
+        sql_score = evaluate_sql(sql, q.ground_truth)
+        
+        # 3. RAG (Baseline)
+        rag_answer = rag_pipeline.query(q.question)
+        rag_score = evaluate_rag(rag_answer, q.ground_truth)
+        
+        # 4. 검증
+        assert okf_score.accuracy > sql_score.accuracy + 0.15
+        assert okf_score.hallucination < rag_score.hallucination * 0.3
+```
+
+이 평가 파이프라인은 **LLM/Agent Stack이 변경되어도 동일하게 재사용**할 수 있습니다.
+
+
+## 7. KTCP 논문 게재를 위한 추가 조언
+
+1. **사전 등록 연구 (Preregistered Report)**: 실험 설계를 사전에 KTCP에 등록하면 연구의 투명성과 신뢰성이 높아집니다.
+
+2. **오픈소스 공개**: OKF 기반 시스템의 코드와 평가 데이터셋을 GitHub에 공개하면 **재현성(Reproducibility)** 측면에서 높은 점수를 받을 수 있습니다.
+
+3. **사례 연구 포함**: 실제 기업/대학의 데이터로 OKF 기반 시스템을 구축한 사례를 포함하면 실용적 가치를 강조할 수 있습니다.
+
+4. **OKF의 한계도 솔직히 기술**: 초기 OKF 번들 구축 비용, 수동 큐레이션 의존성, OKF 생태계 성숙도 등을 논의하면 학술적 완성도가 높아집니다.
+
+5. **KTCP 특성 고려**: KTCP는 "컴퓨팅의 실제"라는 이름처럼 **실용적이고 적용 가능한 연구**를 선호합니다. OKF 기반 시스템의 **실제 구축 비용, 유지보수 용이성, 확장성**에 대한 정성적 분석도 포함하세요.
+
+
+## 8. 결론: 논문의 핵심 메시지
+
+이 논문은 다음 메시지를 전달해야 합니다:
+
+> **"OKF는 단순한 데이터 포맷이 아니라, 의미적 질의 계층(Semantic Query Layer)을 제공하여 RAG의 환각 문제와 Text-to-SQL의 의미적 단절 문제를 동시에 해결하는 실용적인 대안이다."**
+
+이를 정량적 데이터(Answer Accuracy 90%+, Hallucination < 5%, Citation F1 > 90%)로 입증하고, KTCP 독자들이 OKF 기반 시스템을 실제 프로젝트에 도입할 수 있는 근거를 제시하는 것이 목표입니다. 🚀
