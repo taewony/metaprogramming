@@ -1,0 +1,80 @@
+  Recommended next slice:
+
+  0. TDD and evals
+• Yes. For followups, I’d make the CLI/eval driver the main TDD surface.
+
+  Recommended shape:
+
+  1. Start with test cases as fixtures
+      - activegraph/text-to-sql-agent/evals/hospital_cases.jsonl
+      - Each row:
+
+        {
+          "id": "q001",
+          "prompt": "김지훈 의사의 전공은?",
+          "expected_sql_contains": ["doctors", "name", "specialty"],
+          "expected_answer_contains": ["내과"],
+          "expected_rows": [["김지훈", "내과"]]
+        }
+  3. Introduce an internal contract first
+      - Example:
+
+        {
+          "prompt": "김지훈 의사의 전공은?",
+          "intent": {"entity": "doctor", "name": "김지훈", "field": "specialty"},
+          "sql": "SELECT specialty FROM doctors WHERE name = ?",
+          "params": ["김지훈"]
+        }
+  2. Add a deterministic CLI driver
+      - python -m ... ask "김지훈 의사의 전공은?" --db activegraph/data/hospital.db
+      - Later:
+
+        python activegraph/text-to-sql-agent/scripts/run_eval.py --cases activegraph/text-to-sql-agent/evals/
+        hospital_cases.jsonl
+
+  3. TDD loop
+      - Write one failing eval case.
+      - Implement minimum planner/compiler/executor behavior to pass it.
+      - Store event log output for inspection.
+      - Add scoring only after raw query execution is stable.
+
+  4. Test levels
+      - Unit: SQL compiler turns structured intent into SQL.
+      - Integration: prompt -> SQL -> SQLite result.
+      - Eval: prompt -> final answer contains expected facts.
+      - ActiveGraph later: prompt creates expected graph objects/events.
+
+  I’d start with a simple non-LLM TDD driver first: user prompt in, expected SQL/result out. Once that’s stable, we can
+  swap the SQL generation step to LLM-backed behavior and keep the same test cases as regression checks.
+
+
+
+  1. Define a tiny Text-to-SQL ActiveGraph pack
+      - objects: question, schema, sql_plan, sql_query, query_result, answer, eval_case, score
+      - relations: derived_from, uses_schema, executed_as, answers, evaluated_by
+      - events: mostly reuse framework events, add app-level question.submitted, sql.generated, sql.executed,
+        answer.completed, eval.scored
+
+  2. Convert the current direct notebook flow into behaviors
+      - question_planner: question -> structured intent / plan
+      - sql_compiler: plan + schema -> SQL
+      - sql_executor: SQL -> result
+      - answer_synthesizer: result -> natural answer
+      - scorer: expected answer / expected SQL properties -> score
+
+  3. Make eval the first runnable interface
+      - start with 5-10 deterministic hospital-domain cases from activegraph/text-to-sql-agent/
+        ch09_text_to_sql.design.md
+
+      - each case should produce an event log
+      - replay should reconstruct the same graph
+      - later, fork-and-diff can compare prompt/planner variants
+
+  4. Populate the filesystem-first agent/ folder
+      - move strategic intent from top-level instructions.md into agent/instructions.md
+      - add agent/evals.md, agent/ontology.md, agent/experiments.md
+      - that matches your stated Eve-style “portable agent folder” direction
+
+  I’d avoid starting with the whole ActiveGraph v1.3 roadmap. For KnowledgeChef, the useful wedge is: one auditable
+  Text-to-SQL eval loop over ActiveGraph, then expand capability case by case. That gives you a real trace, scorer, and
+  reflection loop quickly, instead of another abstract framework layer.

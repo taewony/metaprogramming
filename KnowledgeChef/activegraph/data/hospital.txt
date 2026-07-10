@@ -1,0 +1,29 @@
+• Prepared the SQLite fixture and scripts.
+
+  Created:
+
+  - activegraph/text-to-sql-agent/scripts/build_hospital_db.py
+  - activegraph/text-to-sql-agent/scripts/verify_hospital_db.py
+  - activegraph/data/hospital.db
+
+  The builder imports schema and seed SQL directly from activegraph/text-to-sql-agent/ch09_text_to_sql.py, so the DB
+  fixture does not duplicate the dataset source.
+
+  Verification passed:
+
+  doctors: 5
+  patients: 5
+  availability: 10
+  appointments: 5
+  medical_records: 5
+  prescriptions: 5
+  insurance: 5
+  procedure_coverage: 5
+
+  Useful commands:
+
+  python activegraph/text-to-sql-agent/scripts/build_hospital_db.py
+  python activegraph/text-to-sql-agent/scripts/verify_hospital_db.py
+
+  Note: SQLite writes to activegraph/data failed inside the managed sandbox with disk I/O error, so I ran the DB build
+  with approval outside the sandbox.

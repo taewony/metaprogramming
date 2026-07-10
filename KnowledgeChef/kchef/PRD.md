@@ -1023,3 +1023,214 @@ Total: 약 12주
 > | 버전 | 일자 | 변경 내용 | 작성자 |
 > |------|------|-----------|--------|
 > | v1.0 | 2026-06-26 | 최초 작성 | - |
+
+---
+
+# OKF 기반 자연어 질의응답 시스템의 성능 평가 및 KTCP 논문 게재 가이드
+
+KTCP(한국정보과학회 컴퓨팅의 실제 논문지)에 논문을 게재하기 위해서는 **체계적인 실험 설계, 객관적인 평가 지표, 그리고 기존 방법론과의 공정한 비교**가 필수적입니다. OKF 기반 시스템이 일반 RAG나 단순 Text-to-SQL 대비 얼마나 우수한지를 과학적으로 입증하기 위한 구체적인 로드맵을 제시해 드립니다.
+
+
+## 1. 연구의 차별성: OKF가 해결하는 문제
+
+KTCP 논문에서 강조해야 할 핵심 차별점은 OKF가 **'의미적 단절(Semantic Gap)'** 을 해소하는 계층이라는 점입니다.
+
+| 기존 접근법 | 한계 | OKF 기반 접근법 |
+|------------|------|----------------|
+| **Text-to-SQL** | "VIP 고객"과 같은 비즈니스 용어를 SQL 조건(`total_purchase > 1000000`)으로 매핑하는 로직이 없음 | OKF Concept(`vip_customer.md`)에 비즈니스 규칙을 정의하고, Planner가 이를 자동으로 SQL 조건으로 변환 |
+| **RAG** | 벡터 유사도 기반 검색으로 인해 **환각(Hallucination)** 과 **출처 미상의 답변** 문제가 발생 | OKF는 **인용(Citation)**을 강제하여 모든 답변이 원본 데이터를 가리키도록 함 |
+| **단순 Hybrid** | 정형 데이터와 비정형 문서를 통합적으로 조회하는 계층 부재 | OKF의 계층적 `index.md`가 **심볼 테이블** 역할을 하여 구조화된 탐색 지원 |
+
+
+## 2. 평가 프레임워크 설계 (Contract-First 원칙)
+
+KTCP 논문의 신뢰성을 높이려면 **LLM/Agent Stack에 독립적인 평가 체계**를 구축해야 합니다. 다음 5가지 원칙을 제안합니다.
+
+### 2.1 평가 원칙
+
+| 원칙 | 설명 |
+|------|------|
+| **Stack Independence** | 특정 LLM(Gemini, GPT, Qwen)에 종속되지 않는 테스트 코드 작성 |
+| **Contractual Precision** | 답변을 JSON/YAML 같은 **구조화된 형식**으로 출력하고 검증 |
+| **Data Provenance (인용)** | 모든 답변에 OKF 내 원본 데이터 경로를 **강제 인용** |
+| **Hierarchical Failure Analysis** | IR(Intermediate Representation) 단계별 실패 모드를 구분 |
+| **Reproducible Test Sets** | Ground Truth가 포함된 **불변 데이터셋** 사용 |
+
+### 2.2 평가 지표 (Metrics)
+
+#### A. 답변 정확도 (Answer Accuracy) — **핵심 지표**
+- **정의**: 구조화된 답변(JSON) 내 각 필드가 Ground Truth와 일치하는 비율
+- **측정**: 필드별 `assert response['total_students'] == gt['total_students']`
+- **목표**: 98% 이상
+- **참고**: dbt Labs의 2026년 벤치마크에 따르면 Text-to-SQL 정확도는 32.7%에서 64.5%로 향상되었습니다. OKF 기반 시스템은 이보다 현저히 높은 정확도를 목표로 해야 합니다.
+
+#### B. Recipe/IR 정확도 (Plan Accuracy)
+- **정의**: Planner가 생성한 IR(Intermediate Representation)이 Expected IR과 일치하는 정도
+- **측정**: `goal`, `constraints` 정확 일치, `traversal`은 필수 경로 포함 여부로 Precision/Recall 측정
+- **목표**: Precision 95%, Recall 100%
+
+#### C. 환각률 (Hallucination Rate)
+- **정의**: OKF 번들 외부의 정보가 답변에 포함된 비율
+- **탐지**: 답변 텍스트를 분해하여 각 문장의 출처가 OKF 내에 존재하는지 LLM Critic이 판별
+- **목표**: 0%
+
+#### D. 인용 정밀도/재현율 (Citation F1)
+- **정의**: Agent가 제공한 출처가 실제 정답 도출에 사용된 올바른 데이터인지 측정
+- **정밀도**: Agent가 인용한 출처 중 실제 정답과 관련된 비율
+- **재현율**: 실제 정답에 필요한 모든 출처를 Agent가 인용했는지
+
+#### E. 탐색 효율성 (Traversal Efficiency)
+- **정의**: 정답을 찾기 위해 Agent가 열어본 총 index.md 및 데이터 파일 수
+- **목표**: 계층적 index.md로 인해 RAG 방식 대비 파일 I/O 50% 감소
+
+
+## 3. 실험 설계 (Experimental Design)
+
+### 3.1 비교 대상 (Baselines)
+
+| 시스템 | 설명 |
+|--------|------|
+| **Text-to-SQL (Baseline 1)** | Spider/WikiSQL 벤치마크에서 SOTA 성능을 내는 오픈소스 모델 |
+| **RAG (Baseline 2)** | Vector DB 기반의 표준 RAG 파이프라인 (예: LangChain + Chroma) |
+| **Hybrid (Baseline 3)** | Text-to-SQL + RAG을 단순 결합한 시스템 |
+| **OKF-based (Ours)** | OKF Knowledge Catalog + Cognitive Compiler + Knowledge VM |
+
+### 3.2 테스트 데이터셋
+
+| 데이터셋 | 출처 | 규모 | 특징 |
+|----------|------|------|------|
+| **OKF-Bench** | 자체 구축 | 200+ 질의 | OKF 개념(VIP, 매출 등)이 포함된 실제 비즈니스 질문 |
+| **Spider** | 공개 벤치마크 | 200개 DB, 10,000+ 질의 | 복잡한 JOIN, GROUP BY, 서브쿼리 포함 |
+| **WikiSQL** | 공개 벤치마크 | 80,654개 질의 | 단일 테이블 기반 단순 질의 |
+| **OKGQA-style** | 자체 변형 | 500+ 질의 | 개방형(Open-ended) 질문, 환각 측정용 |
+
+> OKGQA는 Knowledge Graph를 활용한 LLM의 개방형 질의응답을 평가하는 벤치마크로, OKF 기반 시스템의 평가에 직접 참고할 수 있습니다.
+
+### 3.3 실험 조건
+
+1. **동일한 LLM 백본 사용**: 모든 Baseline과 OKF 시스템이 동일한 LLM(Gemini 2.5 Pro 또는 Qwen 2.5)을 사용하도록 통제
+2. **동일한 하드웨어 환경**: GPU, 메모리 등 동일 조건에서 실행
+3. **Cold Start vs. Warm Start**: 캐싱 효과를 분리하여 측정
+4. **Multi-hop 질의**: 2-hop, 3-hop 질의에 대한 성능 비교
+
+
+## 4. KTCP 논문 구조 제안
+
+### 제목 (가칭)
+> *"OKF 기반 계층적 지식베이스를 활용한 자연어 질의응답 시스템의 성능 평가"*
+> 또는
+> *"Open Knowledge Format을 활용한 의미적 질의 계층의 효용성 검증: RAG 및 Text-to-SQL과의 비교 연구"*
+
+### 초록 (Abstract)
+- OKF의 개념과 문제 해결 방식을 2~3문장으로 요약
+- 실험 설계 (3개 Baseline과 비교)
+- 주요 결과 (정확도, 환각률, 탐색 효율성 수치)
+- 학술적/실용적 기여
+
+### 1. 서론 (Introduction)
+- 기존 RAG/Text-to-SQL의 한계 (의미적 단절, 환각, 출처 미상)
+- OKF의 등장 배경과 특장점
+- 연구 질문: *"OKF 기반 시스템이 기존 접근법 대비 정확도, 환각률, 효율성 측면에서 유의미한 개선을 보이는가?"*
+
+### 2. 관련 연구 (Related Work)
+- Text-to-SQL 발전 동향 (Spider, WikiSQL, BIRD-SQL)
+- RAG 평가 방법론 (RAGEval, Faithfulness, Context Relevance)
+- Knowledge Graph QA (KGQA) 평가 프레임워크 (Chronos, OKGQA)
+- OKF 및 agentic-stack 관련 연구
+
+### 3. 시스템 아키텍처 (System Architecture)
+- OKF Knowledge Catalog 구조 (Concept, Metric, Business Rule)
+- Cognitive Compiler 파이프라인 (Intent Recognition → Concept Matching → IR Generation → Execution)
+- Knowledge VM (SQLite + Document 검색 통합 실행)
+
+### 4. 실험 설계 (Experimental Setup)
+- 4.1 평가 지표 (Answer Accuracy, Hallucination Rate, Citation F1, Traversal Efficiency)
+- 4.2 테스트 데이터셋 (OKF-Bench, Spider, WikiSQL)
+- 4.3 Baseline 시스템 구성
+- 4.4 실험 환경 (LLM, 하드웨어)
+
+### 5. 실험 결과 (Results)
+- **RQ1**: OKF 기반 시스템의 Answer Accuracy는 Baseline 대비 얼마나 높은가?
+- **RQ2**: OKF 기반 시스템의 Hallucination Rate는 얼마나 낮은가?
+- **RQ3**: OKF 기반 시스템의 Traversal Efficiency는 RAG 대비 얼마나 효율적인가?
+- **RQ4**: 질의 복잡도(단일 hop vs multi-hop)에 따라 성능 차이는 어떻게 달라지는가?
+
+### 6. 분석 및 토론 (Analysis & Discussion)
+- 성공 사례 분석 (OKF Concept이 정확히 매핑된 경우)
+- 실패 사례 분석 (Concept 누락, 모호한 질의)
+- OKF의 한계점 (수동 큐레이션 의존성, 초기 구축 비용)
+
+### 7. 결론 (Conclusion)
+- 주요 발견 요약
+- 학술적 기여 (OKF 기반 질의 계층의 효용성 입증)
+- 실용적 기여 (RAG/Text-to-SQL 대비 OKF의 우수성 정량적 제시)
+- 향후 연구 (자가 진화형 Knowledge Base, Multi-modal OKF)
+
+
+## 5. 성능 개선 수치 예측 (Hypothesis)
+
+다음은 OKF 기반 시스템이 기존 접근법 대비 기대되는 성능 향상치입니다 (논문에서 입증해야 할 가설).
+
+| 지표 | Text-to-SQL | RAG | OKF-based (예상) | 개선율 |
+|------|-------------|-----|------------------|--------|
+| Answer Accuracy | 65-75% | 60-70% | **90-95%** | +20~30%p |
+| Hallucination Rate | 15-25% | 20-30% | **< 5%** | -70% 이상 |
+| Citation F1 | N/A | 40-60% | **> 90%** | +50%p |
+| Traversal Efficiency | 1 query (SQL) | 10-50 chunks | **3-5 files** | -70% I/O |
+
+
+## 6. TDD 기반 평가 파이프라인 (구현 가이드)
+
+KTCP 논문의 재현성을 위해 **이미 구현된 TDD 평가체계**를 활용하세요.
+
+```python
+# tests/evaluation/test_okf_benchmark.py
+import pytest
+from kchef.planner.pipeline import PlannerPipeline
+from kchef.eval.scorer import PlanningScorer
+
+def test_okf_vs_baselines():
+    """OKF, RAG, Text-to-SQL의 동일 질의에 대한 성능 비교"""
+    questions = load_benchmark("okf_benchmark.jsonl")
+    
+    for q in questions:
+        # 1. OKF 기반
+        okf_ir = okf_planner.plan(q.question)
+        okf_score = scorer.score(okf_ir, q.ground_truth)
+        
+        # 2. Text-to-SQL (Baseline)
+        sql = text_to_sql_generator.generate(q.question)
+        sql_score = evaluate_sql(sql, q.ground_truth)
+        
+        # 3. RAG (Baseline)
+        rag_answer = rag_pipeline.query(q.question)
+        rag_score = evaluate_rag(rag_answer, q.ground_truth)
+        
+        # 4. 검증
+        assert okf_score.accuracy > sql_score.accuracy + 0.15
+        assert okf_score.hallucination < rag_score.hallucination * 0.3
+```
+
+이 평가 파이프라인은 **LLM/Agent Stack이 변경되어도 동일하게 재사용**할 수 있습니다.
+
+
+## 7. KTCP 논문 게재를 위한 추가 조언
+
+1. **사전 등록 연구 (Preregistered Report)**: 실험 설계를 사전에 KTCP에 등록하면 연구의 투명성과 신뢰성이 높아집니다.
+
+2. **오픈소스 공개**: OKF 기반 시스템의 코드와 평가 데이터셋을 GitHub에 공개하면 **재현성(Reproducibility)** 측면에서 높은 점수를 받을 수 있습니다.
+
+3. **사례 연구 포함**: 실제 기업/대학의 데이터로 OKF 기반 시스템을 구축한 사례를 포함하면 실용적 가치를 강조할 수 있습니다.
+
+4. **OKF의 한계도 솔직히 기술**: 초기 OKF 번들 구축 비용, 수동 큐레이션 의존성, OKF 생태계 성숙도 등을 논의하면 학술적 완성도가 높아집니다.
+
+5. **KTCP 특성 고려**: KTCP는 "컴퓨팅의 실제"라는 이름처럼 **실용적이고 적용 가능한 연구**를 선호합니다. OKF 기반 시스템의 **실제 구축 비용, 유지보수 용이성, 확장성**에 대한 정성적 분석도 포함하세요.
+
+
+## 8. 결론: 논문의 핵심 메시지
+
+이 논문은 다음 메시지를 전달해야 합니다:
+
+> **"OKF는 단순한 데이터 포맷이 아니라, 의미적 질의 계층(Semantic Query Layer)을 제공하여 RAG의 환각 문제와 Text-to-SQL의 의미적 단절 문제를 동시에 해결하는 실용적인 대안이다."**
+
+이를 정량적 데이터(Answer Accuracy 90%+, Hallucination < 5%, Citation F1 > 90%)로 입증하고, KTCP 독자들이 OKF 기반 시스템을 실제 프로젝트에 도입할 수 있는 근거를 제시하는 것이 목표입니다. 🚀

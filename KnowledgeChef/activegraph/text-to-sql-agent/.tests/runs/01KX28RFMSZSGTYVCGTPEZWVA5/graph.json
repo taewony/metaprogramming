@@ -1,0 +1,169 @@
+{
+  "run_id": "01KX28RFMSZSGTYVCGTPEZWVA5",
+  "objects": [
+    {
+      "id": "question#1",
+      "type": "question",
+      "data": {
+        "text": "김지훈 의사의 전공은?",
+        "language": "ko"
+      },
+      "version": 1,
+      "provenance": {
+        "created_by": "parse_intent",
+        "caused_by_event": "evt_001",
+        "frame_id": null,
+        "timestamp": "2026-07-09T01:44:29Z",
+        "evidence": [],
+        "run_id": "01KX28RFMSZSGTYVCGTPEZWVA5"
+      }
+    },
+    {
+      "id": "intent#2",
+      "type": "intent",
+      "data": {
+        "kind": "lookup",
+        "entity": "doctor",
+        "filters": {
+          "name": "김지훈"
+        },
+        "requested_fields": [
+          "specialty"
+        ]
+      },
+      "version": 1,
+      "provenance": {
+        "created_by": "parse_intent",
+        "caused_by_event": "evt_001",
+        "frame_id": null,
+        "timestamp": "2026-07-09T01:44:29Z",
+        "evidence": [],
+        "run_id": "01KX28RFMSZSGTYVCGTPEZWVA5"
+      }
+    },
+    {
+      "id": "sql_query#3",
+      "type": "sql_query",
+      "data": {
+        "sql": "SELECT specialty FROM doctors WHERE name = ?",
+        "params": [
+          "김지훈"
+        ],
+        "statement_type": "SELECT",
+        "status": "executed",
+        "answer_template": "김지훈 의사의 전공은 {value}입니다."
+      },
+      "version": 2,
+      "provenance": {
+        "created_by": "compile_sql",
+        "caused_by_event": "evt_006",
+        "frame_id": null,
+        "timestamp": "2026-07-09T01:44:29Z",
+        "evidence": [],
+        "run_id": "01KX28RFMSZSGTYVCGTPEZWVA5"
+      }
+    },
+    {
+      "id": "query_result#4",
+      "type": "query_result",
+      "data": {
+        "rows": [
+          [
+            "내과"
+          ]
+        ],
+        "row_count": 1
+      },
+      "version": 1,
+      "provenance": {
+        "created_by": "execute_sql",
+        "caused_by_event": "evt_011",
+        "frame_id": null,
+        "timestamp": "2026-07-09T01:44:29Z",
+        "evidence": [],
+        "run_id": "01KX28RFMSZSGTYVCGTPEZWVA5"
+      }
+    },
+    {
+      "id": "answer#5",
+      "type": "answer",
+      "data": {
+        "text": "김지훈 의사의 전공은 내과입니다.",
+        "citations": [
+          "query_result#4"
+        ]
+      },
+      "version": 1,
+      "provenance": {
+        "created_by": "synthesize_answer",
+        "caused_by_event": "evt_017",
+        "frame_id": null,
+        "timestamp": "2026-07-09T01:44:29Z",
+        "evidence": [],
+        "run_id": "01KX28RFMSZSGTYVCGTPEZWVA5"
+      }
+    }
+  ],
+  "relations": [
+    {
+      "id": "rel_001",
+      "source": "intent#2",
+      "target": "question#1",
+      "type": "derived_from",
+      "data": {},
+      "provenance": {
+        "created_by": "parse_intent",
+        "caused_by_event": "evt_001",
+        "frame_id": null,
+        "timestamp": "2026-07-09T01:44:29Z",
+        "evidence": [],
+        "run_id": "01KX28RFMSZSGTYVCGTPEZWVA5"
+      }
+    },
+    {
+      "id": "rel_002",
+      "source": "sql_query#3",
+      "target": "intent#2",
+      "type": "derived_from",
+      "data": {},
+      "provenance": {
+        "created_by": "compile_sql",
+        "caused_by_event": "evt_006",
+        "frame_id": null,
+        "timestamp": "2026-07-09T01:44:29Z",
+        "evidence": [],
+        "run_id": "01KX28RFMSZSGTYVCGTPEZWVA5"
+      }
+    },
+    {
+      "id": "rel_003",
+      "source": "sql_query#3",
+      "target": "query_result#4",
+      "type": "executed_as",
+      "data": {},
+      "provenance": {
+        "created_by": "execute_sql",
+        "caused_by_event": "evt_011",
+        "frame_id": null,
+        "timestamp": "2026-07-09T01:44:29Z",
+        "evidence": [],
+        "run_id": "01KX28RFMSZSGTYVCGTPEZWVA5"
+      }
+    },
+    {
+      "id": "rel_004",
+      "source": "answer#5",
+      "target": "query_result#4",
+      "type": "derived_from",
+      "data": {},
+      "provenance": {
+        "created_by": "synthesize_answer",
+        "caused_by_event": "evt_017",
+        "frame_id": null,
+        "timestamp": "2026-07-09T01:44:29Z",
+        "evidence": [],
+        "run_id": "01KX28RFMSZSGTYVCGTPEZWVA5"
+      }
+    }
+  ]
+}

@@ -1,0 +1,2 @@
+{"id":"q001","prompt":"김지훈 의사의 전공은?","expected_sql":"SELECT specialty FROM doctors WHERE name = ?","expected_params":["김지훈"],"expected_rows":[["내과"]],"expected_answer_contains":["내과"]}
+{"id":"q002","prompt":"의사는 모두 몇명이야?","expected_sql":"SELECT COUNT(*) FROM doctors","expected_params":[],"expected_rows":[[5]],"expected_answer_contains":["5","명"]}
