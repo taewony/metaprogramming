@@ -1,12 +1,10 @@
 """Text-to-SQL commands backed by local ActiveGraph behaviors."""
 from __future__ import annotations
 
-import encodings.cp1252
 import json
 import re
 import sqlite3
 import sys
-from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
@@ -14,7 +12,18 @@ import click
 
 from activegraph import Event, Graph, Runtime
 from activegraph.behaviors.base import Behavior
-
+from activegraph.cli.hospital_logic import (
+    deterministic_plan,
+    entity_validation_answer,
+    execute_sqlite,
+    first_failed_entity_validation,
+    format_answer_text,
+    normalize_prompt_text,
+    safe_display_text,
+    sqlite_store_url,
+    validate_capture_entities,
+    validate_select_sql,
+)
 TEXT_TO_SQL_DIR = Path(__file__).resolve().parents[2]
 REPO_ACTIVEGRAPH_DIR = TEXT_TO_SQL_DIR.parent
 DEFAULT_DB_FILE = REPO_ACTIVEGRAPH_DIR / "data" / "hospital.db"
@@ -22,136 +31,12 @@ DEFAULT_CASES_FILE = TEXT_TO_SQL_DIR / "evals" / "hospital_cases.jsonl"
 DEFAULT_TESTS_DIR = TEXT_TO_SQL_DIR / ".tests" / "runs"
 DEFAULT_EVENT_STORE_FILE = REPO_ACTIVEGRAPH_DIR / "data" / "text_to_sql_events.sqlite"
 
-
-@dataclass(frozen=True)
-class IntentPlan:
-    intent: dict[str, Any]
-    sql: str
-    params: list[Any]
-    answer_template: str
-
-
-class UnsupportedPromptError(ValueError):
-    """Raised when the deterministic behavior set has no prompt rule."""
-
-
-class UnsafeSQLError(ValueError):
-    """Raised when generated SQL violates the read-only policy."""
-
-
 def _ensure_utf8_stdout() -> None:
     try:
         sys.stdout.reconfigure(encoding="utf-8")
     except Exception:
         pass
 
-
-_CP1252_REVERSE = {
-    char: value
-    for value, char in enumerate(encodings.cp1252.decoding_table)
-    if char != "\ufffe"
-}
-
-
-def _bytes_from_windows_mojibake(text: str) -> bytes | None:
-    out = bytearray()
-    for char in text:
-        codepoint = ord(char)
-        if 0xDC80 <= codepoint <= 0xDCFF:
-            out.append(codepoint - 0xDC00)
-        elif codepoint <= 0xFF:
-            out.append(codepoint)
-        elif char in _CP1252_REVERSE:
-            out.append(_CP1252_REVERSE[char])
-        else:
-            return None
-    return bytes(out)
-
-
-def normalize_prompt_text(prompt: str) -> str:
-    """Repair surrogate/cp1252-mojibake stdin text from Windows pipes."""
-    if not any("\udc80" <= char <= "\udcff" for char in prompt):
-        return prompt
-
-    raw_bytes = _bytes_from_windows_mojibake(prompt)
-    if raw_bytes is not None:
-        try:
-            return raw_bytes.decode("utf-8")
-        except UnicodeError:
-            pass
-
-    try:
-        return prompt.encode("utf-8", "surrogateescape").decode("utf-8")
-    except UnicodeError:
-        return prompt
-
-
-def safe_display_text(value: Any) -> str:
-    return str(value).encode("utf-8", "backslashreplace").decode("utf-8")
-
-
-def sqlite_store_url(path: str | Path) -> str:
-    return "sqlite:///" + str(Path(path).resolve()).replace("\\", "/")
-
-
-def deterministic_plan(prompt: str) -> IntentPlan:
-    prompt = normalize_prompt_text(prompt)
-    normalized = re.sub(r"\s+", " ", prompt.strip())
-
-    if "김지훈" in normalized and ("전공" in normalized or "전문" in normalized):
-        return IntentPlan(
-            intent={
-                "kind": "lookup",
-                "entity": "doctor",
-                "filters": {"name": "김지훈"},
-                "requested_fields": ["specialty"],
-            },
-            sql="SELECT specialty FROM doctors WHERE name = ?",
-            params=["김지훈"],
-            answer_template="김지훈 의사의 전공은 {value}입니다.",
-        )
-
-    doctor_count_markers = [
-        "의사는 모두 몇명이야",
-        "의사는 모두 몇 명이야",
-        "의사 모두 몇명이야",
-        "의사 모두 몇 명이야",
-        "의사 몇명",
-        "의사 몇 명",
-    ]
-    if any(marker in normalized for marker in doctor_count_markers):
-        return IntentPlan(
-            intent={
-                "kind": "count",
-                "entity": "doctor",
-                "filters": {},
-                "requested_fields": ["count"],
-            },
-            sql="SELECT COUNT(*) FROM doctors",
-            params=[],
-            answer_template="의사는 모두 {value}명입니다.",
-        )
-
-    raise UnsupportedPromptError(f"Unsupported prompt for deterministic behaviors: {prompt}")
-
-
-def validate_select_sql(sql: str) -> None:
-    normalized = sql.strip().lower()
-    if not normalized.startswith("select "):
-        raise UnsafeSQLError(f"Only SELECT SQL is allowed, got: {sql}")
-    if ";" in normalized:
-        raise UnsafeSQLError("SQL must be a single SELECT statement without semicolons")
-    padded = f" {normalized} "
-    for token in [" insert ", " update ", " delete ", " drop ", " alter ", " create ", " attach ", " pragma "]:
-        if token in padded:
-            raise UnsafeSQLError(f"Unsafe SQL token found: {token.strip()}")
-
-
-def execute_sqlite(db_file: Path, sql: str, params: list[Any]) -> list[list[Any]]:
-    validate_select_sql(sql)
-    with sqlite3.connect(str(db_file)) as conn:
-        cursor = conn.execute(sql, params)
-        return [list(row) for row in cursor.fetchall()]
 
 
 def make_hospital_behaviors(db_file: Path) -> list[Behavior]:
@@ -169,6 +54,37 @@ def make_hospital_behaviors(db_file: Path) -> list[Behavior]:
         )
         intent = graph.add_object("intent", plan.intent)
         graph.add_relation(intent.id, question.id, "derived_from")
+        validations = validate_capture_entities(db_path, plan)
+        failed_validation = first_failed_entity_validation(validations)
+        if failed_validation is not None:
+            entity_validation = graph.add_object("entity_validation", failed_validation)
+            graph.add_relation(entity_validation.id, intent.id, "validates")
+            answer = graph.add_object(
+                "answer",
+                {
+                    "text": entity_validation_answer(failed_validation),
+                    "citations": [entity_validation.id],
+                },
+            )
+            graph.add_relation(answer.id, entity_validation.id, "derived_from")
+            graph.emit(
+                "entity.validation_failed",
+                {
+                    "question_id": question.id,
+                    "intent_id": intent.id,
+                    "entity_validation_id": entity_validation.id,
+                    "answer_id": answer.id,
+                },
+            )
+            graph.emit(
+                "answer.created",
+                {
+                    "question_id": question.id,
+                    "answer_id": answer.id,
+                    "entity_validation_id": entity_validation.id,
+                },
+            )
+            return
         graph.emit(
             "intent.created",
             {
@@ -240,10 +156,7 @@ def make_hospital_behaviors(db_file: Path) -> list[Behavior]:
             raise KeyError(f"Unknown query_result object: {event.payload['query_result_id']}")
 
         rows = query_result.data.get("rows", [])
-        if rows:
-            text = sql_query.data["answer_template"].format(value=rows[0][0])
-        else:
-            text = "조회 결과가 없습니다."
+        text = format_answer_text(rows, sql_query.data["answer_template"])
         answer = graph.add_object(
             "answer",
             {
@@ -267,7 +180,7 @@ def make_hospital_behaviors(db_file: Path) -> list[Behavior]:
             name="parse_intent",
             fn=parse_intent,
             on=["question.submitted"],
-            creates=["question", "intent"],
+            creates=["question", "intent", "entity_validation", "answer"],
         ),
         Behavior(
             name="compile_sql",
@@ -475,22 +388,51 @@ def event_summary(event: Event) -> dict[str, Any]:
     }
 
 
+def run_ids_by_recency(event_store: str | Path) -> list[str]:
+    store_path = Path(event_store)
+    with sqlite3.connect(str(store_path)) as conn:
+        rows = conn.execute(
+            """
+            SELECT runs.run_id
+            FROM runs
+            LEFT JOIN (
+                SELECT run_id, MAX(seq) AS last_seq FROM events GROUP BY run_id
+            ) e ON e.run_id = runs.run_id
+            ORDER BY e.last_seq IS NULL, e.last_seq DESC, runs.created_at DESC
+            """
+        ).fetchall()
+    return [str(row[0]) for row in rows]
+
+
+def resolve_run_selector(selector: str | None, event_store: str | Path) -> str:
+    if selector is None or selector == "" or selector == "0":
+        offset = 0
+    elif re.fullmatch(r"-\d+", selector):
+        offset = abs(int(selector))
+    else:
+        return selector
+
+    run_ids = run_ids_by_recency(event_store)
+    if not run_ids:
+        raise FileNotFoundError(f"no runs found in event store: {event_store}")
+    if offset >= len(run_ids):
+        raise IndexError(
+            f"run selector {selector!r} is out of range; store has {len(run_ids)} run(s)"
+        )
+    return run_ids[offset]
+
 def inspect_text_to_sql_run(
-    run_id: str | None = None,
+    run_selector: str | None = None,
     *,
     event_store: str | Path = DEFAULT_EVENT_STORE_FILE,
     db_file: str | Path = DEFAULT_DB_FILE,
     tail: int = 50,
 ) -> dict[str, Any]:
-    from activegraph.store.sqlite import SQLiteEventStore
-
     store_path = Path(event_store)
     if not store_path.exists():
         raise FileNotFoundError(f"event store does not exist: {store_path}")
 
-    chosen_run_id = run_id or SQLiteEventStore.most_recent_run_id(str(store_path))
-    if chosen_run_id is None:
-        raise FileNotFoundError(f"no runs found in event store: {store_path}")
+    chosen_run_id = resolve_run_selector(run_selector, store_path)
 
     runtime = Runtime.load(str(store_path), run_id=chosen_run_id)
     graph = runtime.graph
@@ -499,6 +441,7 @@ def inspect_text_to_sql_run(
 
     return {
         "run_id": chosen_run_id,
+        "run_selector": run_selector if run_selector is not None else "0",
         "event_store": str(store_path),
         "store_url": sqlite_store_url(store_path),
         "before": {
@@ -631,19 +574,34 @@ def cmd_eval(cases_file: Path, db_file: Path, tests_dir: Path, event_store: Path
         raise SystemExit(1)
 
 
-@cmd_text_to_sql.command("inspect-run")
-@click.argument("run_id", required=False)
+def _cmd_inspect_impl(run_selector: str | None, event_store: Path, db_file: Path, tail: int, as_json: bool) -> None:
+    try:
+        payload = inspect_text_to_sql_run(run_selector, event_store=event_store, db_file=db_file, tail=tail)
+    except (FileNotFoundError, IndexError) as exc:
+        raise click.ClickException(str(exc)) from exc
+    echo_inspect_run(payload, as_json=as_json)
+
+
+@cmd_text_to_sql.command("inspect", context_settings={"ignore_unknown_options": True})
+@click.argument("run_selector", required=False)
 @click.option("--event-store", type=click.Path(path_type=Path), default=DEFAULT_EVENT_STORE_FILE, show_default=True)
 @click.option("--db-file", type=click.Path(path_type=Path), default=DEFAULT_DB_FILE, show_default=True)
 @click.option("--tail", type=int, default=50, show_default=True, help="Number of recent events to show.")
 @click.option("--json", "as_json", is_flag=True, help="Print the full JSON payload.")
-def cmd_inspect_run(run_id: str | None, event_store: Path, db_file: Path, tail: int, as_json: bool) -> None:
-    """Inspect a persisted Text-to-SQL run, defaulting to the latest run."""
-    try:
-        payload = inspect_text_to_sql_run(run_id, event_store=event_store, db_file=db_file, tail=tail)
-    except FileNotFoundError as exc:
-        raise click.ClickException(str(exc)) from exc
-    echo_inspect_run(payload, as_json=as_json)
+def cmd_inspect(run_selector: str | None, event_store: Path, db_file: Path, tail: int, as_json: bool) -> None:
+    """Inspect a persisted Text-to-SQL run. Select 0, -1, -2, or a run id."""
+    _cmd_inspect_impl(run_selector, event_store, db_file, tail, as_json)
+
+
+@cmd_text_to_sql.command("inspect-run", hidden=True, context_settings={"ignore_unknown_options": True})
+@click.argument("run_selector", required=False)
+@click.option("--event-store", type=click.Path(path_type=Path), default=DEFAULT_EVENT_STORE_FILE, show_default=True)
+@click.option("--db-file", type=click.Path(path_type=Path), default=DEFAULT_DB_FILE, show_default=True)
+@click.option("--tail", type=int, default=50, show_default=True, help="Number of recent events to show.")
+@click.option("--json", "as_json", is_flag=True, help="Print the full JSON payload.")
+def cmd_inspect_run(run_selector: str | None, event_store: Path, db_file: Path, tail: int, as_json: bool) -> None:
+    """Compatibility alias for inspect."""
+    _cmd_inspect_impl(run_selector, event_store, db_file, tail, as_json)
 
 
 @cmd_text_to_sql.command("repl")
@@ -666,4 +624,10 @@ def cmd_repl(db_file: Path, tests_dir: Path, event_store: Path) -> None:
             return
         payload = run_text_to_sql(prompt, db_file, tests_dir=tests_dir, event_store=event_store)
         echo_result(payload, as_json=False)
+
+
+
+
+
+
 

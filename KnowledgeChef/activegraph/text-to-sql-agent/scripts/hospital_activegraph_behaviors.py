@@ -7,10 +7,7 @@ first implementation deterministic so CLI/eval tests can run without LLMs.
 from __future__ import annotations
 
 import json
-import re
-import sqlite3
 import sys
-from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
@@ -26,81 +23,15 @@ if str(RUNTIME_SRC_DIR) not in sys.path:
 
 from activegraph import Event, Graph, Runtime  # noqa: E402
 from activegraph.behaviors.base import Behavior  # noqa: E402
-
-
-@dataclass(frozen=True)
-class IntentPlan:
-    intent: dict[str, Any]
-    sql: str
-    params: list[Any]
-    answer_template: str
-
-
-class UnsupportedPromptError(ValueError):
-    """Raised when the deterministic behavior set has no prompt rule."""
-
-
-class UnsafeSQLError(ValueError):
-    """Raised when generated SQL violates the read-only policy."""
-
-
-def deterministic_plan(prompt: str) -> IntentPlan:
-    normalized = re.sub(r"\s+", " ", prompt.strip())
-
-    if "김지훈" in normalized and ("전공" in normalized or "전문" in normalized):
-        return IntentPlan(
-            intent={
-                "kind": "lookup",
-                "entity": "doctor",
-                "filters": {"name": "김지훈"},
-                "requested_fields": ["specialty"],
-            },
-            sql="SELECT specialty FROM doctors WHERE name = ?",
-            params=["김지훈"],
-            answer_template="김지훈 의사의 전공은 {value}입니다.",
-        )
-
-    doctor_count_markers = [
-        "의사는 모두 몇명이야",
-        "의사는 모두 몇 명이야",
-        "의사 모두 몇명이야",
-        "의사 모두 몇 명이야",
-        "의사 몇명",
-        "의사 몇 명",
-    ]
-    if any(marker in normalized for marker in doctor_count_markers):
-        return IntentPlan(
-            intent={
-                "kind": "count",
-                "entity": "doctor",
-                "filters": {},
-                "requested_fields": ["count"],
-            },
-            sql="SELECT COUNT(*) FROM doctors",
-            params=[],
-            answer_template="의사는 모두 {value}명입니다.",
-        )
-
-    raise UnsupportedPromptError(f"Unsupported prompt for deterministic behaviors: {prompt}")
-
-
-def validate_select_sql(sql: str) -> None:
-    normalized = sql.strip().lower()
-    if not normalized.startswith("select "):
-        raise UnsafeSQLError(f"Only SELECT SQL is allowed, got: {sql}")
-    if ";" in normalized:
-        raise UnsafeSQLError("SQL must be a single SELECT statement without semicolons")
-    padded = f" {normalized} "
-    for token in [" insert ", " update ", " delete ", " drop ", " alter ", " create ", " attach ", " pragma "]:
-        if token in padded:
-            raise UnsafeSQLError(f"Unsafe SQL token found: {token.strip()}")
-
-
-def execute_sqlite(db_file: Path, sql: str, params: list[Any]) -> list[list[Any]]:
-    validate_select_sql(sql)
-    with sqlite3.connect(str(db_file)) as conn:
-        cursor = conn.execute(sql, params)
-        return [list(row) for row in cursor.fetchall()]
+from activegraph.cli.hospital_logic import (
+    deterministic_plan,
+    entity_validation_answer,
+    execute_sqlite,
+    first_failed_entity_validation,
+    format_answer_text,
+    validate_capture_entities,
+    validate_select_sql,
+)
 
 
 def make_hospital_behaviors(db_file: Path) -> list[Behavior]:
@@ -118,6 +49,37 @@ def make_hospital_behaviors(db_file: Path) -> list[Behavior]:
         )
         intent = graph.add_object("intent", plan.intent)
         graph.add_relation(intent.id, question.id, "derived_from")
+        validations = validate_capture_entities(db_path, plan)
+        failed_validation = first_failed_entity_validation(validations)
+        if failed_validation is not None:
+            entity_validation = graph.add_object("entity_validation", failed_validation)
+            graph.add_relation(entity_validation.id, intent.id, "validates")
+            answer = graph.add_object(
+                "answer",
+                {
+                    "text": entity_validation_answer(failed_validation),
+                    "citations": [entity_validation.id],
+                },
+            )
+            graph.add_relation(answer.id, entity_validation.id, "derived_from")
+            graph.emit(
+                "entity.validation_failed",
+                {
+                    "question_id": question.id,
+                    "intent_id": intent.id,
+                    "entity_validation_id": entity_validation.id,
+                    "answer_id": answer.id,
+                },
+            )
+            graph.emit(
+                "answer.created",
+                {
+                    "question_id": question.id,
+                    "answer_id": answer.id,
+                    "entity_validation_id": entity_validation.id,
+                },
+            )
+            return
         graph.emit(
             "intent.created",
             {
@@ -189,10 +151,7 @@ def make_hospital_behaviors(db_file: Path) -> list[Behavior]:
             raise KeyError(f"Unknown query_result object: {event.payload['query_result_id']}")
 
         rows = query_result.data.get("rows", [])
-        if rows:
-            text = sql_query.data["answer_template"].format(value=rows[0][0])
-        else:
-            text = "조회 결과가 없습니다."
+        text = format_answer_text(rows, sql_query.data["answer_template"])
         answer = graph.add_object(
             "answer",
             {
@@ -216,7 +175,7 @@ def make_hospital_behaviors(db_file: Path) -> list[Behavior]:
             name="parse_intent",
             fn=parse_intent,
             on=["question.submitted"],
-            creates=["question", "intent"],
+            creates=["question", "intent", "entity_validation", "answer"],
         ),
         Behavior(
             name="compile_sql",
@@ -325,3 +284,8 @@ def run_text_to_sql(
         "objects": len(graph.all_objects()),
         "artifacts": artifacts,
     }
+
+
+
+
+

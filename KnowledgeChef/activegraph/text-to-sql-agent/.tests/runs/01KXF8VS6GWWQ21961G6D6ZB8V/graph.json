@@ -1,0 +1,190 @@
+{
+  "run_id": "01KXF8VS6GWWQ21961G6D6ZB8V",
+  "objects": [
+    {
+      "id": "question#1",
+      "type": "question",
+      "data": {
+        "text": "김지훈 의사의 가능한 시간은?",
+        "language": "ko"
+      },
+      "version": 1,
+      "provenance": {
+        "created_by": "parse_intent",
+        "caused_by_event": "evt_001",
+        "frame_id": null,
+        "timestamp": "2026-07-14T02:56:25Z",
+        "evidence": [],
+        "run_id": "01KXF8VS6GWWQ21961G6D6ZB8V"
+      }
+    },
+    {
+      "id": "intent#2",
+      "type": "intent",
+      "data": {
+        "kind": "list",
+        "entity": "availability",
+        "filters": {
+          "doctor_name": "김지훈",
+          "status": "가능"
+        },
+        "requested_fields": [
+          "available_date",
+          "available_time"
+        ],
+        "rule_id": "doctor_available_slots_q008"
+      },
+      "version": 1,
+      "provenance": {
+        "created_by": "parse_intent",
+        "caused_by_event": "evt_001",
+        "frame_id": null,
+        "timestamp": "2026-07-14T02:56:25Z",
+        "evidence": [],
+        "run_id": "01KXF8VS6GWWQ21961G6D6ZB8V"
+      }
+    },
+    {
+      "id": "sql_query#3",
+      "type": "sql_query",
+      "data": {
+        "sql": "SELECT a.available_date, a.available_time FROM availability a JOIN doctors d ON d.doctor_id = a.doctor_id WHERE d.name = ? AND a.status = ? ORDER BY a.available_date, a.available_time",
+        "params": [
+          "김지훈",
+          "가능"
+        ],
+        "statement_type": "SELECT",
+        "status": "executed",
+        "answer_template": "김지훈 의사의 가능한 시간은 {values}입니다."
+      },
+      "version": 2,
+      "provenance": {
+        "created_by": "compile_sql",
+        "caused_by_event": "evt_006",
+        "frame_id": null,
+        "timestamp": "2026-07-14T02:56:25Z",
+        "evidence": [],
+        "run_id": "01KXF8VS6GWWQ21961G6D6ZB8V"
+      }
+    },
+    {
+      "id": "query_result#4",
+      "type": "query_result",
+      "data": {
+        "rows": [
+          [
+            "2025-04-02",
+            "09:00"
+          ],
+          [
+            "2025-04-02",
+            "11:00"
+          ],
+          [
+            "2025-04-02",
+            "14:00"
+          ],
+          [
+            "2025-04-03",
+            "09:00"
+          ],
+          [
+            "2025-04-03",
+            "10:00"
+          ]
+        ],
+        "row_count": 5
+      },
+      "version": 1,
+      "provenance": {
+        "created_by": "execute_sql",
+        "caused_by_event": "evt_011",
+        "frame_id": null,
+        "timestamp": "2026-07-14T02:56:25Z",
+        "evidence": [],
+        "run_id": "01KXF8VS6GWWQ21961G6D6ZB8V"
+      }
+    },
+    {
+      "id": "answer#5",
+      "type": "answer",
+      "data": {
+        "text": "김지훈 의사의 가능한 시간은 2025-04-02 09:00, 2025-04-02 11:00, 2025-04-02 14:00, 2025-04-03 09:00, 2025-04-03 10:00입니다.",
+        "citations": [
+          "query_result#4"
+        ]
+      },
+      "version": 1,
+      "provenance": {
+        "created_by": "synthesize_answer",
+        "caused_by_event": "evt_017",
+        "frame_id": null,
+        "timestamp": "2026-07-14T02:56:25Z",
+        "evidence": [],
+        "run_id": "01KXF8VS6GWWQ21961G6D6ZB8V"
+      }
+    }
+  ],
+  "relations": [
+    {
+      "id": "rel_001",
+      "source": "intent#2",
+      "target": "question#1",
+      "type": "derived_from",
+      "data": {},
+      "provenance": {
+        "created_by": "parse_intent",
+        "caused_by_event": "evt_001",
+        "frame_id": null,
+        "timestamp": "2026-07-14T02:56:25Z",
+        "evidence": [],
+        "run_id": "01KXF8VS6GWWQ21961G6D6ZB8V"
+      }
+    },
+    {
+      "id": "rel_002",
+      "source": "sql_query#3",
+      "target": "intent#2",
+      "type": "derived_from",
+      "data": {},
+      "provenance": {
+        "created_by": "compile_sql",
+        "caused_by_event": "evt_006",
+        "frame_id": null,
+        "timestamp": "2026-07-14T02:56:25Z",
+        "evidence": [],
+        "run_id": "01KXF8VS6GWWQ21961G6D6ZB8V"
+      }
+    },
+    {
+      "id": "rel_003",
+      "source": "sql_query#3",
+      "target": "query_result#4",
+      "type": "executed_as",
+      "data": {},
+      "provenance": {
+        "created_by": "execute_sql",
+        "caused_by_event": "evt_011",
+        "frame_id": null,
+        "timestamp": "2026-07-14T02:56:25Z",
+        "evidence": [],
+        "run_id": "01KXF8VS6GWWQ21961G6D6ZB8V"
+      }
+    },
+    {
+      "id": "rel_004",
+      "source": "answer#5",
+      "target": "query_result#4",
+      "type": "derived_from",
+      "data": {},
+      "provenance": {
+        "created_by": "synthesize_answer",
+        "caused_by_event": "evt_017",
+        "frame_id": null,
+        "timestamp": "2026-07-14T02:56:25Z",
+        "evidence": [],
+        "run_id": "01KXF8VS6GWWQ21961G6D6ZB8V"
+      }
+    }
+  ]
+}

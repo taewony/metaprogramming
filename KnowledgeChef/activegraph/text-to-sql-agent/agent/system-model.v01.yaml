@@ -1,0 +1,708 @@
+# ActiveGraph Text-to-SQL Agent System Model v01
+#
+# Experiment overview
+# -------------------
+# v01 is the first incremental model after the observed v00 baseline. It does
+# not attempt to implement the full v09 hybrid SQL+RAG production vision. v09 is
+# treated as the north-star architecture; v01 is the next controlled experiment.
+#
+# The purpose of v01 is prompt coverage expansion under a TDD-first discipline:
+#
+#   add one failing eval case -> inspect failed run -> adjust deterministic rule
+#   -> run eval -> update this system model
+#
+# The agent remains dependency-free for the core path. No LLM, llama-index,
+# vector DB, SQL repair loop, pack generation, or compiler-generated runtime is
+# required in v01. Those features are staged in the roadmap and should only be
+# introduced behind stable interfaces after deterministic behavior coverage is
+# reliable.
+#
+# v01 also records the architectural direction from the v09 planning notes:
+# adopt a future "Scaffold + Stub" synthesis model. The YAML should be treated
+# as the declarative source of truth for architecture and wiring, while mutable
+# imperative logic lives in preserved stubs or handwritten behavior modules.
+
+schema_version: system-model.v01
+kind: activegraph.agent.system_model
+name: hospital-text-to-sql-agent
+status: complete
+last_updated: "2026-07-14"
+language: ko-en
+
+lineage:
+  previous_baseline: "activegraph/text-to-sql-agent/agent/system-model.v00.yaml"
+  north_star_reference: "activegraph/text-to-sql-agent/agent/system-model.v99.yaml"
+  plan_reference: "plan.md"
+  evolution_policy: >-
+    v01 should preserve the v00 runtime shape while adding explicit prompt
+    coverage targets and future compiler boundaries. Do not import v09 hybrid
+    runtime features until they have their own failing tests and minimal
+    behavior implementation plan.
+
+summary:
+  one_liner: "Deterministic ActiveGraph Text-to-SQL agent with explicit prompt-coverage roadmap."
+  purpose: >-
+    Expand the current hospital Text-to-SQL agent one prompt family at a time,
+    using eval cases and storage-backed ActiveGraph inspection to understand how
+    prompt rules become graph objects, relations, events, and answers.
+  current_scope:
+    - Korean natural-language queries over the hospital SQLite fixture.
+    - Deterministic planner rules for selected doctor/patient/appointment intents.
+    - ActiveGraph behavior pipeline with SQLite event-store logging.
+    - Agent REPL with text-to-sql and activegraph modes.
+    - TDD workflow using JSONL eval cases and focused inspection.
+  explicitly_deferred:
+    - LLM planner as default path.
+    - llama-index dependency.
+    - RAG retrieval and vector store.
+    - SQL auto-repair loop.
+    - Multi-turn dialogue context.
+    - A/B LLM benchmarking.
+    - system-model compiler/runtime loader.
+    - SKILL.md generation and pack generation.
+
+experiment_protocol:
+  principle: "TDD-first deterministic expansion before framework or LLM complexity."
+  loop:
+    - step: add_failing_case
+      description: "Add one JSONL eval case with explicit prompt, SQL, params, rows, and answer substrings."
+    - step: reproduce
+      description: "Run agent.py text-to-sql eval or ask to capture the failure."
+    - step: inspect
+      description: "Use text-to-sql inspect 0|-1|-2|<run_id> to locate behavior.failed and graph state."
+    - step: implement_smallest_rule
+      description: "Update deterministic planning or answer formatting only as much as needed."
+    - step: verify
+      description: "Run focused tests and text-to-sql eval."
+    - step: record
+      description: "Update system-model.v01.yaml or create v02 when the runtime surface changes."
+  commands:
+    start_repl: "python activegraph/text-to-sql-agent/agent.py"
+    ask: "python activegraph/text-to-sql-agent/agent.py text-to-sql ask \"의사는 모두 몇명이야?\""
+    inspect_latest: "python activegraph/text-to-sql-agent/agent.py text-to-sql inspect 0"
+    inspect_previous: "python activegraph/text-to-sql-agent/agent.py text-to-sql inspect -1"
+    eval: "python activegraph/text-to-sql-agent/agent.py text-to-sql eval"
+    pytest_focused: "python -m pytest tests/test_activegraph_text_to_sql_tdd.py -q --basetemp activegraph/text-to-sql-agent/.tests/pytest-activegraph -p no:cacheprovider"
+
+source_layout:
+  agent_entrypoint: "activegraph/text-to-sql-agent/agent.py"
+  activegraph_runtime_src: "activegraph/text-to-sql-agent/src"
+  text_to_sql_cli_module: "activegraph/text-to-sql-agent/src/cli/text_to_sql.py"
+  activegraph_cli_main: "activegraph/text-to-sql-agent/src/cli/main.py"
+  hospital_db: "activegraph/data/hospital.db"
+  event_store: "activegraph/data/text_to_sql_events.sqlite"
+  eval_cases: "activegraph/text-to-sql-agent/evals/hospital_cases.jsonl"
+  focused_tests: "tests/test_activegraph_text_to_sql_tdd.py"
+  run_artifacts_dir: "activegraph/text-to-sql-agent/.tests/runs"
+  db_builder_script: "activegraph/text-to-sql-agent/scripts/build_hospital_db.py"
+  db_verifier_script: "activegraph/text-to-sql-agent/scripts/verify_hospital_db.py"
+  legacy_tdd_driver: "activegraph/text-to-sql-agent/scripts/hospital_tdd_driver.py"
+
+runtime:
+  package_resolution:
+    mechanism: "agent.py inserts ./src at sys.path[0]."
+    reason: "Reverse-engineering should use copied local ActiveGraph source, not globally installed activegraph."
+  graph:
+    creation: "Fresh Graph() per ask/eval case."
+    initial_state:
+      objects: []
+      relations: []
+      events: []
+    projection_model: "Events are projected into objects and relations by Graph.emit/apply_event."
+  activegraph_runtime:
+    class: "activegraph.Runtime"
+    construction:
+      behaviors: "make_hospital_behaviors(db_file)"
+      budget:
+        max_events: 100
+        max_behavior_calls: 20
+      persist_to: "activegraph/data/text_to_sql_events.sqlite"
+    idle_condition: "Runtime runs until event queue is idle and emits runtime.idle."
+  persistence:
+    primary_event_store:
+      type: sqlite_event_store
+      path: "activegraph/data/text_to_sql_events.sqlite"
+      store_url: "sqlite:///D:/code/metaprogramming/KnowledgeChef/activegraph/data/text_to_sql_events.sqlite"
+    debug_artifacts:
+      trace_jsonl: ".tests/runs/<run_id>/trace.jsonl"
+      graph_snapshot: ".tests/runs/<run_id>/graph.json"
+  dependency_policy:
+    required_core: "Python standard library + local ActiveGraph runtime dependencies already present."
+    forbidden_for_v01_core:
+      - llama_index
+      - vector_db
+      - mandatory_llm_provider
+    optional_local_only:
+      - "OpenAI-compatible LLM planner experiments through legacy driver only; not required by v01 runtime contract."
+
+cli:
+  entrypoint:
+    file: "activegraph/text-to-sql-agent/agent.py"
+    direct_mode: "If argv is present, delegate to activegraph.cli.main."
+    repl_mode: "If no argv is present, start mode-aware REPL."
+  repl:
+    default_mode: text-to-sql
+    modes:
+      - name: text-to-sql
+        prefix: ["text-to-sql"]
+        visible_commands: [ask, eval, inspect, repl]
+      - name: activegraph
+        prefix: []
+        visible_commands: [diff, export-trace, fork, inspect, migrate, pack, quickstart, replay, text-to-sql]
+    builtins:
+      - command: help
+        behavior: "Print current mode help; help <command> prints command help."
+      - command: mode
+        behavior: "Print or switch modes."
+      - command: exit
+        aliases: [quit, q, ":q"]
+  text_to_sql_commands:
+    ask:
+      usage: "text-to-sql ask <prompt>"
+      output_contract:
+        ok: boolean
+        prompt: string
+        run_id: string
+        event_store: string
+        store_url: string
+        sql: string_or_null
+        params: list
+        rows: list
+        answer: string
+        error: string_or_null
+    eval:
+      usage: "text-to-sql eval"
+      effect: "Run explicit JSONL cases against deterministic behavior path."
+    inspect:
+      usage: "text-to-sql inspect [0|-1|-2|<run_id>]"
+      selectors:
+        "0": "latest run"
+        "-1": "previous run"
+        "-2": "two runs back"
+        literal_run_id: "exact run lookup"
+      shows:
+        - before registered behaviors
+        - after objects
+        - after relations
+        - recent events
+        - behavior failures
+
+external_environment:
+  database:
+    type: sqlite
+    path: "activegraph/data/hospital.db"
+    role: "Read-only hospital fixture queried by execute_sql behavior."
+  event_store:
+    type: sqlite
+    path: "activegraph/data/text_to_sql_events.sqlite"
+    role: "Append-only event log for ActiveGraph replay/inspect/export-trace."
+  environment_variables:
+    required: []
+    recommended:
+      PYTHONIOENCODING: utf-8
+      PYTHONDONTWRITEBYTECODE: "1"
+  windows_notes:
+    pytest: "Focused pytest may require running outside managed sandbox due temp-directory access."
+    sqlite: "SQLite creation/writes may require unsandboxed execution in this managed Windows environment."
+
+input_model:
+  accepted_input:
+    type: user_prompt
+    language: ko
+  v00_supported_examples:
+    - prompt: "의사는 모두 몇명이야?"
+      intent_id: doctor_count
+    - prompt: "의사는 모두 몇 명이야?"
+      intent_id: doctor_count
+    - prompt: "김지훈 의사의 전공은?"
+      intent_id: doctor_specialty_by_name
+    - prompt: "김지훈 의사의 전공은 뭐야?"
+      intent_id: doctor_specialty_by_name
+  v01_target_examples:
+    - prompt: "김지훈 의사 병원?"
+      intent_id: doctor_hospital_by_name
+    - prompt: "의사 몇명 있니?"
+      intent_id: doctor_count
+    - prompt: "홍길동 환자의 보험은?"
+      intent_id: patient_insurance_number_by_name
+    - prompt: "김지훈 의사의 가능한 시간은?"
+      intent_id: doctor_available_slots
+    - prompt: "예정된 예약은 몇 개야?"
+      intent_id: scheduled_appointment_count
+  known_failure_to_fix_first:
+    - prompt: "의사는 모두 몇명?"
+      current_failure: "UnsupportedPromptError in parse_intent/deterministic_plan"
+      target_intent_id: doctor_count
+
+planning_model:
+  current_planner: deterministic_rule_planner
+  implementation_now: "deterministic_plan(prompt) returns IntentPlan."
+  v01_target_implementation: "Move toward table-driven deterministic rules while keeping behavior API unchanged."
+  llm_dependency: false
+  llamaindex_dependency: false
+  rule_contract:
+    fields:
+      - id
+      - match
+      - intent
+      - sql
+      - params
+      - answer_template
+      - expected_rows_shape
+  existing_rules:
+    - id: doctor_specialty_by_name
+      status: implemented
+      match: "Prompt contains 김지훈 and either 전공 or 전문."
+      sql: "SELECT specialty FROM doctors WHERE name = ?"
+      params: ["김지훈"]
+      answer_template: "김지훈 의사의 전공은 {value}입니다."
+    - id: doctor_count
+      status: implemented_partial
+      match_markers:
+        - "의사는 모두 몇명이야"
+        - "의사는 모두 몇 명이야"
+        - "의사 모두 몇명이야"
+        - "의사 모두 몇 명이야"
+        - "의사 몇명"
+        - "의사 몇 명"
+      sql: "SELECT COUNT(*) FROM doctors"
+      params: []
+      answer_template: "의사는 모두 {value}명입니다."
+  v01_planned_rules:
+    - id: doctor_count_phrase_expansion
+      source: "v00 known failure + plan.md near-term case 2"
+      prompt_examples:
+        - "의사는 모두 몇명?"
+        - "의사 몇명 있니?"
+      sql: "SELECT COUNT(*) FROM doctors"
+      params: []
+      answer_template: "의사는 모두 {value}명입니다."
+      first_test_policy: "Add failing eval case before implementation."
+    - id: doctor_hospital_by_name
+      source: "plan.md near-term case 1"
+      prompt_examples:
+        - "김지훈 의사 병원?"
+      sql: "SELECT hospital_name FROM doctors WHERE name = ?"
+      params: ["김지훈"]
+      expected_rows: [["서울중앙병원"]]
+      answer_template: "김지훈 의사는 {value}에 있습니다."
+      first_test_policy: "Add as a separate failing eval after doctor_count expansion."
+    - id: patient_insurance_number_by_name
+      source: "plan.md near-term case 3"
+      prompt_examples:
+        - "홍길동 환자의 보험은?"
+      sql: "SELECT insurance_number FROM patients WHERE name = ?"
+      params: ["홍길동"]
+      expected_rows: [["I12345"]]
+      answer_template: "홍길동 환자의 보험번호는 {value}입니다."
+    - id: doctor_available_slots
+      source: "plan.md near-term case 4"
+      prompt_examples:
+        - "김지훈 의사의 가능한 시간은?"
+      sql_shape: "JOIN doctors and availability; filter doctor name and available status."
+      expected_rows_include:
+        - ["2025-04-02", "09:00"]
+        - ["2025-04-02", "11:00"]
+        - ["2025-04-02", "14:00"]
+      answer_strategy: "List available date/time slots, not only first row."
+      note: "May require answer synthesis to support multi-row formatting."
+    - id: scheduled_appointment_count
+      source: "plan.md near-term case 5"
+      prompt_examples:
+        - "예정된 예약은 몇 개야?"
+      sql: "SELECT COUNT(*) FROM appointments WHERE status = ?"
+      params: ["scheduled"]
+      expected_rows: [[2]]
+      answer_template: "예정된 예약은 {value}개입니다."
+  failure_policy:
+    unsupported_prompt: "Raise UnsupportedPromptError; runtime records behavior.failed."
+    unsafe_sql: "Raise UnsafeSQLError if SQL is not a single safe SELECT."
+
+behavior_model:
+  registration_source: make_hospital_behaviors
+  unchanged_from_v00: true
+  v01_behavior_change_policy: "Prefer planner/rule changes before adding new behaviors."
+  behaviors:
+    - name: parse_intent
+      kind: Behavior
+      on: [question.submitted]
+      creates: [question, intent]
+      emits: [intent.created]
+      v01_change: "Broaden deterministic_plan coverage; behavior signature unchanged."
+      relations_created:
+        - source: intent
+          target: question
+          type: derived_from
+    - name: compile_sql
+      kind: Behavior
+      on: [intent.created]
+      creates: [sql_query]
+      emits: [sql.generated]
+      validates: [validate_select_sql]
+      v01_change: "No change expected unless named parameters are introduced."
+      relations_created:
+        - source: sql_query
+          target: intent
+          type: derived_from
+    - name: execute_sql
+      kind: Behavior
+      on: [sql.generated]
+      creates: [query_result]
+      emits: [sql.executed]
+      external_reads: ["activegraph/data/hospital.db"]
+      patches:
+        - object_type: sql_query
+          patch: {status: executed}
+      v01_change: "No change expected for simple scalar queries; multi-row slot output may stress answer synthesis first."
+      relations_created:
+        - source: sql_query
+          target: query_result
+          type: executed_as
+    - name: synthesize_answer
+      kind: Behavior
+      on: [sql.executed]
+      creates: [answer]
+      emits: [answer.created]
+      v01_change: "May need multi-row formatting support for available slots."
+      relations_created:
+        - source: answer
+          target: query_result
+          type: derived_from
+
+object_model:
+  unchanged_core_types: true
+  object_types:
+    - type: question
+      data_fields: {text: string, language: string}
+    - type: intent
+      data_fields: {kind: string, entity: string, filters: object, requested_fields: list}
+      v01_expected_new_values:
+        kind: [lookup, count, list]
+        entity: [doctor, patient, appointment, availability]
+        requested_fields: [specialty, hospital_name, insurance_number, count, available_slots]
+    - type: sql_query
+      data_fields: {sql: string, params: list, statement_type: string, status: string, answer_template: string}
+    - type: query_result
+      data_fields: {rows: list, row_count: integer}
+    - type: answer
+      data_fields: {text: string, citations: list}
+  relation_types:
+    - type: derived_from
+    - type: executed_as
+  deferred_v09_types:
+    - dialogue_context
+    - resolved_intent
+    - table_schema
+    - schema_context
+    - llm_invocation
+    - retrieved_chunks
+    - rag_summary
+    - failure
+    - session
+
+canonical_success_flow:
+  v00_reference_prompt: "의사는 모두 몇명이야?"
+  expected_sql: "SELECT COUNT(*) FROM doctors"
+  expected_rows: [[5]]
+  expected_answer: "의사는 모두 5명입니다."
+  expected_graph_counts: {events: 24, objects: 5, relations: 4}
+  event_sequence_contract:
+    - question.submitted
+    - behavior.started
+    - object.created
+    - object.created
+    - relation.created
+    - intent.created
+    - behavior.completed
+    - behavior.started
+    - object.created
+    - relation.created
+    - sql.generated
+    - behavior.completed
+    - behavior.started
+    - object.created
+    - relation.created
+    - patch.applied
+    - sql.executed
+    - behavior.completed
+    - behavior.started
+    - object.created
+    - relation.created
+    - answer.created
+    - behavior.completed
+    - runtime.idle
+
+canonical_v01_first_failure_to_convert:
+  prompt: "의사는 모두 몇명?"
+  initial_result: unsupported_prompt
+  current_event_sequence:
+    - question.submitted
+    - behavior.started
+    - behavior.failed
+    - runtime.idle
+  target_result:
+    sql: "SELECT COUNT(*) FROM doctors"
+    params: []
+    rows: [[5]]
+    answer_contains: ["5", "명"]
+  improvement_target:
+    file: "activegraph/text-to-sql-agent/src/cli/text_to_sql.py"
+    function: deterministic_plan
+    recommended_implementation: "Replace marker-only list with regex/table-driven count pattern."
+
+evaluation:
+  current_cases_file: "activegraph/text-to-sql-agent/evals/hospital_cases.jsonl"
+  focused_tests: "tests/test_activegraph_text_to_sql_tdd.py"
+  current_known_baseline:
+    expected_min_passed: 8
+    expected_failed: 0
+  v01_case_add_order:
+    - id: q003_doctor_count_short_question
+      prompt: "의사는 모두 몇명?"
+      reason: "Known failed run; smallest prompt coverage improvement."
+      status: implemented
+    - id: q004_doctor_count_existential
+      prompt: "의사 몇명 있니?"
+      reason: "plan.md near-term case 2."
+      status: implemented
+    - id: q005_doctor_hospital_lookup
+      prompt: "김지훈 의사 병원?"
+      reason: "plan.md near-term case 1."
+      status: implemented
+    - id: q006_patient_insurance_number
+      prompt: "홍길동 환자의 보험은?"
+      reason: "plan.md near-term case 3."
+      status: implemented
+    - id: q007_scheduled_appointment_count
+      prompt: "예정된 예약은 몇 개야?"
+      reason: "plan.md near-term case 5."
+      status: implemented
+    - id: q008_doctor_available_slots
+      prompt: "김지훈 의사의 가능한 시간은?"
+      reason: "plan.md near-term case 4; likely needs multi-row answer formatting."
+      status: implemented
+  tdd_policy:
+    - "Add one JSONL case at a time."
+    - "Add or adjust focused pytest expectations before implementation."
+    - "Inspect failed run before editing code."
+    - "Keep deterministic path default and CI-suitable."
+
+observability:
+  primary_command: "python activegraph/text-to-sql-agent/agent.py text-to-sql inspect 0"
+  failure_diagnosis_steps:
+    - "Run ask/eval and capture run_id."
+    - "Inspect the run with text-to-sql inspect <run_id>."
+    - "Check failures list for behavior.failed."
+    - "Check after.object_count and relation_count to see how far projection progressed."
+    - "Only then update deterministic_plan or answer synthesis."
+  generic_activegraph_commands:
+    inspect: "python activegraph/text-to-sql-agent/agent.py inspect <store_url> --run-id <run_id> --tail 8"
+    replay: "python activegraph/text-to-sql-agent/agent.py replay <store_url> --run-id <run_id>"
+    export_trace: "python activegraph/text-to-sql-agent/agent.py export-trace <store_url> --run-id <run_id> --format jsonl"
+
+safety_and_constraints:
+  sql_policy:
+    allowed: "Single read-only SELECT statement."
+    semicolon_allowed: false
+    blocked_tokens: [insert, update, delete, drop, alter, create, attach, pragma]
+  data_policy:
+    hospital_db: "Read-only."
+    event_store: "Append-only event log."
+    artifacts: "Debug snapshots under .tests/runs."
+  dependency_policy:
+    current_required_core: "No llama_index; no required LLM; no vector DB."
+    future_llm_policy: "Optional OpenAI-compatible adapter only after deterministic contracts are stable."
+
+scaffold_and_stub_strategy:
+  status: design_direction_not_implemented
+  source: "plan.md guidance derived from system-model.v99 context"
+  decision: >-
+    Future system-model compiler should generate structural boilerplate and
+    stubs, not full business logic. Human/Coding Agent logic must be preserved
+    inside explicit protected blocks.
+  deterministic_compiler_responsibilities:
+    - "Generate object schemas from object_model."
+    - "Generate behavior registration/wiring from behavior_model."
+    - "Generate safety middleware from safety_and_constraints."
+    - "Generate event/store configuration from runtime and external_environment."
+  code_agent_responsibilities:
+    - "Implement mutable behavior logic inside preserved stubs."
+    - "Implement prompt parsing, SQL templates, and answer formatting."
+    - "Suggest merges when system-model signatures change."
+  overwrite_policy:
+    generated_code: "May be regenerated."
+    human_code_blocks: "Must never be overwritten by compiler."
+  v01_action: "Document only; do not implement compiler yet."
+
+v09_north_star_features_deferred:
+  hybrid_rag: "Defer retrieve_docs, synthesize_rag, fuse_answers."
+  llm_registry_ab_testing: "Defer qwen3/qwen2.5 comparison infrastructure."
+  dialogue_context: "Defer session graph and anaphora resolution."
+  sql_planner_resolution: "Defer ellipsis/ambiguity/implicit-constraint planner; v01 only expands deterministic patterns."
+  auto_healing: "Defer repair_sql and patch rules."
+  schema_router: "Defer table_schema/schema_context retrieval."
+  pain_score_adaptation: "Defer dynamic model/prompt adaptation."
+
+incremental_roadmap:
+  v01_prompt_coverage:
+    status: complete
+    goals:
+      - "Fix known count prompt failure."
+      - "Add plan.md near-term deterministic cases one at a time."
+      - "Introduce table-driven deterministic rules if marker list becomes brittle."
+  v02_system_model_runtime:
+    goals:
+      - "Optionally load rule definitions from YAML or generated config."
+      - "Separate hospital-specific rules from generic Text-to-SQL runtime."
+      - "Move event store and DB paths into .env/pack-style config."
+  v03_llm_adapter:
+    goals:
+      - "Add optional OpenAI-compatible planner behind deterministic fallback."
+      - "Record prompt assembly and model response events."
+  v04_scaffold_stub_compiler:
+    goals:
+      - "Generate models/wiring/security stubs from system-model."
+      - "Preserve human behavior logic blocks."
+  v05_kb_okf_integration:
+    goals:
+      - "Add approval-gated OKF/llm-wiki ingestion experiment."
+  v06_parallel_rag_slice:
+    goals:
+      - "Add minimal retrieve_docs behavior and RAG summary object."
+  v07_hybrid_fusion_slice:
+    goals:
+      - "Add fuse_answers synchronization behavior only after SQL and RAG slices are observable."
+
+
+v01_experiment_log:
+  - id: exp_001_doctor_count_short_question
+    date: "2026-07-14"
+    prompt: "의사는 모두 몇명?"
+    initial_failure: "parse_intent raised UnsupportedPromptError; eval q003 failed."
+    implementation:
+      - "Added q003 to activegraph/text-to-sql-agent/evals/hospital_cases.jsonl."
+      - "Added focused pytest coverage for the behavior driver."
+      - "Changed doctor_count matching from phrase markers to whitespace-insensitive regex."
+      - "Made scripts/build_hospital_db.py fall back to the canonical SQLite fixture when ch09_text_to_sql.py is absent."
+      - "Made scripts/hospital_tdd_driver.py import sibling behavior module when loaded through spec_from_file_location."
+    result:
+      sql: "SELECT COUNT(*) FROM doctors"
+      rows: [[5]]
+      answer: "의사는 모두 5명입니다."
+      inspect_summary: {events: 24, objects: 5, relations: 4, failures: 0}
+    verification:
+      pytest: "python -m pytest tests/test_activegraph_text_to_sql_tdd.py -q --basetemp activegraph/text-to-sql-agent/.tests/pytest-activegraph -p no:cacheprovider => 7 passed"
+      cli_ask: "python activegraph/text-to-sql-agent/agent.py text-to-sql ask \"의사는 모두 몇명?\" => 의사는 모두 5명입니다."
+      cli_eval: "python activegraph/text-to-sql-agent/agent.py text-to-sql eval => 3 passed, 0 failed"
+      cli_inspect: "python activegraph/text-to-sql-agent/agent.py text-to-sql inspect 0 --tail 8 => no failures"
+
+  - id: exp_002_doctor_hospital_lookup
+    date: "2026-07-14"
+    prompt: "김지훈 의사 병원?"
+    initial_failure: "parse_intent raised UnsupportedPromptError; eval q005 failed."
+    implementation:
+      - "Added q005 to activegraph/text-to-sql-agent/evals/hospital_cases.jsonl."
+      - "Added focused pytest coverage for the behavior driver."
+      - "Added deterministic 김지훈+병원 rule selecting doctors.hospital_name."
+    result:
+      sql: "SELECT hospital_name FROM doctors WHERE name = ?"
+      rows: [["서울중앙병원"]]
+      answer: "김지훈 의사는 서울중앙병원에 있습니다."
+    verification:
+      pytest: "python -m pytest tests/test_activegraph_text_to_sql_tdd.py -q --basetemp activegraph/text-to-sql-agent/.tests/pytest-activegraph -p no:cacheprovider => 8 passed"
+      cli_ask: "User manually confirmed answer: 김지훈 의사는 서울중앙병원에 있습니다."
+  - id: exp_003_patient_insurance_lookup
+    date: "2026-07-14"
+    prompt: "홍길동 환자의 보험은?"
+    initial_failure: "parse_intent raised UnsupportedPromptError; eval q006 failed."
+    implementation:
+      - "Added q006 to activegraph/text-to-sql-agent/evals/hospital_cases.jsonl."
+      - "Added focused pytest coverage for the behavior driver."
+      - "Added deterministic 홍길동+보험 rule selecting patients.insurance_number."
+    result:
+      sql: "SELECT insurance_number FROM patients WHERE name = ?"
+      rows: [["I12345"]]
+      answer: "홍길동 환자의 보험번호는 I12345입니다."
+      inspect_summary: {events: 24, objects: 5, relations: 4, failures: 0}
+    verification:
+      pytest: "python -m pytest tests/test_activegraph_text_to_sql_tdd.py -q --basetemp activegraph/text-to-sql-agent/.tests/pytest-activegraph -p no:cacheprovider => 9 passed"
+      cli_ask: "python activegraph/text-to-sql-agent/agent.py text-to-sql ask \"홍길동 환자의 보험은?\" => 홍길동 환자의 보험번호는 I12345입니다."
+      cli_eval: "python activegraph/text-to-sql-agent/agent.py text-to-sql eval => 5 passed, 0 failed"
+      cli_inspect: "python activegraph/text-to-sql-agent/agent.py text-to-sql inspect 0 --tail 8 => no failures"
+
+  - id: exp_004_scheduled_appointment_count
+    date: "2026-07-14"
+    prompt: "예정된 예약은 몇 개야?"
+    initial_failure: "parse_intent raised UnsupportedPromptError; eval q007 failed."
+    implementation:
+      - "Added q007 to activegraph/text-to-sql-agent/evals/hospital_cases.jsonl."
+      - "Added focused pytest coverage for the behavior driver."
+      - "Added deterministic 예약+예정+count rule selecting COUNT(*) from appointments filtered by status=예정됨."
+    result:
+      sql: "SELECT COUNT(*) FROM appointments WHERE status = ?"
+      params: ["예정됨"]
+      rows: [[2]]
+      answer: "예정된 예약은 2개입니다."
+      inspect_summary: {events: 24, objects: 5, relations: 4, failures: 0}
+    verification:
+      pytest: "python -m pytest tests/test_activegraph_text_to_sql_tdd.py -q --basetemp activegraph/text-to-sql-agent/.tests/pytest-activegraph -p no:cacheprovider => 10 passed"
+      cli_ask: "python activegraph/text-to-sql-agent/agent.py text-to-sql ask \"예정된 예약은 몇 개야?\" => 예정된 예약은 2개입니다."
+      cli_eval: "python activegraph/text-to-sql-agent/agent.py text-to-sql eval => 6 passed, 0 failed"
+      cli_inspect: "python activegraph/text-to-sql-agent/agent.py text-to-sql inspect 0 --tail 8 => no failures"
+
+  - id: exp_005_doctor_available_slots
+    date: "2026-07-14"
+    prompt: "김지훈 의사의 가능한 시간은?"
+    initial_failure: "parse_intent raised UnsupportedPromptError; eval q008 failed."
+    implementation:
+      - "Added q008 to activegraph/text-to-sql-agent/evals/hospital_cases.jsonl."
+      - "Added focused pytest coverage for exact multi-row slot output."
+      - "Added deterministic 김지훈+가능+시간 rule joining doctors and availability."
+      - "Added minimal {values} answer-template formatting for multi-row query results."
+    result:
+      sql: "SELECT a.available_date, a.available_time FROM availability a JOIN doctors d ON d.doctor_id = a.doctor_id WHERE d.name = ? AND a.status = ? ORDER BY a.available_date, a.available_time"
+      params: ["김지훈", "가능"]
+      rows:
+        - ["2025-04-02", "09:00"]
+        - ["2025-04-02", "11:00"]
+        - ["2025-04-02", "14:00"]
+        - ["2025-04-03", "09:00"]
+        - ["2025-04-03", "10:00"]
+      answer: "김지훈 의사의 가능한 시간은 2025-04-02 09:00, 2025-04-02 11:00, 2025-04-02 14:00, 2025-04-03 09:00, 2025-04-03 10:00입니다."
+      inspect_summary: {events: 24, objects: 5, relations: 4, failures: 0}
+    verification:
+      pytest: "python -m pytest tests/test_activegraph_text_to_sql_tdd.py -q --basetemp activegraph/text-to-sql-agent/.tests/pytest-activegraph -p no:cacheprovider => 11 passed"
+      cli_ask: "python activegraph/text-to-sql-agent/agent.py text-to-sql ask \"김지훈 의사의 가능한 시간은?\" => five available slots"
+      cli_eval: "python activegraph/text-to-sql-agent/agent.py text-to-sql eval => 7 passed, 0 failed"
+      cli_inspect: "python activegraph/text-to-sql-agent/agent.py text-to-sql inspect 0 --tail 8 => no failures"
+
+  - id: exp_006_v01_refactor_and_completion
+    date: "2026-07-14"
+    prompt: "v01 complete"
+    initial_failure: "Planner and answer synthesis logic were duplicated across current CLI and legacy behavior runner; q004 was passing manually but not locked in eval."
+    implementation:
+      - "Added q004 to activegraph/text-to-sql-agent/evals/hospital_cases.jsonl."
+      - "Added focused pytest coverage for q004 `의사 몇명 있니?`."
+      - "Moved shared deterministic planner, SQL safety, SQLite execution, prompt normalization, and answer formatting into activegraph/text-to-sql-agent/src/cli/hospital_logic.py."
+      - "Updated src/cli/text_to_sql.py, scripts/hospital_activegraph_behaviors.py, and direct deterministic mode in scripts/hospital_tdd_driver.py to reuse shared helpers."
+      - "Restored CLI-only UTF-8 stdout handling in src/cli/text_to_sql.py after the helper extraction."
+    result:
+      eval_cases: [q001, q002, q003, q004, q005, q006, q007, q008]
+      cli_eval: "8 passed, 0 failed"
+      pytest: "12 passed"
+      status: "v01 complete"
+    verification:
+      pytest: "python -m pytest tests/test_activegraph_text_to_sql_tdd.py -q --basetemp activegraph/text-to-sql-agent/.tests/pytest-activegraph -p no:cacheprovider => 12 passed"
+      cli_eval: "python activegraph/text-to-sql-agent/agent.py text-to-sql eval => 8 passed, 0 failed"
+      cli_ask_q004: "python activegraph/text-to-sql-agent/agent.py text-to-sql ask \"의사 몇명 있니?\" => 의사는 모두 5명입니다."
+      cli_inspect: "python activegraph/text-to-sql-agent/agent.py text-to-sql inspect 0 --tail 8 => no failures"
+
+closed_questions:
+  - id: v01_first_case
+    answer: "Done; q003 was fixed first and validated the loop."
+  - id: deterministic_rule_shape
+    answer: "For v01, handwritten rules remain but are centralized in hospital_logic.py; v02 should consider YAML/table-driven rule definitions."
+  - id: model_file_evolution
+    answer: "v01 was edited in place through completion; create v02 for runtime/config/model-loader changes."
+
+

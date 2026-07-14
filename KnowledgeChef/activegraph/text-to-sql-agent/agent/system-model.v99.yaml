@@ -1,0 +1,813 @@
+# ActiveGraph Text-to-SQL & RAG Hybrid Agent System Model v99
+#
+# North-Star Production Specification
+# ------------------------------
+# This file defines the final specification for the decentralized, event-driven
+# hybrid Text-to-SQL and RAG agent. It migrates from LangChain's centralized
+# supervisor pattern to ActiveGraph's choreography architecture, featuring
+# parallel retrieval, rule-based SQL auto-healing, token-optimized schema routing,
+# and pain-score driven dynamic LLM execution parameters.
+#
+# v99 describes the target production architecture: multi-turn dialogue, an advanced SQL Planner
+# to resolve real-world query imperfections, and a formal LLM Registry and A/B
+# Testing configuration to compare local LLM models (e.g., qwen3:8b vs qwen2.5:7b).
+
+schema_version: system-model.v99
+kind: activegraph.agent.system_model
+name: hospital-hybrid-text-to-sql-rag-agent
+status: production_ready
+last_updated: "2026-07-14"
+language: ko-en
+
+# Default experiment setup configurations for REPL execution
+default_experiment_config:
+  preferred_repl_mode: "text-to-sql"
+  llm:
+    provider: "ollama"
+    api_style: "openai-compatible"
+    endpoint_url: "http://localhost:11434/v1"
+    default_model: "qwen3:8b"
+  data_sources:
+    database:
+      type: "sqlite"
+      path: "./data/hospital.db"
+      role: "Primary relational schema store"
+    knowledge_node:
+      type: "okf"
+      path: "./llm-wiki/TDB"
+      role: "Knowledge network source of truth"
+
+summary:
+  one_liner: "Decentralized event-driven hybrid Text-to-SQL & RAG agent with auto-healing, multi-turn state, and A/B LLM benchmarking."
+  purpose: >-
+    Provide a robust, choreographed hybrid agent that executes SQL queries on structured DBs
+    and retrieves qualitative context from a Vector DB, synthesizes the results, handles schema changes with
+    auto-healing regex patches, resolves multi-turn conversational context, and evaluates local model performance
+    (Qwen3:8b vs Qwen2.5:7b) via integrated A/B testing and execution-log monitoring.
+  current_scope:
+    - Parallel execution of SQL generation/execution and RAG document retrieval.
+    - Event-driven choreography using ActiveGraph event-driven runtime (no centralized supervisor).
+    - Multi-turn user query dialogue tracking utilizing session graph history.
+    - Automated SQL Planner resolving query imperfections (Ellipsis, Ambiguity, Implicit Constraints, Concept Mismatch, Multi-intent).
+    - Local LLM A/B testing infrastructure (Qwen3:8b vs Qwen2.5:7b) to compare accuracy, latency, and tokens.
+    - Automated SQL repair (auto-healing) via rule-based schema patching and regex translation.
+    - Schema caching and graph-RAG schema router to minimize token cost.
+    - Comprehensive offline evaluation benchmark suite and telemetry logging.
+
+experiment_protocol:
+  principle: "Decentralized choreography, dialogue context tracking, imperfection planning, and model A/B comparison."
+  loop:
+    - step: ingest_schema
+      description: "Synchronize schema metadata into Graph Objects at system start or cron-trigger."
+    - step: parse_intent
+      description: "Decompose user query into parallel SQL and RAG task requirements."
+    - step: resolve_dialogue_context
+      description: "Evaluate session context history to resolve multi-turn conversational references."
+    - step: sql_planner_resolution
+      description: "Introduce SQL Planner to resolve ellipsis, ambiguity, implicit constraints, mismatches, and split multi-intents."
+    - step: model_variant_routing
+      description: "Route LLM calls based on A/B allocation strategies (e.g. qwen3:8b vs qwen2.5:7b)."
+    - step: retrieve_and_compile
+      description: "Determine schema subset and retrieve docs in parallel; compile query & SQL concurrently."
+    - step: execute_and_repair
+      description: "Execute SQL query on DuckDB/SQLite; auto-repair via patch rules if execution fails."
+    - step: synthesize_and_fuse
+      description: "Wait for both SQL result and RAG summary to emerge; perform contradiction-aware synthesis."
+    - step: evaluate_and_adapt
+      description: "Log audit trace; update instructions or repair maps based on session pain score."
+  recommended_commands:
+    start_repl: "python activegraph/text-to-sql-agent/agent.py"
+    ask_direct: "python activegraph/text-to-sql-agent/agent.py text-to-sql ask \"서초구 30평대 아파트 평균 거래가는 얼마이고 전문가들의 시장 전망은 어때?\""
+    inspect_run: "python activegraph/text-to-sql-agent/agent.py text-to-sql inspect <run_id>"
+    eval_benchmark: "python activegraph/text-to-sql-agent/agent.py text-to-sql eval"
+
+source_layout:
+  agent_entrypoint: "activegraph/text-to-sql-agent/agent.py"
+  activegraph_runtime_src: "activegraph/text-to-sql-agent/src"
+  text_to_sql_cli_module: "activegraph/text-to-sql-agent/src/cli/text_to_sql.py"
+  activegraph_cli_main: "activegraph/text-to-sql-agent/src/cli/main.py"
+  hospital_db: "./data/hospital.db"
+  vector_db_index: "activegraph/data/vector_index.bin"
+  event_store: "activegraph/data/text_to_sql_events.sqlite"
+  repair_rules_config: "activegraph/text-to-sql-agent/agent/config/repair_rules.yaml"
+  eval_cases: "activegraph/text-to-sql-agent/evals/hybrid_cases.jsonl"
+  run_artifacts_dir: "activegraph/text-to-sql-agent/.tests/runs"
+  retraining_queue: "activegraph/data/retraining_queue.jsonl"
+
+runtime:
+  package_resolution:
+    mechanism: "agent.py inserts ./src at sys.path[0]."
+    purpose: "Reverse-engineering should use copied local ActiveGraph source, not globally installed activegraph."
+  graph:
+    creation: "A fresh Graph() is created per session or eval execution."
+    run_id: "Generated by ActiveGraph Graph ID generator."
+  activegraph_runtime:
+    class: "activegraph.Runtime"
+    construction:
+      behaviors: "make_hybrid_behaviors(db_file, vector_index)"
+      budget:
+        max_events: 200
+        max_behavior_calls: 50
+      persist_to: "activegraph/data/text_to_sql_events.sqlite"
+    idle_condition: "Runtime runs until event queue is idle, then emits runtime.idle."
+  persistence:
+    type: sqlite_event_store
+    default_file: "activegraph/data/text_to_sql_events.sqlite"
+    store_url: "sqlite:///D:/code/metaprogramming/KnowledgeChef/activegraph/data/text_to_sql_events.sqlite"
+    cache_mechanism: "In-memory LRU Schema Cache and Redis Fallback"
+  artifacts:
+    trace_jsonl: ".tests/runs/<run_id>/trace.jsonl"
+    graph_snapshot: ".tests/runs/<run_id>/graph.json"
+
+cli:
+  entrypoint:
+    file: "activegraph/text-to-sql-agent/agent.py"
+    direct_mode: "If argv is present, delegate to activegraph.cli.main."
+    repl_mode: "If no argv is present, start a small mode-aware REPL."
+  repl:
+    default_mode: text-to-sql
+    modes:
+      - name: text-to-sql
+        prefix: ["text-to-sql"]
+        description: "Short commands for Text-to-SQL + RAG hybrid experiments."
+      - name: activegraph
+        prefix: []
+        description: "Original root ActiveGraph CLI command tree."
+    commands:
+      - command: help
+        behavior: "Print current mode help; `help <command>` prints command help."
+      - command: mode
+        behavior: "Print modes; `mode text-to-sql` or `mode activegraph` switches modes."
+      - command: exit
+        aliases: [quit, q, ":q"]
+        behavior: "Exit REPL."
+  text_to_sql_commands:
+    ask:
+      usage: "text-to-sql ask <prompt> [--use-rag] [--use-sql] [--variant variant_name]"
+      repl_usage: "ask <prompt>"
+      effect: "Run prompt through parallel SQL/RAG behaviors, logging the active model variant in the event trace."
+    eval:
+      usage: "text-to-sql eval [--variant all|model_a|model_b]"
+      repl_usage: "eval"
+      effect: "Run JSONL hybrid eval cases, generating comparative quality reports for LLM variants."
+    inspect:
+      usage: "text-to-sql inspect [run_id]"
+      repl_usage: "inspect [run_id]"
+      effect: "Inspect event order, graph objects, relations, model variants, and repair events."
+
+external_environment:
+  database:
+    type: sqlite / duckdb
+    path: "./data/hospital.db"
+    role: "Relational query engine for structured data."
+  vector_store:
+    type: faiss / chromadb
+    path: "activegraph/data/vector_index.bin"
+    role: "Embedding index for analyst reports and text articles."
+  event_store:
+    type: sqlite
+    path: "activegraph/data/text_to_sql_events.sqlite"
+    role: "ActiveGraph event log storing immutable trace entries."
+  llm_registry:
+    provider: ollama
+    base_url: "http://localhost:11434/v1"
+    ab_testing:
+      enabled: true
+      allocation_strategy: "alternating"  # options: alternating, random, static
+    variants:
+      model_a:
+        variant_name: "qwen3:8b"
+        api_model: "qwen3:8b"
+        temperature: 0.1
+        max_tokens: 1024
+      model_b:
+        variant_name: "qwen2.5:7b"
+        api_model: "qwen2.5:7b"
+        temperature: 0.1
+        max_tokens: 1024
+  environment_variables:
+    required:
+      - OPENAI_API_KEY
+    recommended:
+      PYTHONIOENCODING: utf-8
+      PYTHONDONTWRITEBYTECODE: "1"
+
+input_model:
+  accepted_input:
+    type: user_prompt
+    language: ko / en
+    examples:
+      supported:
+        - "의사는 모두 몇명이야?"
+        - "김지훈 의사의 전공은 뭐야?"
+        - "서초구 30평대 아파트 평균 거래가는 얼마이고 전문가들의 시장 전망은 어때?"
+      complex_hybrid:
+        - "What is the average price in Seocho-gu for 30 pyeong units, and how do experts view this price range?"
+      multi_turn:
+        - Turn 1: "의사는 모두 몇 명이야?"
+          Turn 2: "그 중에서 김지훈 의사는?"  # Ellipsis/Anaphora resolution
+      imperfect_queries:
+        - "VIP 몇 명?"  # Ellipsis
+        - "가장 많이 팔린 거"  # Ambiguity
+        - "이번 달 매출"  # Implicit Constraint
+        - "학생 수"  # Concept Mismatch
+        - "VIP 고객은 몇 명이고, 누구야?"  # Multi-intent
+
+planning_model:
+  current_planner: hybrid_event_planner_with_imperfection_resolution
+  implementation: parse_user_intent -> resolve_dialogue_context -> sql_planner
+  llm_dependency: true
+  llamaindex_dependency: true
+  dynamic_routing:
+    sql_only_path: "Triggered when query is purely quantitative."
+    rag_only_path: "Triggered when query is qualitative/FAQ."
+    parallel_hybrid_path: "Triggered when query demands both SQL and RAG. Splits into parallel event subscribers."
+  failure_policy:
+    unsupported_prompt: "Fallback to baseline template search. If still unmatched, raise error and log to retraining queue."
+    unsafe_sql: "Raise UnsafeSQLError on write/drop queries. Execute circuit breaker."
+  dialogue_context_tracking:
+    strategy: "Maintain session graph containing past conversation history, entities, and SQL schemas to resolve dialogue references (anaphora and ellipsis) across turns."
+  imperfection_resolution_strategies:
+    ellipsis:
+      description: "Detect missing entities or modifiers (e.g., 'VIP 몇 명?') and expand them to fully qualified domain entities (e.g., 'VIP 등급 고객이 몇 명인지') using database schema semantics."
+    ambiguity:
+      description: "Disambiguate vague terminology (e.g., '가장 많이 팔린 거') by determining whether '거' refers to product or brand, and whether '많이' refers to order quantity or total revenue, logging disambiguation logic in resolved_intent."
+    implicit_constraint:
+      description: "Translate subjective time windows (e.g., '이번 달') using runtime temporal anchors (current date: 2026-07-14) and map general business terms (e.g., '매출') to specific DB status states (e.g., confirmed orders only)."
+    concept_mismatch:
+      description: "Bridge natural language vocabulary gaps (e.g., '학생 수') by performing semantic alignment with DB schema columns (e.g., mapping to participants, members, or student_id)."
+    multi_intent:
+      description: "Split complex queries with composite intentions (e.g., 'VIP 고객은 몇 명이고, 누구야?') into separate executable sub-intents (e.g., COUNT + LIST) and coordinate parallel execution and result fusion."
+
+behavior_model:
+  registration_source: make_hybrid_behaviors
+  behaviors:
+    - name: ingest_schema
+      kind: Behavior
+      on: [system.initialized]
+      creates: [table_schema]
+      emits: [schema.synced]
+      relations_created: []
+      description: >-
+        Triggered on system startup or daily schedule. Queries information_schema,
+        creates table_schema objects, and maps primary/foreign key relationships in the graph.
+        
+    - name: parse_user_intent
+      kind: Behavior
+      on: [question.submitted]
+      creates: [question, intent]
+      emits: [intent.parsed]
+      relations_created:
+        - source: intent
+          target: question
+          type: derived_from
+        - source: question
+          target: session
+          type: belongs_to_session
+      description: >-
+        Invokes LLM (or NER) to parse user questions, extracting target entities, metrics,
+        filters (e.g. district, size), and routing flags (requires_sql, requires_rag). For multi-turn queries,
+        captures reference cues.
+
+    - name: resolve_dialogue_context
+      kind: Behavior
+      on: [intent.parsed]
+      creates: [dialogue_context]
+      emits: [context.resolved]
+      relations_created:
+        - source: dialogue_context
+          target: intent
+          type: derived_from
+        - source: dialogue_context
+          target: session
+          type: references_context
+      description: >-
+        For multi-turn queries, scans previous conversation history in the session graph to resolve
+        anaphora (e.g., "그 중에서") and conversational ellipsis (e.g., "그럼 강남구는?") before planning.
+
+    - name: sql_planner
+      kind: Behavior
+      on: [context.resolved]
+      creates: [resolved_intent]
+      emits: [intent.resolved]
+      relations_created:
+        - source: resolved_intent
+          target: intent
+          type: resolved_from
+      description: >-
+        Analyzes the parsed intent and context to resolve five real-world query imperfections:
+        1. Ellipsis (e.g., 'VIP 몇 명?' -> 'VIP 등급 고객')
+        2. Ambiguity (e.g., '가장 많이 팔린 거' -> product/brand and quantity/revenue)
+        3. Implicit Constraints (e.g., '이번 달 매출' -> temporal anchor and confirmed orders)
+        4. Concept Mismatch (e.g., '학생 수' -> participants/members/student_id)
+        5. Multi-intent (e.g., 'VIP 고객은 몇 명이고, 누구야?' -> COUNT + LIST split)
+        Generates a fully-specified, disambiguated target execution plan.
+
+    - name: retrieve_relevant_tables
+      kind: Behavior
+      on: [intent.resolved]
+      filter: "event.payload.requires_sql == true"
+      creates: [schema_context]
+      emits: [schema.retrieved]
+      relations_created:
+        - source: schema_context
+          target: resolved_intent
+          type: derived_from
+      description: >-
+        Graph-RAG schema router. Performs cypher-like match query on table_schema nodes
+        to fetch top 3-5 relevant table DDLs matching resolved entities, avoiding full-schema token waste.
+
+    - name: compile_sql
+      kind: Behavior
+      on: [schema.retrieved]
+      creates: [sql_query, llm_invocation]
+      emits: [sql.generated]
+      relations_created:
+        - source: sql_query
+          target: resolved_intent
+          type: derived_from
+        - source: schema_context
+          target: sql_query
+          type: injected_into
+        - source: sql_query
+          target: llm_invocation
+          type: generated_by
+      description: >-
+        Translates resolved_intent and schema_context into standard SELECT SQL. Routes LLM call
+        to the allocated A/B variant (qwen3:8b vs qwen2.5:7b). Adjusts config dynamically based on pain_score.
+
+    - name: execute_query
+      kind: Behavior
+      on: [sql.generated, patch.applied]
+      creates: [query_result]
+      emits: [sql.executed, query.failed]
+      relations_created:
+        - source: sql_query
+          target: query_result
+          type: executed_as
+      description: >-
+        Executes the generated SQL query against the read-only database connection.
+        Captures row_count, execution latency, and records exceptions.
+
+    - name: repair_sql
+      kind: Behavior
+      on: [query.failed]
+      creates: [sql_query, failure]
+      emits: [patch.applied]
+      relations_created:
+        - source: sql_query (v1)
+          target: sql_query (v2)
+          type: superseded_by
+      description: >-
+        Auto-healing behavior. Catches syntax/column errors and performs deterministic
+        regex repairs based on repair_rules.yaml (e.g., column renames). If resolved, emits patch.applied.
+
+    - name: retrieve_docs
+      kind: Behavior
+      on: [intent.resolved]
+      filter: "event.payload.requires_rag == true"
+      creates: [retrieved_chunks]
+      emits: [docs.retrieved]
+      relations_created:
+        - source: retrieved_chunks
+          target: resolved_intent
+          type: derived_from
+      description: >-
+        Performs vector similarity search on vector database using embedding model,
+        returning top documents with confidence scores.
+
+    - name: synthesize_rag
+      kind: Behavior
+      on: [docs.retrieved]
+      creates: [rag_summary, llm_invocation]
+      emits: [rag.synthesized]
+      relations_created:
+        - source: rag_summary
+          target: retrieved_chunks
+          type: derived_from
+        - source: rag_summary
+          target: llm_invocation
+          type: generated_by
+      description: >-
+        Invokes LLM (under allocated A/B model variant) to distill qualitative viewpoints from retrieved text chunks,
+        recording citation sources.
+
+    - name: fuse_answers
+      kind: Behavior
+      on: [sql.executed, rag.synthesized]
+      creates: [answer, llm_invocation]
+      emits: [answer.synthesized]
+      relations_created:
+        - source: answer
+          target: query_result
+          type: derived_from
+        - source: answer
+          target: rag_summary
+          type: cites
+        - source: answer
+          target: llm_invocation
+          type: generated_by
+        - source: query_result
+          target: rag_summary
+          type: supports / contradicts
+      description: >-
+        Fires only when both parallel executions are completed. Fuses numerical results and qualitative
+        summaries into a coherent answer. Explores contradiction/alignment edges using the allocated model variant.
+
+    - name: deliver_response
+      kind: Behavior
+      on: [answer.synthesized]
+      creates: []
+      emits: [answer.delivered]
+      relations_created: []
+      description: >-
+        Dispatches final formatted answer along with causal chain metadata, citations,
+        and the executing LLM variant metrics to the user channel interface.
+
+    - name: record_feedback
+      kind: Behavior
+      on: [user.feedback]
+      creates: []
+      emits: [feedback.logged]
+      relations_created: []
+      description: >-
+        Captures user feedback (likes/dislikes). If negative, increments session pain_score
+        to trigger standard harness adaptation loop on next queries.
+
+object_model:
+  object_types:
+    - type: question
+      data_fields:
+        text: string
+        language: string
+        session_id: string
+    - type: intent
+      data_fields:
+        entity: string
+        metric: string
+        filters: object
+        requires_sql: boolean
+        requires_rag: boolean
+    - type: dialogue_context
+      data_fields:
+        history: list
+        resolved_variables: object
+    - type: resolved_intent
+      data_fields:
+        disambiguations: list
+        target_sub_intents: list
+        resolved_filters: object
+        requires_sql: boolean
+        requires_rag: boolean
+    - type: table_schema
+      data_fields:
+        table_name: string
+        columns: list
+        ddl: string
+    - type: schema_context
+      data_fields:
+        table_refs: list
+        ddl_string: string
+    - type: llm_invocation
+      data_fields:
+        model_name: string
+        api_endpoint: string
+        prompt_text: string
+        response_text: string
+        prompt_tokens: integer
+        completion_tokens: integer
+        latency_ms: integer
+        temperature: float
+        max_tokens: integer
+    - type: sql_query
+      data_fields:
+        raw_sql: string
+        params: list
+        llm_used: string
+    - type: query_result
+      data_fields:
+        rows: list
+        row_count: integer
+        execution_ms: integer
+    - type: retrieved_chunks
+      data_fields:
+        chunks: list
+        avg_conf: float
+    - type: rag_summary
+      data_fields:
+        summary: string
+        citations: list
+    - type: answer
+      data_fields:
+        text: string
+        confidence: float
+    - type: failure
+      data_fields:
+        error: string
+        stage: string
+    - type: session
+      data_fields:
+        session_id: string
+        pain_score: integer
+        conversation_turn_count: integer
+        allocated_variant: string  # model_a or model_b
+  relation_types:
+    - type: derived_from
+      examples:
+        - "intent -> question"
+        - "dialogue_context -> intent"
+        - "resolved_intent -> intent"
+        - "sql_query -> resolved_intent"
+        - "query_result -> sql_query"
+        - "retrieved_chunks -> resolved_intent"
+        - "rag_summary -> retrieved_chunks"
+        - "answer -> query_result"
+    - type: references_context
+      examples:
+        - "dialogue_context -> session"
+    - type: resolved_from
+      examples:
+        - "resolved_intent -> intent"
+    - type: injected_into
+      examples:
+        - "schema_context -> sql_query"
+    - type: executed_as
+      examples:
+        - "sql_query -> query_result"
+    - type: references
+      examples:
+        - "sql_query -> table_schema"
+    - type: generated_by
+      examples:
+        - "sql_query -> llm_invocation"
+        - "rag_summary -> llm_invocation"
+        - "answer -> llm_invocation"
+    - type: supports
+      examples:
+        - "query_result -> rag_summary"
+    - type: contradicts
+      examples:
+        - "query_result -> rag_summary"
+    - type: cites
+      examples:
+        - "answer -> rag_summary"
+    - type: belongs_to_session
+      examples:
+        - "question -> session"
+    - type: superseded_by
+      examples:
+        - "sql_query(v1) -> sql_query(v2)"
+
+canonical_success_flow:
+  prompt: "서초구 30평대 아파트 평균 거래가는 얼마이고 전문가들의 시장 전망은 어때?"
+  expected_answer: "서초구 30평대 아파트의 평균 거래가는 15억 원입니다. 한편, 전문가들은 시장 공급 과잉으로 향후 5%의 조정 국면을 예상하고 있습니다."
+  expected_sql: "SELECT AVG(price) FROM apt_sales WHERE district = 'Seocho' AND size_pyeong = 30"
+  expected_rows: [[1500000000]]
+  expected_event_sequence:
+    - question.submitted
+    - intent.parsed
+    - context.resolved
+    - intent.resolved
+    - schema.retrieved                  # Parallel with docs.retrieved
+    - docs.retrieved                    # Parallel with schema.retrieved
+    - sql.generated                     # Parallel with rag.synthesized
+    - rag.synthesized                   # Parallel with sql.generated
+    - sql.executed
+    - answer.synthesized                # Fires because both sql.executed and rag.synthesized exist
+    - answer.delivered
+    - runtime.idle
+  expected_graph_counts:
+    events: 39
+    objects: 12  # Includes llm_invocation objects
+    relations: 11
+
+canonical_failure_flow:
+  prompt: "의사의 전공을 알려줘"
+  error_type: "query.failed (due to column mismatch: specialty vs department)"
+  expected_recovery_sequence:
+    - sql.generated
+    - query.failed
+    - patch.applied                    # repair_sql executes regex translation replacement
+    - sql.generated (v2)
+    - sql.executed (v2)
+    - answer.synthesized
+    - answer.delivered
+  expected_graph_counts:
+    events: 22
+    objects: 9
+    relations: 8
+  improvement_target:
+    file: "activegraph/text-to-sql-agent/agent/config/repair_rules.yaml"
+    likely_change: "Add regex replacement rule for columns that are frequently misspelled or mapped incorrectly."
+
+evaluation:
+  current_cases_file: "activegraph/text-to-sql-agent/evals/hybrid_cases.jsonl"
+  metrics:
+    correctness:
+      - name: Execution Accuracy
+        target: "> 90% for standard queries; > 75% for complex joins"
+      - name: Semantic Equivalence
+        target: "> 85% agreement evaluated via LLM-as-a-Judge"
+      - name: Schema Alignment
+        target: "> 95% generated queries query actual DB schema columns"
+    efficiency:
+      - name: Token Cost per Query
+        target: "< 1500 tokens for standard queries; < 3000 for complex hybrid"
+      - name: p95 Latency
+        target: "< 5.0 seconds from submission to delivery"
+      - name: LLM Call Count
+        target: "<= 2 calls per run (intent parsing + final fusion)"
+    resilience:
+      - name: Auto-Recovery Rate
+        target: "> 80% of SQL exceptions successfully patched"
+      - name: Fallback Success Rate
+        target: "> 30% of standard questions resolved via template/cache"
+    auditability:
+      - name: Provenance Depth
+        target: "Average caused_by chain depth >= 4"
+      - name: Missing Relation Rate
+        target: "0% (all created objects must have causal edges)"
+  ab_evaluation:
+    compare_variants: ["qwen3:8b", "qwen2.5:7b"]
+    golden_accuracy_threshold:
+      "qwen3:8b": 0.85
+      "qwen2.5:7b": 0.80
+    metrics_by_variant:
+      - Execution Accuracy (SQL correctness)
+      - p95 Latency (milliseconds per turn)
+      - Prompt and Completion Token Ratio
+      - Auto-Recovery and Self-Healing success rates
+  commands:
+    eval: "python activegraph/text-to-sql-agent/agent.py text-to-sql eval"
+    inspect_run: "python activegraph/text-to-sql-agent/agent.py text-to-sql inspect 0"
+
+observability:
+  primary:
+    text_to_sql_inspect:
+      command: "python activegraph/text-to-sql-agent/agent.py text-to-sql inspect 0"
+      shows:
+        - intent and parsed parameters
+        - resolved intent details (imperfection corrections)
+        - active model variant (e.g. qwen3:8b vs qwen2.5:7b)
+        - SQL queries (v1, v2) and repair patches
+        - RAG chunks retrieved and summaries
+        - Fused answer and confidence score
+        - Event causal chain trace (provenance)
+  generic_activegraph:
+    inspect: "python activegraph/text-to-sql-agent/agent.py inspect <store_url> --run-id <run_id>"
+    replay: "python activegraph/text-to-sql-agent/agent.py replay <store_url> --run-id <run_id>"
+    export_trace: "python activegraph/text-to-sql-agent/export-trace <store_url> --run-id <run_id> --format jsonl"
+
+safety_and_constraints:
+  sql_policy:
+    allowed: "Single SELECT statement only."
+    blocked_tokens:
+      - insert
+      - update
+      - delete
+      - drop
+      - alter
+      - create
+      - attach
+      - pragma
+    semicolon_allowed: false
+  circuit_breakers:
+    max_sql_repairs: 2                   # Max number of repair loops per query
+    max_session_cost_usd: 0.10          # Max cost per session before execution aborted
+    write_policy: "hospital_db is strictly read-only; event_store is append-only"
+
+incremental_roadmap:
+  vision: >-
+    Build ActiveGraph as a generic agent runtime where external environment events are
+    projected into explicit graph state, behaviors react to graph/event conditions, and
+    LLM calls are injectable adapters rather than the core control loop. The immediate
+    path is to keep the hospital Text-to-SQL agent small and inspectable while each
+    experiment extracts one reusable runtime capability: declarative rules, entity
+    validation, pack-scoped environment config, context assembly, KB writes, adaptation,
+    and multi-agent orchestration.
+  principles:
+    - "Prefer deterministic behavior and graph evidence before adding LLM judgment."
+    - "Every environment read, validation, LLM call, SQL query, KB write, and repair must leave inspectable graph/event traces."
+    - "System-model YAML declares behavior contracts; runtime code implements generic interpreters for those contracts."
+    - "Packs bind the same runtime to different environments such as hospital DB, techshop DB, and DB+KB hybrids."
+    - "Approval-gated writes remain the default for external KB updates; read-only SQL remains the default for databases."
+  v00_baseline_runtime:
+    status: completed
+    focus: "Understand and preserve the original ActiveGraph loop."
+    deliverables:
+      - "Local agent.py entrypoint with REPL, text-to-sql mode, activegraph mode, and help/mode commands."
+      - "SQLite-backed event logging plus inspect support for before/after graph state."
+      - "Hospital fixture DB and deterministic text-to-SQL behavior path."
+  v01_behavior_tdd:
+    status: completed
+    focus: "Grow prompt coverage through TDD without changing the architecture prematurely."
+    deliverables:
+      - "q001-q008 hospital eval coverage for count, specialty, hospital, insurance, appointment, and availability queries."
+      - "CLI and TDD driver share the same behavior-backed execution path."
+      - "Run artifacts expose trace.jsonl and graph.json for debugging failed asks."
+  v02_system_model_rules:
+    status: completed
+    focus: "Move table-driven planning rules into system-model YAML."
+    deliverables:
+      - "RuleCatalog loads declarative match, SQL, params, and answer templates from the system model."
+      - "q009-q010 demonstrate expanded coverage without prompt-specific Python branches."
+      - "Runtime prints system-model load diagnostics at startup."
+  v03_capture_and_validation:
+    status: active
+    focus: "Turn regex captures into typed entity bindings and validate them against the environment."
+    deliverables:
+      - "Named regex captures bind variables such as doctor_name."
+      - "capture_entities declares required environment entities such as doctor.name."
+      - "q012 proves missing captured entities create entity_validation:not_found and answer without SQL generation."
+    exit_criteria:
+      - "All q001-q012 evals pass."
+      - "inspect shows capture bindings, validation outcome, and the absence of sql_query for validation failures."
+      - "Entity validation declarations are ready to generalize beyond doctor.name."
+  v04_pack_environment_boundary:
+    status: next
+    focus: "Separate runtime from agent pack configuration."
+    deliverables:
+      - "Pack directory layout for hospital-db, techshop-db, and hospital-db-plus-medical-kb agents."
+      - ".env-driven database, event store, model, and KB locations scoped per pack."
+      - "Same text-to-SQL runtime can boot against hospital or techshop by changing pack config only."
+  v05_generic_system_model_interpreter:
+    status: planned
+    focus: "Reduce Python domain code by interpreting more behavior contracts from YAML."
+    deliverables:
+      - "Declarative object/relation/behavior registration from system-model specs."
+      - "Generic entity validation adapters declared as SQL existence checks, static enumerations, or KB lookups."
+      - "Behavior preconditions and event emissions described in system-model rather than hard-coded per behavior."
+  v06_full_context_assembly:
+    status: planned
+    focus: "Make LLM dependency explicit and injectable."
+    deliverables:
+      - "Full Context object assembled from system prompt, system-model slice, graph state, schema snippets, KB snippets, user prompt, and recent event trace."
+      - "LLM adapter interface records prompt, response, model, token/cost metadata, and decision rationale as graph objects."
+      - "Deterministic fallback remains available for replay and offline tests."
+  v07_okf_kb_ingestion:
+    status: planned
+    focus: "Extend from DB querying to file-to-KB workflows."
+    deliverables:
+      - "Approval-gated raw-file upload behavior with one approval per file."
+      - "OKF Knowledge Bundle writer for llm-wiki, including index.md updates and structured page artifacts."
+      - "Graph records raw_file, extraction_plan, kb_draft, approval, and kb_write_result objects."
+  v08_sql_rag_parallelism:
+    status: planned
+    focus: "Let SQL and KB retrieval run as parallel behaviors over the same intent graph."
+    deliverables:
+      - "SQL path and RAG path subscribe to intent.created independently."
+      - "Answer fusion behavior waits on query_result and/or kb_context, then records alignment, contradiction, and confidence."
+      - "Inspect clearly shows why an answer used DB rows, KB evidence, or both."
+  v09_adaptation_loop:
+    status: planned
+    focus: "Use event logs to improve harness/runtime behavior without hiding changes."
+    deliverables:
+      - "Event-log analyzer classifies failures, unsupported prompts, slow paths, validation misses, and user corrections."
+      - "Adaptation proposals are stored as graph/event artifacts before code, YAML, or eval changes are applied."
+      - "Accepted proposals generate new eval cases, system-model patches, or behavior tests."
+  v10_multi_turn_and_memory:
+    status: planned
+    focus: "Support session-scoped graph reasoning."
+    deliverables:
+      - "Session graph tracks prior questions, answers, entities, filters, and unresolved references."
+      - "Ellipsis/anaphora resolution uses graph state before asking the LLM."
+      - "Memory boundaries distinguish current run, session memory, pack KB, and long-term adaptation artifacts."
+  v11_sql_planner_resolution:
+    status: planned
+    focus: "Handle real-world query imperfections before SQL generation."
+    deliverables:
+      - "Planner detects ellipsis, ambiguity, implicit constraints, concept mismatch, and multi-intent queries."
+      - "Low-confidence ambiguity triggers clarification; high-confidence resolution records assumptions in graph state."
+      - "SQL repair remains bounded by circuit breakers and always records patches."
+  v12_multi_agent_harness:
+    status: planned
+    focus: "Promote mature behaviors into cooperating specialized agents."
+    deliverables:
+      - "Planner, SQL executor, KB curator, evaluator, and adaptation roles communicate through graph events."
+      - "Agent-to-agent handoffs preserve provenance and replayability."
+      - "Harness can run local-only or with injected LLM/model providers."
+  v99_production_north_star:
+    status: aspirational
+    focus: "Generic ActiveGraph agent framework for DB, KB, and hybrid knowledge work."
+    deliverables:
+      - "System-model-driven packs generate SKILL.md, instructions.md, evals, behavior contracts, and runtime wiring."
+      - "Every action is replayable from append-only SQLite event logs plus pack configuration."
+      - "Production benchmark reports correctness, efficiency, resilience, auditability, adaptation quality, and approval safety."
+      - "The framework supports hospital, techshop, and llm-wiki/OKF KB agents without changing core runtime code."
+
+open_questions:
+  - id: system_model_loader
+    question: "Should agent.py read this YAML directly, or should a build step generate runtime config/code from it?"
+    current_decision: "Resolved: System model acts as a declarative specification that the compiler reads at bootstrap to auto-wire event bindings."
+  - id: event_store_default
+    question: "Should event store path move into .env/pack config?"
+    current_decision: "Resolved: Stored in .env configuration for portability across harnesses."
+  - id: schema_caching_and_freshness
+    question: "How do we handle schema drift without queries getting slow?"
+    current_decision: "Resolved: Hybrid approach (daily schema sync behavior + query-time graph filtering + reactive patching)."
+  - id: llm_cost_control
+    question: "How do we control costs for high-volume transactions?"
+    current_decision: "Resolved: Pain-score based dynamic prompt variant selection. Easy questions use minimal prompt configuration, hard questions scale up."
+  - id: ambiguity_resolution_policy
+    question: "Should the SQL Planner ask user for clarification on ambiguity, or resolve based on statistical defaults?"
+    current_decision: "For v11, default to schema metadata heuristic resolution and log disambiguation; fallback to clarification request if confidence falls below 0.7."

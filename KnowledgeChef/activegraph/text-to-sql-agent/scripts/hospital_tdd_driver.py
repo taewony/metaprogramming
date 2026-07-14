@@ -15,6 +15,13 @@ import urllib.request
 from pathlib import Path
 from typing import Any, NamedTuple
 
+SCRIPT_DIR = Path(__file__).resolve().parent
+RUNTIME_SRC_DIR = SCRIPT_DIR.parent / "src"
+if str(SCRIPT_DIR) not in sys.path:
+    sys.path.insert(0, str(SCRIPT_DIR))
+if str(RUNTIME_SRC_DIR) not in sys.path:
+    sys.path.insert(0, str(RUNTIME_SRC_DIR))
+
 REPO_ACTIVEGRAPH_DIR = Path(__file__).resolve().parents[2]
 DEFAULT_DB_FILE = REPO_ACTIVEGRAPH_DIR / "data" / "hospital.db"
 DEFAULT_CASES_FILE = REPO_ACTIVEGRAPH_DIR / "text-to-sql-agent" / "evals" / "hospital_cases.jsonl"
@@ -22,6 +29,7 @@ DEFAULT_OPENAI_BASE_URL = "http://localhost:11434/v1"
 DEFAULT_MODEL = "qwen3:8b"
 DEFAULT_OPENAI_TIMEOUT = 120.0
 
+from activegraph.cli.hospital_logic import deterministic_plan, format_answer_text
 from hospital_activegraph_behaviors import DEFAULT_TESTS_DIR, run_text_to_sql
 
 
@@ -40,16 +48,8 @@ class LLMPlannerError(RuntimeError):
 
 
 def plan_prompt(prompt: str) -> QueryPlan:
-    normalized = prompt.strip()
-
-    if "김지훈" in normalized and ("전공" in normalized or "전문" in normalized):
-        return QueryPlan(
-            sql="SELECT specialty FROM doctors WHERE name = ?",
-            params=["김지훈"],
-            answer_template="김지훈 의사의 전공은 {value}입니다.",
-        )
-
-    raise UnsupportedPromptError(f"Unsupported prompt for deterministic driver: {prompt}")
+    plan = deterministic_plan(prompt)
+    return QueryPlan(sql=plan.sql, params=plan.params, answer_template=plan.answer_template)
 
 
 def build_llm_messages(prompt: str) -> list[dict[str, str]]:
@@ -192,9 +192,7 @@ def execute_query(db_file: Path, sql: str, params: list[Any] | dict[str, Any]) -
 
 
 def synthesize_answer(plan: QueryPlan, rows: list[list[Any]]) -> str:
-    if not rows:
-        return "조회 결과가 없습니다."
-    return plan.answer_template.format(value=rows[0][0])
+    return format_answer_text(rows, plan.answer_template)
 
 
 def answer_prompt(
@@ -403,6 +401,9 @@ def main(argv: list[str] | None = None) -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
+
+
+
 
 
 

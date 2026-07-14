@@ -1,0 +1,179 @@
+{
+  "run_id": "01KXFEFWRZV2FG24YS8ZZQMGPY",
+  "objects": [
+    {
+      "id": "question#1",
+      "type": "question",
+      "data": {
+        "text": "이수진 의사 병원?",
+        "language": "ko"
+      },
+      "version": 1,
+      "provenance": {
+        "created_by": "parse_intent",
+        "caused_by_event": "evt_001",
+        "frame_id": null,
+        "timestamp": "2026-07-14T04:34:47Z",
+        "evidence": [],
+        "run_id": "01KXFEFWRZV2FG24YS8ZZQMGPY"
+      }
+    },
+    {
+      "id": "intent#2",
+      "type": "intent",
+      "data": {
+        "kind": "lookup",
+        "entity": "doctor",
+        "filters": {
+          "name": "이수진"
+        },
+        "requested_fields": [
+          "hospital_name"
+        ],
+        "rule_id": "doctor_hospital_by_name_capture_q005_q011",
+        "bindings": {
+          "doctor_name": "이수진"
+        },
+        "capture_entities": {
+          "doctor_name": {
+            "entity": "doctor.name",
+            "required": true
+          }
+        }
+      },
+      "version": 1,
+      "provenance": {
+        "created_by": "parse_intent",
+        "caused_by_event": "evt_001",
+        "frame_id": null,
+        "timestamp": "2026-07-14T04:34:47Z",
+        "evidence": [],
+        "run_id": "01KXFEFWRZV2FG24YS8ZZQMGPY"
+      }
+    },
+    {
+      "id": "sql_query#3",
+      "type": "sql_query",
+      "data": {
+        "sql": "SELECT hospital_name FROM doctors WHERE name = ?",
+        "params": [
+          "이수진"
+        ],
+        "statement_type": "SELECT",
+        "status": "executed",
+        "answer_template": "이수진 의사는 {value}에 있습니다."
+      },
+      "version": 2,
+      "provenance": {
+        "created_by": "compile_sql",
+        "caused_by_event": "evt_006",
+        "frame_id": null,
+        "timestamp": "2026-07-14T04:34:47Z",
+        "evidence": [],
+        "run_id": "01KXFEFWRZV2FG24YS8ZZQMGPY"
+      }
+    },
+    {
+      "id": "query_result#4",
+      "type": "query_result",
+      "data": {
+        "rows": [
+          [
+            "서울중앙병원"
+          ]
+        ],
+        "row_count": 1
+      },
+      "version": 1,
+      "provenance": {
+        "created_by": "execute_sql",
+        "caused_by_event": "evt_011",
+        "frame_id": null,
+        "timestamp": "2026-07-14T04:34:47Z",
+        "evidence": [],
+        "run_id": "01KXFEFWRZV2FG24YS8ZZQMGPY"
+      }
+    },
+    {
+      "id": "answer#5",
+      "type": "answer",
+      "data": {
+        "text": "이수진 의사는 서울중앙병원에 있습니다.",
+        "citations": [
+          "query_result#4"
+        ]
+      },
+      "version": 1,
+      "provenance": {
+        "created_by": "synthesize_answer",
+        "caused_by_event": "evt_017",
+        "frame_id": null,
+        "timestamp": "2026-07-14T04:34:47Z",
+        "evidence": [],
+        "run_id": "01KXFEFWRZV2FG24YS8ZZQMGPY"
+      }
+    }
+  ],
+  "relations": [
+    {
+      "id": "rel_001",
+      "source": "intent#2",
+      "target": "question#1",
+      "type": "derived_from",
+      "data": {},
+      "provenance": {
+        "created_by": "parse_intent",
+        "caused_by_event": "evt_001",
+        "frame_id": null,
+        "timestamp": "2026-07-14T04:34:47Z",
+        "evidence": [],
+        "run_id": "01KXFEFWRZV2FG24YS8ZZQMGPY"
+      }
+    },
+    {
+      "id": "rel_002",
+      "source": "sql_query#3",
+      "target": "intent#2",
+      "type": "derived_from",
+      "data": {},
+      "provenance": {
+        "created_by": "compile_sql",
+        "caused_by_event": "evt_006",
+        "frame_id": null,
+        "timestamp": "2026-07-14T04:34:47Z",
+        "evidence": [],
+        "run_id": "01KXFEFWRZV2FG24YS8ZZQMGPY"
+      }
+    },
+    {
+      "id": "rel_003",
+      "source": "sql_query#3",
+      "target": "query_result#4",
+      "type": "executed_as",
+      "data": {},
+      "provenance": {
+        "created_by": "execute_sql",
+        "caused_by_event": "evt_011",
+        "frame_id": null,
+        "timestamp": "2026-07-14T04:34:47Z",
+        "evidence": [],
+        "run_id": "01KXFEFWRZV2FG24YS8ZZQMGPY"
+      }
+    },
+    {
+      "id": "rel_004",
+      "source": "answer#5",
+      "target": "query_result#4",
+      "type": "derived_from",
+      "data": {},
+      "provenance": {
+        "created_by": "synthesize_answer",
+        "caused_by_event": "evt_017",
+        "frame_id": null,
+        "timestamp": "2026-07-14T04:34:47Z",
+        "evidence": [],
+        "run_id": "01KXFEFWRZV2FG24YS8ZZQMGPY"
+      }
+    }
+  ]
+}

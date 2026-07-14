@@ -1,0 +1,140 @@
+{
+  "run_id": "01KXFEWN6GEJQTTE0F6E3TC3XC",
+  "objects": [
+    {
+      "id": "question#1",
+      "type": "question",
+      "data": {
+        "text": "XXX 의사의 전공은?",
+        "language": "ko"
+      },
+      "version": 1,
+      "provenance": {
+        "created_by": "parse_intent",
+        "caused_by_event": "evt_001",
+        "frame_id": null,
+        "timestamp": "2026-07-14T04:41:45Z",
+        "evidence": [],
+        "run_id": "01KXFEWN6GEJQTTE0F6E3TC3XC"
+      }
+    },
+    {
+      "id": "intent#2",
+      "type": "intent",
+      "data": {
+        "kind": "lookup",
+        "entity": "doctor",
+        "filters": {
+          "name": "xxx"
+        },
+        "requested_fields": [
+          "specialty"
+        ],
+        "rule_id": "doctor_specialty_by_name_capture_q001_q009",
+        "bindings": {
+          "doctor_name": "xxx"
+        },
+        "capture_entities": {
+          "doctor_name": {
+            "entity": "doctor.name",
+            "required": true
+          }
+        }
+      },
+      "version": 1,
+      "provenance": {
+        "created_by": "parse_intent",
+        "caused_by_event": "evt_001",
+        "frame_id": null,
+        "timestamp": "2026-07-14T04:41:45Z",
+        "evidence": [],
+        "run_id": "01KXFEWN6GEJQTTE0F6E3TC3XC"
+      }
+    },
+    {
+      "id": "entity_validation#3",
+      "type": "entity_validation",
+      "data": {
+        "binding": "doctor_name",
+        "entity": "doctor.name",
+        "value": "xxx",
+        "status": "not_found"
+      },
+      "version": 1,
+      "provenance": {
+        "created_by": "parse_intent",
+        "caused_by_event": "evt_001",
+        "frame_id": null,
+        "timestamp": "2026-07-14T04:41:45Z",
+        "evidence": [],
+        "run_id": "01KXFEWN6GEJQTTE0F6E3TC3XC"
+      }
+    },
+    {
+      "id": "answer#4",
+      "type": "answer",
+      "data": {
+        "text": "의사 'xxx'를 찾지 못했습니다.",
+        "citations": [
+          "entity_validation#3"
+        ]
+      },
+      "version": 1,
+      "provenance": {
+        "created_by": "parse_intent",
+        "caused_by_event": "evt_001",
+        "frame_id": null,
+        "timestamp": "2026-07-14T04:41:45Z",
+        "evidence": [],
+        "run_id": "01KXFEWN6GEJQTTE0F6E3TC3XC"
+      }
+    }
+  ],
+  "relations": [
+    {
+      "id": "rel_001",
+      "source": "intent#2",
+      "target": "question#1",
+      "type": "derived_from",
+      "data": {},
+      "provenance": {
+        "created_by": "parse_intent",
+        "caused_by_event": "evt_001",
+        "frame_id": null,
+        "timestamp": "2026-07-14T04:41:45Z",
+        "evidence": [],
+        "run_id": "01KXFEWN6GEJQTTE0F6E3TC3XC"
+      }
+    },
+    {
+      "id": "rel_002",
+      "source": "entity_validation#3",
+      "target": "intent#2",
+      "type": "validates",
+      "data": {},
+      "provenance": {
+        "created_by": "parse_intent",
+        "caused_by_event": "evt_001",
+        "frame_id": null,
+        "timestamp": "2026-07-14T04:41:45Z",
+        "evidence": [],
+        "run_id": "01KXFEWN6GEJQTTE0F6E3TC3XC"
+      }
+    },
+    {
+      "id": "rel_003",
+      "source": "answer#4",
+      "target": "entity_validation#3",
+      "type": "derived_from",
+      "data": {},
+      "provenance": {
+        "created_by": "parse_intent",
+        "caused_by_event": "evt_001",
+        "frame_id": null,
+        "timestamp": "2026-07-14T04:41:45Z",
+        "evidence": [],
+        "run_id": "01KXFEWN6GEJQTTE0F6E3TC3XC"
+      }
+    }
+  ]
+}

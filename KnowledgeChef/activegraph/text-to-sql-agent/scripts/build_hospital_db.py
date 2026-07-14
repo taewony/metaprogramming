@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import argparse
 import importlib.util
+import shutil
 import sqlite3
 from pathlib import Path
 from types import ModuleType
@@ -16,6 +17,7 @@ REPO_ACTIVEGRAPH_DIR = Path(__file__).resolve().parents[2]
 TEXT_TO_SQL_DIR = Path(__file__).resolve().parents[1]
 DEFAULT_DB_FILE = REPO_ACTIVEGRAPH_DIR / "data" / "hospital.db"
 SOURCE_FILE = TEXT_TO_SQL_DIR / "ch09_text_to_sql.py"
+CANONICAL_DB_FILE = DEFAULT_DB_FILE
 
 DROP_TABLES_SQL = """
 DROP TABLE IF EXISTS procedure_coverage;
@@ -71,8 +73,21 @@ def remove_existing_database(db_file: Path) -> None:
 
 
 def build_database(db_file: Path, *, reset: bool = True) -> dict[str, int]:
-    module = load_text_to_sql_module()
     db_file.parent.mkdir(parents=True, exist_ok=True)
+
+    if not SOURCE_FILE.exists():
+        if not CANONICAL_DB_FILE.exists():
+            raise FileNotFoundError(
+                f"Neither source module nor canonical database exists: {SOURCE_FILE}, {CANONICAL_DB_FILE}"
+            )
+        if db_file.resolve() != CANONICAL_DB_FILE.resolve():
+            if reset:
+                remove_existing_database(db_file)
+            shutil.copy2(CANONICAL_DB_FILE, db_file)
+        with sqlite3.connect(str(db_file)) as conn:
+            return row_counts(conn)
+
+    module = load_text_to_sql_module()
 
     if reset:
         remove_existing_database(db_file)
@@ -126,3 +141,4 @@ def main(argv: list[str] | None = None) -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
+
