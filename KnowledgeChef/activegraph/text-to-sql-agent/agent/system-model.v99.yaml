@@ -34,7 +34,7 @@ default_experiment_config:
       role: "Primary relational schema store"
     knowledge_node:
       type: "okf"
-      path: "./llm-wiki/TDB"
+      path: "./okf-wiki/TDB"
       role: "Knowledge network source of truth"
 
 summary:
@@ -724,63 +724,83 @@ incremental_roadmap:
       - "inspect shows capture bindings, validation outcome, and the absence of sql_query for validation failures."
       - "Entity validation declarations are ready to generalize beyond doctor.name."
   v04_pack_environment_boundary:
-    status: next
+    status: completed
     focus: "Separate runtime from agent pack configuration."
     deliverables:
-      - "Pack directory layout for hospital-db, techshop-db, and hospital-db-plus-medical-kb agents."
+      - "Pack directory layout for hospital-db, techshop-db, and techshop-db-plus-kb agents."
       - ".env-driven database, event store, model, and KB locations scoped per pack."
       - "Same text-to-SQL runtime can boot against hospital or techshop by changing pack config only."
+      - "Initial implementation: central agent/packs.yaml plus pack list/current/inspect/use commands, root/text-to-sql --pack selection, and pack-selected executable system_model loading."
+      - "Completion check: pack validate verifies DB readability, event-store parent writability, executable system_model loading, reference_model existence, and OKF index.md for KB packs."
   v05_generic_system_model_interpreter:
-    status: planned
+    status: completed
     focus: "Reduce Python domain code by interpreting more behavior contracts from YAML."
     deliverables:
-      - "Declarative object/relation/behavior registration from system-model specs."
-      - "Generic entity validation adapters declared as SQL existence checks, static enumerations, or KB lookups."
-      - "Behavior preconditions and event emissions described in system-model rather than hard-coded per behavior."
+      - "Pack-selected system-model.hospital.v05.yaml and system-model.techshop.v05.yaml are executable through the existing CLI."
+      - "Behavior runtime bindings such as on/creates/emits are declared in system-model YAML and interpreted by the behavior factory."
+      - "Generic entity validation adapters are declared under entity_validation_model; hospital doctor.name now uses a SQLite existence check from YAML."
+      - "World-model snapshot exposes behavior_contract_count and entity_validation_model metadata for inspectable runtime state."
   v06_full_context_assembly:
-    status: planned
+    status: completed
     focus: "Make LLM dependency explicit and injectable."
     deliverables:
-      - "Full Context object assembled from system prompt, system-model slice, graph state, schema snippets, KB snippets, user prompt, and recent event trace."
-      - "LLM adapter interface records prompt, response, model, token/cost metadata, and decision rationale as graph objects."
-      - "Deterministic fallback remains available for replay and offline tests."
-  v07_okf_kb_ingestion:
-    status: planned
-    focus: "Extend from DB querying to file-to-KB workflows."
+      - "Added system-model.hospital.v06.yaml and system-model.techshop.v06.yaml with full_context_model declarations."
+      - "Added deterministic Full Context assembly from system prompt, selected pack, system-model slice, schema context, user prompt, planned intent, recent event trace, KB context, and LLM contract."
+      - "Added text-to-sql context <prompt> CLI for inspecting context without executing SQL."
+      - "LLM adapter dependency is explicit and disabled for the current deterministic path; future adapters must record llm_invocation and decision_rationale graph objects."
+      - "Regression tests verify direct assembly and CLI JSON output."
+  v07_llm_answer_composition:
+    status: completed
+    focus: "Improve DB query response wording without letting the LLM bypass deterministic SQL truth."
+    deliverables:
+      - "Optional Ollama/OpenAI-compatible answer composer is enabled by `ask --llm` and remains disabled by default in packs."
+      - "SQL generation, params, rows, and deterministic answer are produced before any LLM call."
+      - "LLM invocation, response, rationale, timeout, and fallback are recorded as graph/event artifacts."
+      - "Default local model config is pack-scoped: http://localhost:11434/v1 with qwen2.5:7b."
+  v08_prompt_robustness:
+    status: completed
+    focus: "Harden supported DB query prompts through declarative aliases and regression tests."
+    deliverables:
+      - "Common spelling variants and domain synonyms are added to system-model rules before adding general LLM planning."
+      - "Observed unsupported prompts become eval cases or matcher patches, not hidden runtime branches."
+      - "Example completed repair: `VIP 고객 총 맥출액` maps to the confirmed VIP revenue rule."
+  v09_adaptation_loop:
+    status: completed
+    focus: "Use event logs to improve harness/runtime behavior without hiding changes."
+    deliverables:
+      - "Implemented `text-to-sql adapt` to classify persisted event-store runs for unsupported prompts, behavior exceptions, validation misses, LLM fallbacks, and slow paths."
+      - "Adaptation proposals are written under `.tests/adaptations` as analysis JSON, proposal JSON, adaptation event JSONL, and adaptation graph JSON before code, YAML, or eval changes are applied."
+      - "Implemented `text-to-sql adapt-accept` to turn an accepted proposal into draft eval-case and system-model patch-hint artifacts without auto-applying source changes."
+  v10_multi_turn_and_memory:
+    status: completed
+    focus: "Support session-scoped graph reasoning."
+    deliverables:
+      - "Implemented `--session-id` and local JSON session graph memory for `ask`, `context`, and `repl`; turns record prior questions, answers, entities, filters, SQL, rows, and unresolved references."
+      - "Deterministic anaphora/ellipsis resolution runs before planning: hospital doctor references such as `그 의사` and TechShop VIP count ellipsis such as `몇 명이야?` resolve from session graph state before any LLM path."
+      - "Full Context now exposes memory boundaries for current run graph, session memory, pack KB, and long-term adaptation artifacts."
+  v11_sql_planner_resolution:
+    status: completed
+    focus: "Handle real-world query imperfections before SQL generation."
+    deliverables:
+      - "Implemented deterministic `resolve_sql_planner` behavior for v11 packs before intent parsing."
+      - "Planner records `planner_resolution`, `decision_rationale`, and `clarification_request` graph objects."
+      - "Low-confidence ambiguity returns clarification with no SQL; high-confidence rule-backed assumptions are recorded in graph state."
+  v12_okf_kb_ingestion:
+    status: deferred_until_db_query_response_complete
+    focus: "Extend from DB querying to file-to-KB workflows after v09-v11 harden DB query behavior."
     deliverables:
       - "Approval-gated raw-file upload behavior with one approval per file."
-      - "OKF Knowledge Bundle writer for llm-wiki, including index.md updates and structured page artifacts."
+      - "OKF Knowledge Bundle writer for okf-wiki, including index.md updates and structured page artifacts."
       - "Graph records raw_file, extraction_plan, kb_draft, approval, and kb_write_result objects."
-  v08_sql_rag_parallelism:
-    status: planned
+  v13_sql_rag_parallelism:
+    status: deferred_until_db_query_response_complete
     focus: "Let SQL and KB retrieval run as parallel behaviors over the same intent graph."
     deliverables:
       - "SQL path and RAG path subscribe to intent.created independently."
       - "Answer fusion behavior waits on query_result and/or kb_context, then records alignment, contradiction, and confidence."
       - "Inspect clearly shows why an answer used DB rows, KB evidence, or both."
-  v09_adaptation_loop:
-    status: planned
-    focus: "Use event logs to improve harness/runtime behavior without hiding changes."
-    deliverables:
-      - "Event-log analyzer classifies failures, unsupported prompts, slow paths, validation misses, and user corrections."
-      - "Adaptation proposals are stored as graph/event artifacts before code, YAML, or eval changes are applied."
-      - "Accepted proposals generate new eval cases, system-model patches, or behavior tests."
-  v10_multi_turn_and_memory:
-    status: planned
-    focus: "Support session-scoped graph reasoning."
-    deliverables:
-      - "Session graph tracks prior questions, answers, entities, filters, and unresolved references."
-      - "Ellipsis/anaphora resolution uses graph state before asking the LLM."
-      - "Memory boundaries distinguish current run, session memory, pack KB, and long-term adaptation artifacts."
-  v11_sql_planner_resolution:
-    status: planned
-    focus: "Handle real-world query imperfections before SQL generation."
-    deliverables:
-      - "Planner detects ellipsis, ambiguity, implicit constraints, concept mismatch, and multi-intent queries."
-      - "Low-confidence ambiguity triggers clarification; high-confidence resolution records assumptions in graph state."
-      - "SQL repair remains bounded by circuit breakers and always records patches."
-  v12_multi_agent_harness:
-    status: planned
+  v14_multi_agent_harness:
+    status: planned_after_kb_rag
     focus: "Promote mature behaviors into cooperating specialized agents."
     deliverables:
       - "Planner, SQL executor, KB curator, evaluator, and adaptation roles communicate through graph events."
@@ -793,7 +813,7 @@ incremental_roadmap:
       - "System-model-driven packs generate SKILL.md, instructions.md, evals, behavior contracts, and runtime wiring."
       - "Every action is replayable from append-only SQLite event logs plus pack configuration."
       - "Production benchmark reports correctness, efficiency, resilience, auditability, adaptation quality, and approval safety."
-      - "The framework supports hospital, techshop, and llm-wiki/OKF KB agents without changing core runtime code."
+      - "The framework supports hospital, techshop, and okf-wiki/bundle KB agents without changing core runtime code."
 
 open_questions:
   - id: system_model_loader
@@ -811,3 +831,13 @@ open_questions:
   - id: ambiguity_resolution_policy
     question: "Should the SQL Planner ask user for clarification on ambiguity, or resolve based on statistical defaults?"
     current_decision: "For v11, default to schema metadata heuristic resolution and log disambiguation; fallback to clarification request if confidence falls below 0.7."
+
+
+
+
+
+
+
+
+
+

@@ -1,0 +1,239 @@
+# system-model.techshop.v04.yaml
+#
+# Experiment overview
+# -------------------
+# v04 makes the database schema an OKF bundle concern and keeps this system-model
+# responsible for declaring how that OKF schema is projected into runtime context
+# and graph objects. The deterministic RuleCatalog remains intentionally small;
+# the important boundary is that the TechShop schema comes from OKF table docs,
+# not from Python code or embedded prompt text.
+
+schema_version: system-model.v04
+kind: activegraph.agent.system_model
+name: techshop-text-to-sql-agent-v04
+display_name: TechShop Text-to-SQL Agent with OKF Schema Projection
+status: experimental
+language: ko
+
+lineage:
+  north_star_model: system-model.v99.yaml
+  planning_doc: ../../../plan.md
+  reason_for_version: >-
+    v04 separates runtime behavior from pack schema configuration. TechShop uses
+    OKF table documents as the DB schema source of truth and projects them into
+    runtime graph/context before planner behavior is generalized.
+
+experiment:
+  id: v04_techshop_okf_schema_projection
+  title: TechShop OKF-backed schema projection
+  hypothesis: >-
+    A TechShop agent can share the same runtime boundary as the hospital agent
+    when DB schema is supplied by an OKF bundle and referenced declaratively from
+    the system model.
+  success_criteria:
+    - Pack schema inspection loads customers, products, orders, and order_items from OKF.
+    - Loaded OKF schema matches activegraph/data/techshop.db tables and columns.
+    - RuleCatalog remains executable for simple smoke-test prompts.
+  non_goals:
+    - General natural-language SQL generation.
+    - LLM planning.
+    - Vector search.
+
+runtime:
+  entrypoint: activegraph/text-to-sql-agent/agent.py
+  shared_source_modules:
+    - activegraph/text-to-sql-agent/src/cli/hospital_logic.py
+    - activegraph/text-to-sql-agent/src/cli/schema_context.py
+    - activegraph/text-to-sql-agent/src/cli/main.py
+  environment:
+    env_file_policy: pack_local_dotenv
+    required_keys:
+      - DB_FILE
+      - OKF_BUNDLE_ROOT
+
+object_model:
+  objects:
+    - id: schema_context
+      type: db.schema_context
+      description: Runtime projection of selected OKF table docs for one pack.
+    - id: db_table
+      type: db.table
+      description: One SQLite table declared in OKF.
+    - id: db_column
+      type: db.column
+      description: One SQLite column declared in OKF.
+    - id: prompt
+      type: user.prompt
+      description: Raw natural-language query from the user.
+    - id: sql_query
+      type: sql.query
+      description: SQL text and bound parameters selected by a rule.
+    - id: answer
+      type: assistant.answer
+      description: Korean answer rendered from SQL results.
+
+behavior_model:
+  behaviors:
+    - id: project_schema_context
+      trigger: pack.selected
+      implementation: SchemaContextProjection.load_from_okf_bundle
+      emits:
+        - schema_context.projected
+    - id: parse_intent
+      trigger: prompt.created
+      implementation: RuleCatalog.match
+      emits:
+        - intent.created
+    - id: compile_sql
+      trigger: intent.created
+      implementation: RuleCatalog.compile_sql
+      emits:
+        - sql_query.created
+    - id: execute_sql
+      trigger: sql_query.created
+      implementation: SQLiteQueryExecutor.execute
+      emits:
+        - sql_result.created
+    - id: synthesize_answer
+      trigger: sql_result.created
+      implementation: RuleCatalog.render_answer
+      emits:
+        - answer.created
+
+schema_projection:
+  id: techshop_okf_schema_projection
+  source:
+    type: okf_bundle
+    root_env: OKF_BUNDLE_ROOT
+    root_pack_field: schema.root
+  include:
+    tables:
+      - tables/customers.md
+      - tables/products.md
+      - tables/orders.md
+      - tables/order_items.md
+  db_validation:
+    compare_with_sqlite: true
+    db_env: DB_FILE
+  project_to_graph:
+    schema_object_type: db.schema_context
+    table_object_type: db.table
+    column_object_type: db.column
+    relations:
+      schema_has_table: schema.has_table
+      table_has_column: table.has_column
+      column_references: column.references
+
+planning_model:
+  rule_catalog:
+    id: techshop_text_to_sql_rules_v04
+    version: 4
+    source: system-model.techshop.v04.yaml
+    matching_policy:
+      normalization:
+        raw: preserve_original_prompt
+        normalized: lower_trim_collapse_spaces
+        compact: remove_all_whitespace
+      ordering:
+        primary: priority_desc
+        secondary: declaration_order_asc
+      no_match:
+        error_type: UnsupportedPromptError
+        user_message: 아직 이 TechShop 질문은 처리할 수 없습니다.
+    sql_safety_policy:
+      allowed_statement: SELECT
+      blocked_tokens:
+        - INSERT
+        - UPDATE
+        - DELETE
+        - DROP
+        - ALTER
+        - CREATE
+        - ATTACH
+        - DETACH
+        - PRAGMA
+      require_parameter_binding: true
+      allow_static_sql_without_params: true
+      max_rows_default: 50
+    answer_formatters:
+      integer_count:
+        description: Render the first column of the first row as an integer count.
+        required_template_tokens:
+          - value
+      row_join_values:
+        description: Join selected row values with a Korean comma separator.
+        required_template_tokens:
+          - values
+    rules:
+      - id: vip_customer_count
+        status: added_in_v04
+        priority: 100
+        description: VIP 고객 수를 조회한다.
+        eval_refs:
+          - techshop_q001
+        match:
+          contains_all:
+            - vip
+            - 고객
+          contains_any:
+            - 몇
+            - 수
+            - 명
+        intent:
+          domain: techshop
+          action: count
+          entity: customers
+          filter: vip
+        sql:
+          text: SELECT COUNT(*) FROM customers WHERE grade = ?
+          params:
+            - VIP
+        answer:
+          formatter: integer_count
+          template: VIP 고객은 총 {value}명입니다.
+      - id: customer_count
+        status: added_in_v04
+        priority: 80
+        description: 전체 고객 수를 조회한다.
+        eval_refs:
+          - techshop_q002
+        match:
+          contains_all:
+            - 고객
+          contains_any:
+            - 몇
+            - 수
+            - 명
+        intent:
+          domain: techshop
+          action: count
+          entity: customers
+        sql:
+          text: SELECT COUNT(*) FROM customers
+          params: []
+        answer:
+          formatter: integer_count
+          template: 고객은 총 {value}명입니다.
+      - id: product_count
+        status: added_in_v04
+        priority: 70
+        description: 전체 제품 수를 조회한다.
+        eval_refs:
+          - techshop_q003
+        match:
+          contains_all:
+            - 제품
+          contains_any:
+            - 몇
+            - 수
+            - 개
+        intent:
+          domain: techshop
+          action: count
+          entity: products
+        sql:
+          text: SELECT COUNT(*) FROM products
+          params: []
+        answer:
+          formatter: integer_count
+          template: 제품은 총 {value}개입니다.

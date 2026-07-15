@@ -635,6 +635,47 @@ Pack generation rules:
 - Pack-local `.tests` captures traces, graph projections, replay outputs, and eval results.
 - Pack-local `.env` binds external resources such as DB URLs and OKF bundle roots.
 
+## DB Query And Response Completion Gate
+
+Before implementing KB ingestion or RAG query, the DB query/response loop must be hardened as its own product surface. The goal is not only to answer known prompts, but to make failures, adaptations, and imperfect real-world queries inspectable.
+
+The completion gate is:
+
+```yaml
+v09_adaptation_loop:
+  status: planned
+  focus: "Use event logs to improve harness/runtime behavior without hiding changes."
+  deliverables:
+    - "Event-log analyzer classifies failures, unsupported prompts, slow paths, validation misses, and user corrections."
+    - "Adaptation proposals are stored as graph/event artifacts before code, YAML, or eval changes are applied."
+    - "Accepted proposals generate new eval cases, system-model patches, or behavior tests."
+
+v10_multi_turn_and_memory:
+  status: completed
+  focus: "Support session-scoped graph reasoning."
+  deliverables:
+    - "Session graph tracks prior questions, answers, entities, filters, SQL, rows, and unresolved references in a local JSON graph selected by `--session-id`."
+    - "Ellipsis/anaphora resolution uses graph state before asking the LLM; current deterministic coverage includes hospital doctor references and TechShop VIP count ellipsis."
+    - "Full Context distinguishes current run graph, session memory, pack KB, and long-term adaptation artifacts."
+
+v11_sql_planner_resolution:
+  status: completed
+  focus: "Handle real-world query imperfections before SQL generation."
+  deliverables:
+    - "Implemented deterministic `resolve_sql_planner` behavior for v11 packs before intent parsing."
+    - "Planner records `planner_resolution`, `decision_rationale`, and `clarification_request` graph objects."
+    - "Low-confidence ambiguity returns clarification with no SQL; high-confidence rule-backed assumptions are recorded in graph state."
+```
+
+This means current `--llm` answer composition is not enough. It improves the final wording after deterministic SQL execution, but unsupported prompts still need either declarative rule adaptation or a planner-resolution behavior before SQL generation. The event-log adaptation loop should turn failures such as unsupported prompts or typo variants into explicit proposals, eval cases, and system-model patches.
+
+KB/RAG work is deferred until this DB loop can show:
+
+- failed or unsupported DB prompts are explainable through `inspect`
+- accepted adaptations leave proposal artifacts before source/YAML/eval changes
+- multi-turn references are resolved from session graph state
+- ambiguity and low-confidence assumptions are either clarified or recorded
+- SQL repair and planner repair obey circuit breakers
 ## Future Product: Raw File to LLM-Wiki KB
 
 After the DB path proves the framework, the same model should support raw file ingestion into an external structured KB such as `llm-wiki`.
@@ -918,6 +959,12 @@ run execution
 ```
 
 Near-term adaptation scope is behavior-only. The system should not implement pack generation, `SKILL.md` generation, or broad harness runtime mutation yet. Runtime changes should be proposed only after repeated behavior-level evidence shows that the runtime itself is the limiting factor.
+Current v09 implementation:
+
+- `text-to-sql adapt <run-selector>` reads a persisted SQLite event-store run and writes reproducible adaptation artifacts.
+- The analyzer currently classifies unsupported prompts, behavior exceptions, validation misses, LLM fallbacks, and slow paths.
+- Proposal artifacts include `analysis.json`, proposal JSON files, `adaptation_events.jsonl`, and `adaptation_graph.json`.
+- `text-to-sql adapt-accept <proposal-file>` generates draft eval-case and system-model patch-hint artifacts, but does not auto-edit source, YAML, or canonical eval files.
 
 ### Recorded Artifacts
 
@@ -1082,5 +1129,10 @@ Behavior adaptation candidates may be generated automatically, but applying them
 - Whether generated `SKILL.md` files are committed, regenerated on demand, or both.
 - How much of the local ActiveGraph runtime should be wrapped versus modified directly for pack loading.
 - How far behavior adaptation can be auto-applied after the eval suite becomes stable.
+
+
+
+
+
 
 

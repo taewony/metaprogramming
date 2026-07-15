@@ -1,0 +1,64 @@
+schema_version: activegraph.text_to_sql_evals.v01
+purpose: >-
+  Consolidated evaluation entrypoint for the two current SQLite DB packs.
+  JSONL files are runnable with `text-to-sql eval --cases ...`; deferred
+  prompts require session scripts, future planner behavior, or KB/RAG support.
+
+packs:
+  hospital-db:
+    db: ../../data/hospital.db
+    system_model: ../agent/system-model.hospital.v11.yaml
+    runnable:
+      canonical: hospital_cases.jsonl
+      consolidated: hospital_consolidated_cases.jsonl
+    coverage:
+      canonical_cases: 12
+      consolidated_cases: 29
+      domains:
+        - doctor_count
+        - doctor_specialty
+        - doctor_hospital
+        - doctor_list
+        - patient_insurance
+        - scheduled_appointment_count
+        - doctor_available_slots
+        - missing_entity_validation
+    deferred:
+      session_required:
+        - "그 의사는 어느 병원이야?"
+        - "그럼 이수진은?"
+      unresolved_planner_or_schema:
+        - "진료 제일 많은 의사는?"
+        - "이번 주 가능한 선생님은?"
+        - "환자 수는?"
+
+  techshop-db:
+    db: ../../data/techshop.db
+    system_model: ../agent/system-model.techshop.v11.yaml
+    runnable:
+      consolidated: techshop_cases.jsonl
+    coverage:
+      consolidated_cases: 23
+      domains:
+        - vip_customer_count
+        - vip_customer_list
+        - vip_revenue_total
+        - customer_count
+        - member_count
+        - product_count
+        - item_count
+        - planner_ambiguity_clarification
+        - planner_multi_intent_clarification
+        - planner_implicit_constraint_clarification
+    deferred:
+      session_required:
+        - "그중 VIP는?"
+        - "그 사람들 매출은?"
+      unresolved_planner_or_schema:
+        - "우수 고객 매출"
+
+commands:
+  hospital_consolidated: >-
+    python activegraph/text-to-sql-agent/agent.py --pack hospital-db text-to-sql eval --cases activegraph/text-to-sql-agent/evals/hospital_consolidated_cases.jsonl
+  techshop_consolidated: >-
+    python activegraph/text-to-sql-agent/agent.py --pack techshop-db text-to-sql eval --cases activegraph/text-to-sql-agent/evals/techshop_cases.jsonl

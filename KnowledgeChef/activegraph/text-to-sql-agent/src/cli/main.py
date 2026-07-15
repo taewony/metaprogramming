@@ -128,8 +128,12 @@ def _list_runs_or_die(url: str):
 
 @click.group(context_settings={"help_option_names": ["-h", "--help"]})
 @click.version_option(message="activegraph %(version)s")
-def cli() -> None:
+@click.option("--pack", "pack_id", default=None, help="Agent pack id from text-to-sql-agent/agent/packs.yaml.")
+@click.pass_context
+def cli(ctx: click.Context, pack_id: str | None) -> None:
     """Inspect, replay, fork, diff, export, and migrate activegraph runs."""
+    ctx.ensure_object(dict)
+    ctx.obj["pack_id"] = pack_id
 
 
 # ---- quickstart ---------------------------------------------------------
@@ -186,18 +190,139 @@ def cmd_pack_new(name: str, output_dir: str) -> None:
 
 
 @cmd_pack.command("list")
-def cmd_pack_list() -> None:
-    """List installed packs discovered via the activegraph.packs entry
-    point group (CONTRACT v0.9 #11).
-    """
-    from activegraph.packs import discover
+@click.option("--installed", is_flag=True, help="List installed Python entry-point packs instead of local agent packs.")
+def cmd_pack_list(installed: bool) -> None:
+    """List local agent packs from text-to-sql-agent/agent/packs.yaml."""
+    if installed:
+        from activegraph.packs import discover
 
-    entries = discover()
-    if not entries:
-        click.echo("no packs installed")
+        entries = discover()
+        if not entries:
+            click.echo("no packs installed")
+            return
+        for entry in entries:
+            click.echo(f"  {entry.name:24s} {entry.version:10s} {entry.entry_point}")
         return
-    for entry in entries:
-        click.echo(f"  {entry.name:24s} {entry.version:10s} {entry.entry_point}")
+
+    from activegraph.cli.pack_config import default_pack_id, list_packs
+
+    current = default_pack_id()
+    for pack in list_packs():
+        marker = "*" if pack.id == current else " "
+        capabilities = ",".join(key for key, enabled in pack.capabilities.items() if enabled) or "none"
+        click.echo(f"{marker} {pack.id:28s} runtime={pack.runtime:15s} capabilities={capabilities}")
+
+
+@cmd_pack.command("current")
+@click.option("--json", "as_json", is_flag=True, help="Print the full JSON payload.")
+def cmd_pack_current(as_json: bool) -> None:
+    """Show the current default local agent pack."""
+    from activegraph.cli.pack_config import pack_to_dict, resolve_pack
+
+    pack = resolve_pack()
+    if as_json:
+        click.echo(_json.dumps(pack_to_dict(pack), ensure_ascii=False, indent=2))
+        return
+    click.echo(f"pack: {pack.id}")
+    click.echo(f"runtime: {pack.runtime}")
+    if pack.db_file:
+        click.echo(f"db: {pack.db_file}")
+    if pack.event_store:
+        click.echo(f"event_store: {pack.event_store}")
+    if pack.kb_root:
+        click.echo(f"kb: {pack.kb_root}")
+
+
+@cmd_pack.command("inspect")
+@click.argument("pack_id", required=False)
+@click.option("--json", "as_json", is_flag=True, help="Print the full JSON payload.")
+def cmd_pack_inspect(pack_id: str | None, as_json: bool) -> None:
+    """Inspect one local agent pack from packs.yaml."""
+    from activegraph.cli.pack_config import pack_to_dict, resolve_pack
+
+    pack = resolve_pack(pack_id)
+    payload = pack_to_dict(pack)
+    if as_json:
+        click.echo(_json.dumps(payload, ensure_ascii=False, indent=2))
+        return
+    click.echo(f"pack: {pack.id}")
+    click.echo(f"display_name: {pack.display_name}")
+    click.echo(f"runtime: {pack.runtime}")
+    click.echo(f"system_model: {pack.system_model}")
+    if pack.reference_model:
+        click.echo(f"reference_model: {pack.reference_model}")
+    click.echo("env:")
+    for key, value in pack.env.items():
+        click.echo(f"  {key}: {value}")
+    click.echo("capabilities:")
+    for key, value in pack.capabilities.items():
+        click.echo(f"  {key}: {str(value).lower()}")
+    if pack.kb:
+        click.echo("kb:")
+        for key, value in pack.kb.items():
+            click.echo(f"  {key}: {value}")
+
+@cmd_pack.command("schema")
+@click.argument("pack_id", required=False)
+@click.option("--json", "as_json", is_flag=True, help="Print the full JSON payload.")
+def cmd_pack_schema(pack_id: str | None, as_json: bool) -> None:
+    """Project DB schema from the selected pack's OKF bundle."""
+    from activegraph.cli.pack_config import resolve_pack
+    from activegraph.cli.schema_context import load_schema_context_for_pack
+
+    pack = resolve_pack(pack_id)
+    payload = load_schema_context_for_pack(pack)
+    if as_json:
+        click.echo(_json.dumps(payload, ensure_ascii=False, indent=2))
+    else:
+        click.echo(f"pack: {payload['pack_id']}")
+        click.echo(f"system_model: {payload['system_model']}")
+        click.echo(f"okf_root: {payload['okf_root']}")
+        click.echo(f"schema_projection: {payload['schema_projection']['id']}")
+        click.echo(f"sqlite_alignment: {str(payload['validation']['ok']).lower()}")
+        click.echo("tables:")
+        for table in payload["tables"]:
+            click.echo(f"  {table['name']} ({len(table['columns'])} columns)")
+
+    if not payload["ok"]:
+        raise SystemExit(EXIT_GENERIC_ERROR)
+def _echo_pack_validation(payload: dict[str, Any]) -> None:
+    status = "ok" if payload["ok"] else "failed"
+    click.echo(f"{status}: {payload['id']}")
+    for check in payload["checks"]:
+        check_status = "ok" if check["ok"] else "failed"
+        click.echo(f"  {check_status:6s} {check['name']}: {check['detail']}")
+
+
+@cmd_pack.command("validate")
+@click.argument("pack_id", required=False)
+@click.option("--all", "validate_all", is_flag=True, help="Validate every local agent pack.")
+@click.option("--json", "as_json", is_flag=True, help="Print the full JSON payload.")
+def cmd_pack_validate(pack_id: str | None, validate_all: bool, as_json: bool) -> None:
+    """Validate local agent pack config and environment bindings."""
+    from activegraph.cli.pack_config import validate_all_packs, validate_pack_by_id
+
+    payload = validate_all_packs() if validate_all else validate_pack_by_id(pack_id)
+    if as_json:
+        click.echo(_json.dumps(payload, ensure_ascii=False, indent=2))
+    elif validate_all:
+        for pack_payload in payload["packs"]:
+            _echo_pack_validation(pack_payload)
+    else:
+        _echo_pack_validation(payload)
+
+    if not payload["ok"]:
+        raise SystemExit(EXIT_GENERIC_ERROR)
+
+
+@cmd_pack.command("use")
+@click.argument("pack_id")
+def cmd_pack_use(pack_id: str) -> None:
+    """Set the default local agent pack in packs.yaml."""
+    from activegraph.cli.pack_config import set_default_pack
+
+    pack = set_default_pack(pack_id)
+    click.echo(f"default pack: {pack.id}")
 
 
 # ---- inspect ------------------------------------------------------------
@@ -1061,4 +1186,7 @@ def main(argv: Optional[list[str]] = None) -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
+
+
+
 

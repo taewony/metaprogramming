@@ -1,0 +1,115 @@
+schema_version: activegraph.prompt_robustness_candidates.v01
+purpose: >-
+  Candidate user prompts for v08 prompt robustness. Prompts marked
+  supported_now should map to existing deterministic SQL rules. Prompts marked
+  deferred require v09 adaptation, v10 session memory, or v11 planner resolution
+  before they are safe to execute automatically.
+
+packs:
+  hospital-db:
+    supported_now:
+      doctor_count:
+        expected_rule: doctor_count_q002_q003_q004
+        prompts:
+          - "의사는 모두 몇명이야?"
+          - "전체 의사 수"
+          - "총 의사 몇 명?"
+          - "등록 의사 수 알려줘"
+      doctor_specialty:
+        expected_rule: doctor_specialty_by_name_capture_q001_q009
+        prompts:
+          - "김지훈 의사의 전공은?"
+          - "김지훈 전문분야는?"
+          - "이수진 진료과는 뭐야?"
+          - "박준석 의사 과목 알려줘"
+      doctor_hospital:
+        expected_rule: doctor_hospital_by_name_capture_q005_q011
+        prompts:
+          - "김지훈 의사 병원?"
+          - "김지훈 어디 근무해?"
+          - "이수진 소속 병원 알려줘"
+          - "박준석 근무지는?"
+      doctor_list:
+        expected_rule: doctor_name_list_q010
+        prompts:
+          - "의사 명단"
+          - "의료진 목록"
+          - "등록 의사 리스트"
+      patient_insurance:
+        expected_rule: patient_insurance_number_by_name_q006
+        prompts:
+          - "홍길동 환자의 보험은?"
+          - "홍길동 보험 정보"
+          - "홍길동 보험번호 알려줘"
+      scheduled_appointment_count:
+        expected_rule: scheduled_appointment_count_q007
+        prompts:
+          - "예정된 예약은 몇 개야?"
+          - "예정 예약 수"
+          - "예약 몇 건 예정돼 있어?"
+      doctor_available_slots:
+        expected_rule: doctor_available_slots_q008
+        prompts:
+          - "김지훈 의사의 가능한 시간은?"
+          - "김지훈 예약 가능 시간"
+          - "김지훈 빈 시간 알려줘"
+    deferred:
+      v10_multi_turn:
+        - "그 의사는 어느 병원이야?"
+        - "그럼 이수진은?"
+      v11_ambiguity_or_concept_mismatch:
+        - "진료 제일 많은 의사는?"
+        - "이번 주 가능한 선생님은?"
+        - "환자 수는?"
+
+  techshop-db:
+    supported_now:
+      vip_customer_count:
+        expected_rule: vip_customer_count
+        prompts:
+          - "VIP는 몇명"
+          - "VIP 고객 수"
+          - "VIP 회원 몇 명이야?"
+      vip_customer_list:
+        expected_rule: vip_customer_list
+        prompts:
+          - "VIP는 누구?"
+          - "VIP 고객 이름"
+          - "VIP 회원 명단"
+      vip_revenue_total:
+        expected_rule: vip_customer_revenue_total
+        prompts:
+          - "VIP 고객 총매출액"
+          - "VIP 고객 총 맥출액"
+          - "VIP 매출 합계"
+          - "VIP 판매액"
+          - "VIP 구매액 총액"
+      customer_count:
+        expected_rule: customer_count
+        prompts:
+          - "고객은 몇명?"
+          - "전체 고객 수"
+      member_count:
+        expected_rule: member_count
+        prompts:
+          - "회원 수"
+          - "전체 회원 몇 명?"
+      product_count:
+        expected_rule: product_count
+        prompts:
+          - "제품 몇 개야?"
+          - "제품 수"
+      item_count:
+        expected_rule: item_count
+        prompts:
+          - "상품 몇 개야?"
+          - "판매 상품 수"
+    deferred:
+      v10_multi_turn:
+        - "그중 VIP는?"
+        - "그 사람들 매출은?"
+      v11_ambiguity_or_multi_intent:
+        - "잘 팔리는 거 뭐야?"
+        - "VIP 고객은 몇 명이고 누구야?"
+        - "이번 달 매출"
+        - "우수 고객 매출"

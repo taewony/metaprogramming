@@ -22,7 +22,7 @@ category: data
 
 ## 📊 데이터베이스 스키마
 
-TechShop 데이터베이스는 다음 4개 테이블로 구성됩니다:
+TechShop 데이터베이스는 다음 4개 테이블로 구성됩니다. DB schema source of truth는 이 OKF bundle의 `tables/*.md` 파일입니다:
 
 ### 1. customers (고객)
 | 컬럼명 | 타입 | 설명 |
@@ -92,7 +92,7 @@ TechShop 데이터베이스는 다음 4개 테이블로 구성됩니다:
 | "VIP 고객은 몇 명이고, 누구야?" | `SELECT id, name, email FROM customers WHERE grade = 'VIP'` |
 | "전체 고객 수는?" | `SELECT COUNT(*) FROM customers` |
 | "가장 비싼 상품 3개" | `SELECT name, price FROM products ORDER BY price DESC LIMIT 3` |
-| "카테고리별 평균 가격" | `SELECT category, AVG(price) FROM products GROUP BY category` |
+| "재고가 있는 판매 상품 수" | `SELECT COUNT(*) FROM products WHERE is_active = 1 AND stock_qty > 0` |
 | "최근 7일간 주문 목록" | `SELECT order_number, total_amount FROM orders WHERE ordered_at >= date('now', '-7 days')` |
 | "VIP 고객의 평균 구매액" | `SELECT AVG(total_amount) FROM orders o JOIN customers c ON o.customer_id = c.id WHERE c.grade = 'VIP'` |
 
@@ -105,3 +105,4 @@ SQL 실행 결과는 다음과 같은 자연어 형식으로 응답해야 합니
 - **집계 질문**: "VIP 고객은 총 5명입니다."
 - **목록 질문**: "VIP 고객 목록: 1. 홍길동 (hong@test.kr), 2. 김철수 (kim@test.kr), ..."
 - **비교/추세**: "가장 비싼 상품은 '삼성 비스포크 냉장고'로 2,150,000원입니다."
+

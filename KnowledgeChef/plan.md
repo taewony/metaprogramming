@@ -129,6 +129,44 @@ Rules:
 - Keep using mocked OpenAI-compatible tests for regression; real Ollama smoke
   tests are useful locally but should not be required for every test run.
 
+## DB Query And Response Finalization Roadmap
+
+Before KB ingestion and RAG query work, finish the DB query/response surface through these milestones:
+
+```yaml
+v09_adaptation_loop:
+  status: completed
+  focus: "Use event logs to improve harness/runtime behavior without hiding changes."
+  deliverables:
+    - "`text-to-sql adapt` analyzes persisted SQLite event-store runs and classifies unsupported prompts, behavior exceptions, validation misses, LLM fallbacks, and slow paths."
+    - "Proposal artifacts are written as analysis JSON, proposal JSON, adaptation event JSONL, and adaptation graph JSON before code, YAML, or eval changes are applied."
+    - "`text-to-sql adapt-accept` generates draft eval-case and system-model patch-hint artifacts from an accepted proposal without auto-applying source changes."
+
+v10_multi_turn_and_memory:
+  status: completed
+  focus: "Support session-scoped graph reasoning."
+  deliverables:
+    - "`text-to-sql ask/context/repl --session-id` use local JSON session graph memory to track prior questions, answers, entities, filters, SQL, rows, and unresolved references."
+    - "Deterministic pre-planning resolution supports hospital `그 의사...` and TechShop VIP `몇 명이야?` style references without LLM dependency."
+    - "Full Context distinguishes current run graph, session memory, pack KB, and long-term adaptation artifacts."
+
+v11_sql_planner_resolution:
+  status: completed
+  focus: "Handle real-world query imperfections before SQL generation."
+  deliverables:
+    - "Implemented deterministic `resolve_sql_planner` behavior for v11 packs before intent parsing."
+    - "Planner records `planner_resolution`, `decision_rationale`, and `clarification_request` graph objects."
+    - "Low-confidence ambiguity returns clarification with no SQL; high-confidence rule-backed assumptions are recorded in graph state."
+```
+
+Execution order:
+
+1. v09: Completed the event-log analyzer and adaptation proposal artifacts.
+2. v10: Completed session-scoped graph memory and reference resolution.
+3. v11: Completed deterministic planner-resolution behavior for imperfect real-world DB questions.
+4. With v09-v11 complete, the DB query/response hardening gate is ready for review before resuming OKF KB ingestion and RAG query work.
+
+The key boundary: `--llm` answer composition is post-SQL. It should not be mistaken for planner repair. Unsupported prompts must be handled by adaptation proposals, system-model patches, or planner-resolution behavior before SQL generation.
 ## ActiveGraph Integration Later
 
 After the deterministic TDD core covers enough cases, wrap the same steps with
@@ -277,3 +315,7 @@ Instead, implement the **"Scaffold-Then-Synthesize"** dual-engine:
 2.  **The Code Agent (Stochastic)**: Takes `system-model.yaml` + empty stubs → Writes **imperative logic** (Prompt engineering, SQL repair heuristics, embedding calls) inside sandboxed stub files.
 
 This way, your `system-model.yaml` becomes the **single source of truth for the Software Architecture**, and the ActiveGraph runtime acts as the **glue** that binds the compiled framework with the generated business logic. This is the exact recipe for building a truly maintainable, self-evolving Agentic System.
+
+
+
+

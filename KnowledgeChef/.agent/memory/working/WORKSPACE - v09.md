@@ -1,0 +1,137 @@
+# Workspace (live task state)
+
+## Current task
+Optional Ollama answer-composer integration for ActiveGraph Text-to-SQL.
+
+## Open files
+- .agent/memory/working/WORKSPACE.md
+- activegraph/text-to-sql-agent/agent.py
+- activegraph/text-to-sql-agent/agent/packs.yaml
+- activegraph/text-to-sql-agent/src/cli/full_context.py
+- activegraph/text-to-sql-agent/src/cli/llm_answer.py
+- activegraph/text-to-sql-agent/src/cli/pack_config.py
+- activegraph/text-to-sql-agent/src/cli/text_to_sql.py
+- tests/test_activegraph_text_to_sql_tdd.py
+
+## Active hypotheses
+- LLM interaction should be an optional answer-composer adapter, not a required planner/runtime dependency.
+- SQL/result truth should remain deterministic and inspectable before any LLM wording is accepted.
+- If Ollama is unavailable, the run should still succeed with the deterministic answer and record fallback events.
+
+## Checkpoints
+- [x] Added `activegraph.cli.llm_answer` with fake and Ollama/OpenAI-compatible answer composers.
+- [x] Added pack-level `llm` config blocks in `agent/packs.yaml`, disabled by default.
+- [x] Extended `AgentPack`/`pack_to_dict` to carry `llm` config.
+- [x] Extended Full Context `llm_contract` with provider/model/mode/fallback from the selected pack.
+- [x] Wired optional LLM composition into `synthesize_answer` after SQL execution.
+- [x] Recorded `llm_invocation` graph object, `decision_rationale` on success, and `llm.invocation_requested` / `llm.response_received` / `llm.fallback_used` events.
+- [x] Added `text-to-sql ask --llm --ollama-base-url --ollama-model --llm-timeout` CLI options.
+- [x] Updated REPL help with `ask --llm` usage.
+- [x] Added TDD coverage for fake composer and local fake Ollama endpoint.
+- [x] Focused context/composer tests: `4 passed`.
+- [x] Focused TechShop VIP/composer regressions: `5 passed`.
+- [x] Deterministic CLI smoke still answers `VIP 고객 총매출액은 6486000원입니다.`.
+- [x] `--llm` CLI smoke with no Ollama records failed `llm_invocation` and falls back to deterministic answer.
+- [x] `text-to-sql inspect 0 --json` shows `llm_invocation#5`, `llm.fallback_used`, and answer source `deterministic` for fallback run `01KXHHKR6KF8CDQFHRK0KYZBZ0`.
+- [x] `pack validate techshop-db --json`: ok.
+
+## Known constraints
+- Full pytest suite currently cannot complete in this environment because pytest temp-directory creation/cleanup hits Windows `PermissionError` on `tmp_path`/`basetemp`; focused tests that avoid `tmp_path` pass.
+- Creating a brand-new SQLite event store file at `activegraph/data/ollama_fallback_smoke.sqlite` hit `sqlite3.OperationalError: disk I/O error`; existing TechShop event store remains writable.
+
+## Next step
+Run with a real local Ollama model:
+`python activegraph/text-to-sql-agent/agent.py --pack techshop-db text-to-sql ask "VIP 고객 총매출액" --llm --json`
+
+Expected if Ollama is available: `answer_source` becomes `llm`, `llm.status` becomes `completed`, and inspect shows `llm.response_received` plus `decision_rationale`.
+## Latest checkpoint
+- [x] Set all pack `llm` defaults to `base_url: http://localhost:11434/v1` and `model: qwen2.5:7b`.
+- [x] Changed code fallback `DEFAULT_OLLAMA_MODEL` to `qwen2.5:7b` for packs that omit a model.
+- [x] Added regression assertions for pack LLM defaults.
+- [x] Fixed direct `TimeoutError` from `urllib.request.urlopen` so unavailable Ollama still triggers deterministic fallback instead of `behavior.failed`.
+- [x] Focused tests: `7 passed, 35 deselected`.
+- [x] `ask --llm --llm-timeout 0.1 --json` reports `llm.model=qwen2.5:7b`, `llm.status=failed`, `ok=true`, and deterministic fallback answer.
+- [x] `pack validate techshop-db --json`: ok.
+## Typo prompt checkpoint
+- [x] Reproduced user failure: `VIP 고객 총 맥출액 --llm` failed in `parse_intent` before the answer-composer LLM path.
+- [x] Root cause: `--llm` currently composes answers after deterministic intent/SQL/result; it does not yet repair unsupported prompts.
+- [x] Added declarative TechShop matcher aliases `총맥출액`, `맥출액`, `맥출` to `vip_customer_revenue_total`.
+- [x] Added regression test `test_v06_techshop_vip_revenue_accepts_common_sales_typo_with_llm_path`.
+- [x] Focused tests: `4 passed, 39 deselected`.
+- [x] CLI smoke: `ask "VIP 고객 총 맥출액" --llm --llm-timeout 0.1 --json` returns `ok=true`, SQL executes, LLM fallback is recorded cleanly.
+- [x] `pack validate techshop-db --json`: ok.
+## DB query/response finalization checkpoint
+- [x] Updated `system-model.v99.yaml` roadmap so DB query/response hardening runs through v09-v11 before KB/RAG.
+- [x] Added v07 `llm_answer_composition` as completed and v08 `prompt_robustness` as active to reflect current DB work.
+- [x] Moved OKF KB ingestion to v12 and SQL/RAG parallelism to v13 with `deferred_until_db_query_response_complete` status.
+- [x] Added `DB Query And Response Completion Gate` to `design-spec.md`.
+- [x] Added `DB Query And Response Finalization Roadmap` to `plan.md`.
+- [x] Verified `system-model.v99.yaml` parses with PyYAML.
+## v08 prompt robustness checkpoint
+- [x] Added `activegraph/text-to-sql-agent/evals/prompt_robustness_candidates.yaml` with `supported_now` and `deferred` prompt groups for `hospital-db` and `techshop-db`.
+- [x] Expanded hospital deterministic matchers for doctor count/list, doctor specialty, doctor hospital, and available-slot prompt variants.
+- [x] Expanded TechShop deterministic matchers for VIP revenue/list aliases and added `member_count` plus `item_count` rules.
+- [x] Focused v08 tests: `3 passed, 43 deselected`.
+- [x] Full Text-to-SQL TDD file: `46 passed`.
+- [x] CLI smokes passed for `hospital-db` prompt `김지훈 전문분야는?` and `techshop-db` prompt `회원 수`.
+- [x] `pack validate hospital-db --json`: ok.
+- [x] `pack validate techshop-db --json`: ok.
+## v09 adaptation loop checkpoint
+- [x] Added `activegraph.cli.adaptation` with event-store run analysis, classification, proposal generation, and explicit proposal acceptance.
+- [x] Added `text-to-sql adapt [run-selector]` to write `analysis.json`, proposal JSON, `adaptation_events.jsonl`, and `adaptation_graph.json` artifacts.
+- [x] Added `text-to-sql adapt-accept <proposal-file>` to generate draft eval-case JSONL and system-model patch-hint artifacts without auto-editing canonical files.
+- [x] Added v09 TDD coverage for unsupported prompt classification, proposal artifacts, acceptance artifacts, and CLI JSON output.
+- [x] Updated `system-model.v99.yaml`, `plan.md`, and `design-spec.md` with v09 completed implementation notes.
+- [x] Focused v09 tests: `3 passed, 46 deselected`.
+- [x] Full Text-to-SQL TDD file: `49 passed`.
+- [x] CLI smoke: `VIP 평균 주문 단가` failure run produced one unsupported-prompt adaptation proposal.
+- [x] `pack validate hospital-db --json`: ok.
+- [x] `pack validate techshop-db --json`: ok.
+
+```
+• v09 is implemented.
+
+  Added the adaptation loop core in activegraph/text-to-sql-agent/src/cli/adaptation.py:308:
+
+  - Reads persisted SQLite event-store runs.
+  - Classifies unsupported_prompt, behavior_exception, validation_miss, llm_fallback, slow_path, and future
+    user_correction events.
+
+  - Writes reproducible artifacts:
+      - analysis.json
+      - proposal JSON files
+      - adaptation_events.jsonl
+      - adaptation_graph.json
+
+  - Does not auto-edit YAML/code/evals.
+
+  Added CLI commands in activegraph/text-to-sql-agent/src/cli/text_to_sql.py:1148:
+
+  python activegraph/text-to-sql-agent/agent.py --pack techshop-db text-to-sql adapt <run-id> --json
+  python activegraph/text-to-sql-agent/agent.py --pack techshop-db text-to-sql adapt-accept <proposal-file> --json
+
+  adapt-accept generates draft artifacts only:
+
+  - eval-case JSONL
+  - system-model patch-hint file
+
+  Tests added in tests/test_activegraph_text_to_sql_tdd.py:1106.
+
+  Roadmap/spec updated:
+
+  - activegraph/text-to-sql-agent/agent/system-model.v99.yaml:767
+  - plan.md:137
+  - design-spec.md:962
+
+  Validation:
+
+  v09 focused tests: 3 passed
+  full Text-to-SQL TDD file: 49 passed
+  pack validate hospital-db: ok
+  pack validate techshop-db: ok
+
+  CLI smoke used failed prompt VIP 평균 주문 단가 and produced one unsupported-prompt adaptation proposal for run
+  01KXHMQFVBT7XY0RSKB7S734AK.
+
+  Next logical milestone is v10: session-scoped graph memory and multi-turn reference resolution.
+```

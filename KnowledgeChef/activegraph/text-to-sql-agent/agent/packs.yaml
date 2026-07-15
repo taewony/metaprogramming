@@ -1,0 +1,113 @@
+schema_version: activegraph.packs.v01
+default_pack: hospital-db
+packs:
+  hospital-db:
+    display_name: Hospital DB Agent
+    runtime: text-to-sql
+    system_model: system-model.hospital.v11.yaml
+    env:
+      DB_FILE: ../../data/hospital.db
+      EVENT_STORE: ../../data/text_to_sql_events.sqlite
+      OKF_BUNDLE_ROOT: ../../okf-wiki/hospital-medical
+    capabilities:
+      db: true
+      schema: true
+      kb: false
+    llm:
+      provider: ollama
+      enabled: false
+      mode: answer_composer
+      base_url: http://localhost:11434/v1
+      model: qwen2.5:7b
+      base_url_env: OLLAMA_BASE_URL
+      model_env: OLLAMA_MODEL
+      timeout_seconds: 30
+      fallback: deterministic_answer
+    schema:
+      format: okf
+      root: ../../okf-wiki/hospital-medical
+  techshop-db:
+    display_name: TechShop DB Agent
+    runtime: text-to-sql
+    system_model: system-model.techshop.v11.yaml
+    env:
+      DB_FILE: ../../data/techshop.db
+      EVENT_STORE: ../../data/techshop_text_to_sql_events.sqlite
+      OKF_BUNDLE_ROOT: ../../okf-wiki/techshop-commerce
+    capabilities:
+      db: true
+      schema: true
+      kb: false
+    llm:
+      provider: ollama
+      enabled: false
+      mode: answer_composer
+      base_url: http://localhost:11434/v1
+      model: qwen2.5:7b
+      base_url_env: OLLAMA_BASE_URL
+      model_env: OLLAMA_MODEL
+      timeout_seconds: 30
+      fallback: deterministic_answer
+    schema:
+      format: okf
+      root: ../../okf-wiki/techshop-commerce
+  hospital-db-medical-kb:
+    display_name: Hospital DB + Medical KB Agent
+    runtime: text-to-sql-rag
+    system_model: system-model.hospital.v11.yaml
+    reference_model: system-model.v99.yaml
+    env:
+      DB_FILE: ../../data/hospital.db
+      EVENT_STORE: ../../data/hospital_medical_kb_events.sqlite
+      OKF_BUNDLE_ROOT: ../../okf-wiki/hospital-medical
+    capabilities:
+      db: true
+      schema: true
+      kb: true
+    llm:
+      provider: ollama
+      enabled: false
+      mode: answer_composer
+      base_url: http://localhost:11434/v1
+      model: qwen2.5:7b
+      base_url_env: OLLAMA_BASE_URL
+      model_env: OLLAMA_MODEL
+      timeout_seconds: 30
+      fallback: deterministic_answer
+    schema:
+      format: okf
+      root: ../../okf-wiki/hospital-medical
+    kb:
+      format: okf
+      root: ../../okf-wiki/hospital-medical
+      approval_required: true
+  techshop-db-commerce-kb:
+    display_name: TechShop DB + Commerce KB Agent
+    runtime: text-to-sql-rag
+    system_model: system-model.techshop.v11.yaml
+    reference_model: system-model.v99.yaml
+    env:
+      DB_FILE: ../../data/techshop.db
+      EVENT_STORE: ../../data/techshop_commerce_kb_events.sqlite
+      OKF_BUNDLE_ROOT: ../../okf-wiki/techshop-commerce
+    capabilities:
+      db: true
+      schema: true
+      kb: true
+    llm:
+      provider: ollama
+      enabled: false
+      mode: answer_composer
+      base_url: http://localhost:11434/v1
+      model: qwen2.5:7b
+      base_url_env: OLLAMA_BASE_URL
+      model_env: OLLAMA_MODEL
+      timeout_seconds: 30
+      fallback: deterministic_answer
+    schema:
+      format: okf
+      root: ../../okf-wiki/techshop-commerce
+    kb:
+      format: okf
+      root: ../../okf-wiki/techshop-commerce
+      approval_required: true

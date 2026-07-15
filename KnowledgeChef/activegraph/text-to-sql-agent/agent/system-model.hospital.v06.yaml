@@ -1,0 +1,648 @@
+# system-model.hospital.v04.yaml
+#
+# Experiment overview
+# -------------------
+# v02 is a parity experiment that turns the v01 hospital text-to-SQL agent into
+# a table-driven ActiveGraph agent. The agent behavior should remain the same as
+# v01 for q001-q008, but prompt recognition, SQL selection, parameters, and
+# answer templates are declared here in the system model instead of being encoded
+# as prompt-specific Python branches.
+#
+# The purpose is not to add LLM/RAG capability yet. The purpose is to prove that
+# a small behavior runtime can be configured by a declarative system model, so
+# future agents can swap domains by changing packs/configuration rather than
+# changing runtime code.
+
+schema_version: system-model.v06
+kind: activegraph.agent.system_model
+name: hospital-text-to-sql-agent-v06
+display_name: Hospital Text-to-SQL Agent with Full Context Assembly
+status: ready_for_implementation
+language: ko
+
+lineage:
+  previous_model: system-model.v01.yaml
+  north_star_model: system-model.v99.yaml
+  planning_doc: ../../../plan.md
+  reason_for_version: >-
+    v01 proved deterministic Korean text-to-SQL behavior for hospital fixtures.
+    v02 generalizes the same behavior by moving domain-specific prompt rules into
+    the system model and keeping the ActiveGraph behavior pipeline stable.
+
+experiment:
+  id: v06_full_context_assembly
+  title: Generic system-model interpreter for behavior contracts
+  hypothesis: >-
+    If the rule catalog is declared in the system model, then the runtime can keep
+    the same ActiveGraph behavior loop while supporting new text-to-SQL domains
+    through configuration changes.
+  baseline:
+    model: system-model.v01.yaml
+    expected_eval_ids:
+      - q001
+      - q002
+      - q003
+      - q004
+      - q005
+      - q006
+      - q007
+      - q008
+      - q009
+      - q010
+      - q011
+      - q012
+    expected_min_passed: 12
+  success_criteria:
+    - q001-q012 pass using rules loaded from this system model.
+    - Successful CLI asks still produce the same event/graph shape as v01.
+    - Adding q009 for an existing matcher/sql/formatter capability requires YAML and eval data changes only.
+    - Prompt-specific branching is removed from the runtime path or isolated behind a temporary fallback marked for deletion.
+  non_goals:
+    - LLM planning or answer synthesis.
+    - llama-index dependency.
+    - Vector search or KB/RAG integration.
+    - SKILL.md generation or pack packaging.
+    - General SQL generation from arbitrary natural language.
+    - Automatic schema discovery.
+    - Multi-turn clarification.
+
+runtime:
+  entrypoint: activegraph/text-to-sql-agent/agent.py
+  shared_source_modules:
+    - activegraph/text-to-sql-agent/src/cli/hospital_logic.py
+    - activegraph/text-to-sql-agent/src/cli/main.py
+  data_files:
+    sqlite_db: activegraph/data/hospital.sqlite3
+    eval_jsonl: activegraph/text-to-sql-agent/.tests/evals/hospital_text_to_sql.jsonl
+  environment:
+    env_file_policy: pack_local_dotenv
+    required_keys:
+      - HOSPITAL_DB_PATH
+    defaults:
+      HOSPITAL_DB_PATH: activegraph/data/hospital.sqlite3
+  dependency_policy:
+    required:
+      - python-standard-library
+      - pyyaml
+    explicitly_not_required:
+      - llama-index
+      - langchain
+      - vector-database
+
+object_model:
+  unchanged_from_v01: true
+  objects:
+    - id: run
+      type: activegraph.run
+      description: One user ask execution.
+    - id: prompt
+      type: user.prompt
+      description: Raw natural-language query from the user.
+    - id: intent
+      type: text_to_sql.intent
+      description: Structured intent produced by matching the prompt to a declared rule.
+    - id: sql_query
+      type: sql.query
+      description: SQL text and bound parameters selected by the rule.
+    - id: sql_result
+      type: sql.result
+      description: Rows returned by SQLite execution.
+    - id: answer
+      type: assistant.answer
+      description: Korean answer rendered by the selected answer formatter.
+
+behavior_model:
+  unchanged_pipeline_from_v01: true
+  behaviors:
+    - id: parse_intent
+      trigger: prompt.created
+      runtime:
+        "on":
+          - question.submitted
+        creates:
+          - question
+          - intent
+          - entity_validation
+          - answer
+        emits:
+          - intent.created
+          - entity.validation_failed
+          - answer.created
+      implementation: RuleCatalog.match
+      emits:
+        - intent.created
+      v02_change: >-
+        Load rule declarations from planning_model.rule_catalog and choose the
+        highest-priority matching rule instead of using hard-coded prompt branches.
+    - id: compile_sql
+      trigger: intent.created
+      runtime:
+        "on":
+          - intent.created
+        creates:
+          - sql_query
+        emits:
+          - sql.generated
+      implementation: RuleCatalog.compile_sql
+      emits:
+        - sql_query.created
+      v02_change: >-
+        SQL text and parameters come from the matched rule declaration.
+    - id: execute_sql
+      trigger: sql_query.created
+      runtime:
+        "on":
+          - sql.generated
+        creates:
+          - query_result
+        emits:
+          - sql.executed
+      implementation: SQLiteQueryExecutor.execute
+      emits:
+        - sql_result.created
+      v02_change: none
+    - id: synthesize_answer
+      trigger: sql_result.created
+      runtime:
+        "on":
+          - sql.executed
+        creates:
+          - answer
+        emits:
+          - answer.created
+      implementation: RuleCatalog.render_answer
+      emits:
+        - answer.created
+      v02_change: >-
+        Answer template and formatter are selected by the matched rule.
+
+schema_projection:
+  id: hospital_okf_schema_projection
+  source:
+    type: okf_bundle
+    root_env: OKF_BUNDLE_ROOT
+    root_pack_field: schema.root
+  include:
+    tables:
+      - tables/appointments.md
+      - tables/availability.md
+      - tables/doctors.md
+      - tables/insurance.md
+      - tables/medical_records.md
+      - tables/patients.md
+      - tables/prescriptions.md
+      - tables/procedure_coverage.md
+  db_validation:
+    compare_with_sqlite: true
+    db_env: DB_FILE
+  project_to_graph:
+    schema_object_type: db.schema_context
+    table_object_type: db.table
+    column_object_type: db.column
+    relations:
+      schema_has_table: schema.has_table
+      table_has_column: table.has_column
+      column_references: column.references
+
+entity_validation_model:
+  id: hospital_entity_validators_v05
+  description: >-
+    Declarative validation adapters for captured prompt entities. Runtime code
+    interprets these contracts instead of branching on domain-specific entity names.
+  adapters:
+    sqlite_exists:
+      input: captured binding value
+      output_statuses:
+        - valid
+        - not_found
+  validators:
+    doctor.name:
+      adapter: sqlite_exists
+      table: doctors
+      column: name
+      sql: SELECT 1 FROM doctors WHERE name = ? LIMIT 1
+      not_found_message_template: "의사 '{value}'를 찾지 못했습니다."
+full_context_model:
+  id: text_to_sql_full_context_v06
+  description: >-
+    Deterministic Full Context assembly contract for future LLM adapters. The
+    runtime assembles this object before optional model calls, and tests can
+    inspect it without executing SQL.
+  components:
+    - system_prompt
+    - selected_pack
+    - system_model_slice
+    - schema_context
+    - user_prompt
+    - planned_intent
+    - recent_event_trace
+    - kb_context
+    - llm_contract
+  llm_dependency:
+    required_for_current_path: false
+    adapter_injection_point: v06.llm_adapter
+    graph_objects_to_record:
+      - llm_invocation
+      - decision_rationale
+planning_model:
+  rule_catalog:
+    id: hospital_text_to_sql_rules_v03
+    version: 3
+    source: system-model.hospital.v06.yaml
+    matching_policy:
+      normalization:
+        raw: preserve_original_prompt
+        normalized: lower_trim_collapse_spaces
+        compact: remove_all_whitespace
+      ordering:
+        primary: priority_desc
+        secondary: declaration_order_asc
+      no_match:
+        error_type: UnsupportedPromptError
+        user_message: 아직 이 질문은 처리할 수 없습니다.
+      supported_matchers:
+        contains_all: Every listed string must be found in the normalized prompt.
+        contains_any: At least one listed string must be found in the normalized prompt.
+        compact_contains_all: Every listed string must be found in the compact prompt.
+        compact_contains_any: At least one listed string must be found in the compact prompt.
+        compact_regex: Python regular expression applied to the compact prompt.
+      constraints:
+        - Rule matching is deterministic and side-effect free.
+        - First winning rule is the only rule used for a run.
+        - v03 supports named regex captures and binds captured values into intent fields, SQL params, and answer templates.
+    sql_safety_policy:
+      allowed_statement: SELECT
+      blocked_tokens:
+        - INSERT
+        - UPDATE
+        - DELETE
+        - DROP
+        - ALTER
+        - CREATE
+        - ATTACH
+        - DETACH
+        - PRAGMA
+      require_parameter_binding: true
+      allow_static_sql_without_params: true
+      max_rows_default: 50
+    answer_formatters:
+      scalar_first_cell:
+        description: Render the first column of the first row as value.
+        required_template_tokens:
+          - value
+      integer_count:
+        description: Render the first column of the first row as an integer count.
+        required_template_tokens:
+          - value
+      row_join_values:
+        description: Join selected row values with a Korean comma separator.
+        required_template_tokens:
+          - values
+      empty_result_message:
+        description: Render a configured fallback message when no rows are returned.
+    rules:
+      - id: doctor_specialty_by_name_capture_q001_q009
+        status: added_in_v03
+        priority: 110
+        description: 의사 이름을 캡처해 전공을 조회한다.
+        eval_refs:
+          - q001
+          - q009
+          - q012
+        match:
+          contains_any:
+            - 전공
+            - 전문
+            - 전문과
+            - 진료과
+            - 과목
+            - 전문분야
+          compact_regex: '^(?P<doctor_name>.+?)(?:의사)?(?:의)?(?:전공|전문|전문과|진료과|과목|전문분야)'
+        captures:
+          doctor_name:
+            entity: doctor.name
+            required: true
+        intent:
+          kind: lookup
+          entity: doctor
+          filters:
+            name: '{doctor_name}'
+          requested_fields:
+            - specialty
+        sql:
+          text: SELECT specialty FROM doctors WHERE name = ?
+          params_from:
+            - doctor_name
+        answer:
+          formatter: scalar_first_cell
+          template: '{doctor_name} 의사의 전공은 {value}입니다.'
+          empty_template: '{doctor_name} 의사의 전공 정보를 찾지 못했습니다.'
+      - id: doctor_name_list_q010
+        status: added_in_v02_2
+        priority: 90
+        description: 등록된 의사 명단을 조회한다.
+        eval_refs:
+          - q010
+        match:
+          compact_contains_any:
+            - 의사명단
+            - 의사목록
+            - 의사리스트
+            - 의료진명단
+            - 의료진목록
+            - 의료진리스트
+            - 등록의사
+            - 등록의사리스트
+          contains_any:
+            - 명단
+            - 목록
+            - 리스트
+            - 의료진
+            - 등록
+        intent:
+          kind: list
+          entity: doctor
+          requested_fields:
+            - name
+        sql:
+          text: SELECT name FROM doctors ORDER BY doctor_id
+          params: []
+        answer:
+          formatter: row_join_values
+          template: 의사 명단은 {values}입니다.
+          empty_template: 등록된 의사가 없습니다.
+      - id: doctor_count_q002_q003_q004
+        status: carried_from_v01
+        priority: 95
+        description: 등록된 의사 수를 조회한다.
+        eval_refs:
+          - q002
+          - q003
+          - q004
+        match:
+          compact_contains_any:
+            - 의사몇명
+            - 의사수
+            - 의사는모두몇명
+            - 의사가모두몇명
+            - 전체의사수
+            - 총의사수
+            - 등록의사수
+            - 의사총몇명
+          compact_regex: '(?:의사(?:는|가)?(?:모두|전체|총)?몇명|(?:전체|총|등록)?의사수|의사총몇명)'
+        intent:
+          kind: aggregate
+          entity: doctor
+          aggregate: count
+          requested_fields:
+            - count
+        sql:
+          text: SELECT COUNT(*) FROM doctors
+          params: []
+        answer:
+          formatter: integer_count
+          template: 의사는 모두 {value}명입니다.
+          empty_template: 의사 수를 계산하지 못했습니다.
+
+      - id: doctor_hospital_by_name_capture_q005_q011
+        status: added_in_v03_1
+        priority: 105
+        description: 의사 이름을 캡처해 소속 병원을 조회한다.
+        eval_refs:
+          - q005
+          - q011
+        match:
+          contains_any:
+            - 병원
+            - 어디
+            - 소속
+            - 근무
+            - 근무지
+          compact_regex: '^(?P<doctor_name>.+?)(?:의사)?(?:는|가|의)?(?:어느|어디)?(?:병원|소속|근무지|근무)'
+        captures:
+          doctor_name:
+            entity: doctor.name
+            required: true
+        intent:
+          kind: lookup
+          entity: doctor
+          filters:
+            name: '{doctor_name}'
+          requested_fields:
+            - hospital_name
+        sql:
+          text: SELECT hospital_name FROM doctors WHERE name = ?
+          params_from:
+            - doctor_name
+        answer:
+          formatter: scalar_first_cell
+          template: '{doctor_name} 의사는 {value}에 있습니다.'
+          empty_template: '{doctor_name} 의사의 병원 정보를 찾지 못했습니다.'
+
+      - id: patient_insurance_number_by_name_q006
+        status: carried_from_v01
+        priority: 100
+        description: 홍길동 환자의 보험번호를 조회한다.
+        eval_refs:
+          - q006
+        match:
+          contains_all:
+            - 홍길동
+          contains_any:
+            - 보험번호
+            - 보험 번호
+            - 보험
+        intent:
+          kind: lookup
+          entity: patient
+          filters:
+            name: 홍길동
+          requested_fields:
+            - insurance_number
+        sql:
+          text: SELECT insurance_number FROM patients WHERE name = ?
+          params:
+            - 홍길동
+        answer:
+          formatter: scalar_first_cell
+          template: 홍길동 환자의 보험번호는 {value}입니다.
+          empty_template: 홍길동 환자의 보험번호를 찾지 못했습니다.
+
+      - id: scheduled_appointment_count_q007
+        status: carried_from_v01
+        priority: 90
+        description: 예정됨 상태인 예약 수를 조회한다.
+        eval_refs:
+          - q007
+        match:
+          compact_contains_any:
+            - 예정된예약몇개
+            - 예정된예약몇건
+            - 예약은몇개
+            - 예약은몇건
+            - 예약몇개
+            - 예약몇건
+            - 예정예약수
+          compact_regex: '(?:예정예약수|예약몇건예정.*|예정된?예약(?:은|이)?몇(?:개|건)|예약(?:은|이)?몇(?:개|건))'
+          contains_any:
+            - 예정된 예약
+            - 예정
+            - 예약
+        intent:
+          kind: aggregate
+          entity: appointment
+          filters:
+            status: 예정됨
+          aggregate: count
+          requested_fields:
+            - count
+        sql:
+          text: SELECT COUNT(*) FROM appointments WHERE status = ?
+          params:
+            - 예정됨
+        answer:
+          formatter: integer_count
+          template: 예정된 예약은 {value}개입니다.
+          empty_template: 예정된 예약 수를 계산하지 못했습니다.
+
+      - id: doctor_available_slots_q008
+        status: carried_from_v01
+        priority: 100
+        description: 김지훈 의사의 가능한 시간을 조회한다.
+        eval_refs:
+          - q008
+        match:
+          contains_all:
+            - 김지훈
+          contains_any:
+            - 가능한 시간
+            - 가능 시간
+            - 예약 가능
+            - 빈 시간
+            - 가능한 날
+            - 일정
+            - 언제 가능
+            - 진료 시간
+        intent:
+          kind: list
+          entity: availability
+          filters:
+            doctor_name: 김지훈
+            status: 가능
+          requested_fields:
+            - available_date
+            - available_time
+        sql:
+          text: SELECT a.available_date, a.available_time FROM availability a JOIN doctors d ON d.doctor_id = a.doctor_id WHERE d.name = ? AND a.status = ? ORDER BY a.available_date, a.available_time
+          params:
+            - 김지훈
+            - 가능
+        answer:
+          formatter: row_join_values
+          row_template: '{available_date} {available_time}'
+          template: 김지훈 의사의 가능한 시간은 {values}입니다.
+          empty_template: 김지훈 의사의 가능한 시간이 없습니다.
+
+implementation_plan:
+  - id: red_loader_tests
+    status: pending
+    description: Add tests that load and validate planning_model.rule_catalog from system-model.v02.yaml.
+    target_tests:
+      - test_rule_catalog_loads_from_system_model_v02
+      - test_rule_catalog_rejects_duplicate_rule_ids
+      - test_rule_catalog_rejects_unsafe_sql
+  - id: green_catalog_runtime
+    status: pending
+    description: Implement RuleCatalog, Rule, matcher, SQL compiler, and answer renderer in the shared runtime module.
+    target_module: activegraph/text-to-sql-agent/src/cli/hospital_logic.py
+  - id: parity_eval
+    status: pending
+    description: Run q001-q011 through the loaded v03 catalog and compare answers/events with v01 expectations.
+    target_tests:
+      - tests/test_activegraph_text_to_sql_tdd.py
+      - activegraph/text-to-sql-agent/scripts/run_text_to_sql_eval.py
+  - id: cli_wiring
+    status: pending
+    description: Wire agent.py/main.py to load the v02 system model for the hospital pack by default or via a CLI flag.
+    commands_to_verify:
+      - python activegraph/text-to-sql-agent/agent.py
+      - ask 의사는 모두 몇명이야?
+      - inspect -1
+  - id: remove_hardcoded_prompt_rules
+    status: pending
+    description: Remove or quarantine the v01 prompt-specific Python if-chain after catalog parity is green.
+  - id: close_v02
+    status: pending
+    description: Mark this model complete after tests and manual CLI inspection pass.
+
+validation_contract:
+  schema_checks:
+    - schema_version must equal system-model.v03.
+    - rule ids must be unique.
+    - every rule must define id, priority, match, intent, sql, answer, and eval_refs.
+    - priority must be an integer.
+    - eval_refs must point to known eval ids.
+    - SQL must satisfy planning_model.rule_catalog.sql_safety_policy.
+    - answer templates must contain formatter-required tokens.
+  behavior_checks:
+    - parse_intent emits the matched rule id in intent metadata.
+    - compile_sql emits SQL text and parameters from the matched rule.
+    - execute_sql is unchanged from v01.
+    - synthesize_answer uses the matched rule formatter and template.
+  event_log_checks:
+    - successful ask records a run id.
+    - successful ask records prompt, intent, sql_query, sql_result, and answer objects.
+    - successful ask records behavior start/success events for each behavior.
+    - unsupported ask records a failure event with UnsupportedPromptError.
+
+inspectability:
+  required_cli_observations:
+    before_ask:
+      - Registered object types include prompt, intent, sql_query, sql_result, answer, and run.
+      - Registered behaviors include parse_intent, compile_sql, execute_sql, and synthesize_answer.
+      - Registered rule catalog reports 7 declared rules and 12 covered eval ids.
+    after_ask:
+      - inspect -1 shows the matched rule id.
+      - inspect -1 shows SQL text and bound params.
+      - inspect -1 shows answer text.
+      - inspect -1 shows graph objects and relations created during the run.
+    failure_case:
+      - inspect -1 shows no matched rule and records the unsupported prompt reason.
+
+open_questions:
+  - id: v02_entity_extraction
+    question: Should v03 introduce named captures/entity extraction, or should we first prove more literal table-driven rules?
+    current_decision: Defer to v03. v02 uses literal parameters only.
+  - id: v02_config_location
+    question: Should the catalog stay embedded in system-model.v02.yaml or move to a pack-local rules file?
+    current_decision: Keep embedded for v02; extract only when multiple packs need the same schema.
+  - id: v02_runtime_default
+    question: Should CLI default to v01 hardcoded behavior or v02 catalog behavior after implementation?
+    current_decision: Default to v02 catalog once parity tests pass; keep a temporary fallback flag during migration.
+
+future_direction:
+  likely_v03_options:
+    - Add capture-based entity extraction so names and statuses are not hard-coded per rule.
+    - Split pack configuration from runtime source and support hospital/techshop by changing env and system model files.
+    - Add schema-aware validation for table/column references.
+    - Add optional LLM adapter only after deterministic catalog behavior is inspectable and replayable.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
