@@ -1,5 +1,0 @@
-# Specs
-
-## Alpha
-
-Some text.

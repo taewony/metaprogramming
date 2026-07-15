@@ -1,5 +1,0 @@
-# Alpha
-
-## Beta
-
-Some text.

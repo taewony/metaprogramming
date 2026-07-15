@@ -3,7 +3,7 @@ __pycache__/
 *.py[cod]
 *$py.class
 .tmp/
-
+.mini-coding-agent
 
 # 가상환경(Virtual Environments) 제외
 venv/
