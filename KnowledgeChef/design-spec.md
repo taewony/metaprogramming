@@ -3,7 +3,8 @@
 ## Purpose
 
 This document captures the current design concept for a generic agent framework
-that starts with DB natural-language querying and later expands to file-to-KB
+that starts with DB natural-language querying, moves next into third-party
+SQLite DB + OKF schema-bundle onboarding, and later expands to file-to-KB
 ingestion and KB question answering.
 
 The immediate product path is a Text-to-SQL agent over SQLite. The deeper
@@ -27,11 +28,11 @@ Then behaviors become small, testable physics over that world.
 The following decisions are locked for the next implementation pass:
 
 - The first persistent local event store is SQLite.
-- The first `system-model.yaml` schema is `activegraph.system-model.v0`, defined in this document.
-- Long-term, `SKILL.md` files are generated from system-model specs by the coding agent. Near-term, packing and `SKILL.md` generation are deferred; implementation should focus on behavior execution, event traces, and behavior adaptation.
+- The system-model schema family starts from `activegraph.system-model.v0`; current deterministic Text-to-SQL packs use the v11 runtime shape.
+- Long-term, `SKILL.md` files are generated from system-model specs by the coding agent. Near-term, implement only minimal third-party pack onboarding and eval-run evidence protocols; generated `SKILL.md`, KB/RAG, and sub-agent orchestration remain Future Work.
 - Replay is strict for deterministic behaviors before LLM adapters are added. LLM-backed behaviors must run through recorded fixtures or cache-backed replay in tests. Live LLM replay is allowed only in explicit exploratory runs and must be marked non-deterministic in the trace.
-- `llm-wiki` writes target an OKF Knowledge Bundle.
-- KB page writes are approval-gated by default.
+- Near-term OKF usage is schema-bundle only: a third party can provide a small OKF bundle that describes the SQLite schema, table semantics, columns, relationships, examples, and constraints.
+- OKF KB writes, RAG, and `llm-wiki` ingestion remain Future Work. When enabled later, KB writes are approval-gated by default with one approval per raw file upload request.
 - Runtime source code is available locally under `activegraph/text-to-sql-agent/src` and should be referenced for implementation instead of inventing a parallel runtime.
 - The system prompt for the Text-to-SQL agent belongs in `activegraph/text-to-sql-agent/instructions.md`.
 - Test scratch/output folders should use `.tests`, not `.tmp`.
@@ -542,7 +543,7 @@ The runtime implementation should use:
 activegraph/text-to-sql-agent/src
 ```
 
-The Text-to-SQL runtime must be pack-configurable. Hospital DB and TechShop DB should use the same runtime and behavior contracts, with different pack-local environment files and system-model declarations.
+The Text-to-SQL runtime must be pack-configurable. Hospital DB, TechShop DB, and third-party SQLite DBs should use the same runtime and behavior contracts, with different pack-local environment bindings, OKF schema projections, system-model declarations, and eval cases.
 
 The next development loop should be TDD-first:
 
@@ -552,88 +553,81 @@ The next development loop should be TDD-first:
 4. Record event trace.
 5. Add LLM adapter only after deterministic behavior and scoring are stable.
 
-## Pack Directory Structure
+## Pack Configuration And Directory Structure
 
-The runtime should support multiple agents as packs. A pack is the unit that binds one shared runtime to a domain, environment, system model, prompts, evals, and generated skill docs.
+The runtime supports multiple agents as packs. In the current implementation, a pack is a registry entry that binds one shared Text-to-SQL runtime to a DB file, event store, OKF schema bundle, system-model file, LLM defaults, and eval cases. This is intentionally lighter than full generated pack directories.
 
-Recommended layout:
+Current implementation layout:
 
 ```text
 activegraph/
   data/
     hospital.db
     techshop.db
+    <third-party>.db
+    <third-party>_events.sqlite
 
-  llm-wiki/
-    <okf-knowledge-bundles>
+  okf-wiki/
+    hospital-medical/
+    techshop-commerce/
+    <third-party-schema-bundle>/
+      index.md
+      tables/
+        <table>.md
 
   text-to-sql-agent/
     instructions.md
+    agent/
+      packs.yaml
+      system-model.hospital.v11.yaml
+      system-model.techshop.v11.yaml
+      system-model.<third-party>.v11.yaml
+      system-model.v99.yaml
+    evals/
+      eval_manifest.yaml
+      hospital_consolidated_cases.jsonl
+      techshop_cases.jsonl
+      <third-party>_cases.jsonl
     src/
       <ActiveGraph runtime source>
-    scripts/
-      build_hospital_db.py
-      verify_hospital_db.py
-      run_pack.py
-      run_eval.py
-    packs/
-      hospital-db/
-        system-model.yaml
-        .env
-        SKILL.md
-        prompts/
-        evals/
-          cases.jsonl
-        .tests/
-          traces/
-          graphs/
-          runs/
-
-      techshop-db/
-        system-model.yaml
-        .env
-        SKILL.md
-        prompts/
-        evals/
-        .tests/
-
-      hospital-db-medical-kb/
-        system-model.yaml
-        .env
-        SKILL.md
-        prompts/
-        evals/
-        okf/
-          bundle-root.md
-        .tests/
-
-      file-to-okf-kb/
-        system-model.yaml
-        .env
-        SKILL.md
-        prompts/
-        evals/
-        .tests/
+    .tests/
+      runs/
+      sessions/
+      adaptations/
+      eval-runs/
 ```
 
-Pack `.env` files contain environment-specific bindings, not reusable behavior logic. Examples:
+The near-term pack registry entry is the source of environment binding:
 
-```dotenv
-TEXT_TO_SQL_DB_URL=sqlite:///../../data/hospital.db
-ACTIVEGRAPH_EVENT_STORE_URL=sqlite:///.tests/runs/events.sqlite
-OKF_BUNDLE_DIR=../../llm-wiki/hospital-medical
+```yaml
+packs:
+  thirdparty-db:
+    display_name: Third Party DB Agent
+    runtime: text-to-sql
+    system_model: system-model.thirdparty.v11.yaml
+    env:
+      DB_FILE: ../../data/thirdparty.db
+      EVENT_STORE: ../../data/thirdparty_text_to_sql_events.sqlite
+      OKF_BUNDLE_ROOT: ../../okf-wiki/thirdparty-schema
+    capabilities:
+      db: true
+      schema: true
+      kb: false
+    schema:
+      format: okf
+      root: ../../okf-wiki/thirdparty-schema
 ```
 
-This lets the same Text-to-SQL runtime process hospital DB, TechShop DB, or a hybrid DB plus KB pack by changing pack configuration rather than changing runtime code.
+Pack validation must check:
 
-Pack generation rules:
+- DB file exists and is readable as SQLite.
+- Event-store parent is writable.
+- System-model YAML loads and declares an executable rule catalog, even if initially sparse.
+- OKF schema bundle exists, has `index.md`, and lists table files.
+- OKF table/column declarations align with the actual SQLite schema.
+- Eval manifest maps the pack to a runnable cases file.
 
-- `system-model.yaml` is the primary source of truth.
-- Long-term, `SKILL.md` is generated from `system-model.yaml` by the coding agent. Near-term, do not implement packing or skill generation.
-- `instructions.md` remains the shared system prompt entry point for the Text-to-SQL runtime.
-- Pack-local prompts can be referenced by behaviors.
-- Pack-local `.tests` captures traces, graph projections, replay outputs, and eval results.
-- Pack-local `.env` binds external resources such as DB URLs and OKF bundle roots.
+Future generated pack directories may include generated `SKILL.md`, pack-local prompts, and pack-local `.env` files. That generation is not required for the v11 deterministic third-party onboarding path.
 
 ## DB Query And Response Completion Gate
 
@@ -643,7 +637,7 @@ The completion gate is:
 
 ```yaml
 v09_adaptation_loop:
-  status: planned
+  status: completed
   focus: "Use event logs to improve harness/runtime behavior without hiding changes."
   deliverables:
     - "Event-log analyzer classifies failures, unsupported prompts, slow paths, validation misses, and user corrections."
@@ -669,14 +663,193 @@ v11_sql_planner_resolution:
 
 This means current `--llm` answer composition is not enough. It improves the final wording after deterministic SQL execution, but unsupported prompts still need either declarative rule adaptation or a planner-resolution behavior before SQL generation. The event-log adaptation loop should turn failures such as unsupported prompts or typo variants into explicit proposals, eval cases, and system-model patches.
 
-KB/RAG work is deferred until this DB loop can show:
+KB/RAG and sub-agent work are deferred until this DB loop and the v11.5 third-party onboarding loop can show:
 
 - failed or unsupported DB prompts are explainable through `inspect`
 - accepted adaptations leave proposal artifacts before source/YAML/eval changes
 - multi-turn references are resolved from session graph state
 - ambiguity and low-confidence assumptions are either clarified or recorded
 - SQL repair and planner repair obey circuit breakers
-## Future Product: Raw File to LLM-Wiki KB
+- third-party DB packs can be validated, evaluated, and externally scored from recorded evidence
+
+## v11.5 Third-Party Pack Onboarding And Eval-Run Protocol
+
+The next product surface after the v11 deterministic pack runtime is third-party DB onboarding. The goal is not automatic RAG or KB mutation. The goal is to accept a SQLite DB file, a small OKF schema bundle describing that DB, and third-party eval cases, then run a deterministic, auditable evaluation whose event logs can be scored by the third party.
+
+### Inputs From The Third Party
+
+A third-party onboarding package should contain:
+
+```text
+thirdparty-package/
+  db/
+    domain.db
+  okf-schema/
+    index.md
+    tables/
+      customers.md
+      orders.md
+      ...
+  evals/
+    cases.jsonl
+  README.md
+```
+
+The OKF bundle in this phase is a schema bundle, not a knowledge base. It should describe relational tables, columns, descriptions, primary keys, and foreign keys. It may use OKF-compatible markdown/frontmatter, but the runtime only requires the table schema projection fields needed by `pack schema` and `pack validate`.
+
+Eval cases should be JSONL. A minimum case is:
+
+```json
+{"id":"case_001","prompt":"고객은 몇 명이야?","expected_sql":"SELECT COUNT(*) FROM customers","expected_params":[],"expected_rows":[[20]],"expected_answer_contains":["20"]}
+```
+
+If the third party does not want to reveal expected SQL or rows to the agent author, they can provide a private scoring file. The public eval file can then contain only `id`, `prompt`, and policy expectations, while the external judge scores the exported run bundle after execution.
+
+### Onboarding Procedure
+
+The intended CLI workflow is:
+
+```text
+pack import thirdparty-db \
+  --db activegraph/data/domain.db \
+  --okf activegraph/okf-wiki/domain-schema \
+  --evals activegraph/text-to-sql-agent/evals/domain_cases.jsonl
+
+pack validate thirdparty-db --json
+pack schema thirdparty-db --json
+text-to-sql --pack thirdparty-db context "<sample prompt>" --json
+text-to-sql --pack thirdparty-db eval --json
+```
+
+The current implementation has the lower-level pieces but not the `pack import` command yet. Until that command exists, onboarding is manual:
+
+1. Copy the SQLite DB under `activegraph/data/`.
+2. Copy the OKF schema bundle under `activegraph/okf-wiki/`.
+3. Add a pack entry to `activegraph/text-to-sql-agent/agent/packs.yaml`.
+4. Create `system-model.<domain>.v11.yaml` with `schema_projection`, `behavior_model`, `planning_model.rule_catalog`, and optional `planner_resolution_model`.
+5. Add the pack's eval file to `activegraph/text-to-sql-agent/evals/`.
+6. Add the pack to `eval_manifest.yaml` so bare `eval` chooses the correct cases file.
+7. Run `pack validate`, `pack schema`, `context`, `ask`, and `eval`.
+
+### System-Model Bootstrap Boundary
+
+For arbitrary third-party domains, the runtime should not pretend it can answer natural-language questions merely from table names. A system-model bootstrap step should create a sparse, inspectable model:
+
+```yaml
+schema_version: system-model.v11
+name: thirdparty-db-agent
+schema_projection:
+  source:
+    type: okf_bundle
+  include:
+    tables:
+      - tables/customers.md
+      - tables/orders.md
+behavior_model:
+  behaviors:
+    - id: resolve_sql_planner
+    - id: parse_intent
+    - id: compile_sql
+    - id: execute_sql
+    - id: synthesize_answer
+planning_model:
+  rule_catalog:
+    id: thirdparty_text_to_sql_rules_v01
+    rules: []
+```
+
+Rules should then be added from approved eval cases, observed failures, or human-authored domain decisions. This keeps behavior changes explicit and replayable. A later LLM planner can propose candidate rules, but it must not silently generate and execute SQL outside the event protocol.
+
+### Eval-Run Event Protocol
+
+An eval run should be represented as a first-class run group, not just a console summary. The protocol should create one eval-run artifact and one ordinary ActiveGraph run per case.
+
+Required eval-run objects:
+
+```yaml
+objects:
+  eval_run:
+    fields: [eval_run_id, pack_id, cases_file, started_at, completed_at, status]
+  eval_case:
+    fields: [id, prompt, source, expected_policy]
+  eval_case_result:
+    fields: [case_id, run_id, ok, sql, params, rows, answer, failure_summary]
+  eval_score:
+    fields: [case_id, scorer, score, rubric, notes]
+```
+
+Required eval-run events:
+
+```text
+eval.started
+eval.case_started
+question.submitted
+planner.resolved | clarification.required | behavior.failed
+sql.generated
+sql.executed
+answer.created
+eval.case_completed
+eval.case_scored
+eval.completed
+```
+
+`question.submitted` through `answer.created` are normal per-case run events. `eval.*` events bind those runs back to the eval-run group so a third party can audit both case-level evidence and aggregate scoring.
+
+### External Scoring Procedure
+
+The third-party scoring loop should be:
+
+```text
+third-party package received
+  -> pack import or manual pack registration
+  -> pack validate
+  -> schema projection check
+  -> deterministic eval run
+  -> export eval-run bundle
+  -> third-party judge scores case outputs from event evidence
+  -> external scores are recorded as eval.case_scored / external_judgment.recorded
+  -> adaptation proposals are generated only from scored evidence
+```
+
+The exported eval-run bundle should contain:
+
+```text
+.tests/eval-runs/<eval_run_id>/
+  manifest.json
+  summary.json
+  cases/
+    <case_id>/
+      result.json
+      trace.jsonl
+      graph.json
+      scoring-input.json
+      external-score.json   # optional, written after third-party scoring
+```
+
+The scoring input should include prompt, final answer, SQL, params, rows or row summary, planner resolution, clarification request, failure events, and graph artifact paths. If rows contain sensitive data, the export must support redaction or row summaries before external review.
+
+### Acceptance Criteria For v11.5
+
+v11.5 is complete when:
+
+- a third-party DB and OKF schema bundle can be registered without modifying runtime source code;
+- `pack validate` catches DB/OKF/schema mismatches before eval;
+- bare `text-to-sql --pack <id> eval` selects the pack's eval cases;
+- every eval case has a run id, trace, graph snapshot, and result artifact;
+- eval-run aggregate metadata is written to disk and event store;
+- external score artifacts can be attached without rewriting the original run evidence;
+- unsupported prompts become adaptation proposals, not hidden runtime branches;
+- KB/RAG/sub-agent features remain disabled unless explicitly selected by a future pack capability.
+
+### Out Of Scope For v11.5
+
+- Writing OKF knowledge-base pages from raw files.
+- RAG over OKF concept documents.
+- Multi-agent/sub-agent orchestration.
+- Fully automatic SQL generation over arbitrary schemas without eval-backed rules.
+- Training or fine-tuning from third-party traces.
+
+## Future Work: Raw File to LLM-Wiki KB
 
 After the DB path proves the framework, the same model should support raw file ingestion into an external structured KB such as `llm-wiki`.
 
@@ -812,7 +985,7 @@ raw file upload request -> one approval -> claim graph -> proposed OKF concept/i
 
 Automated behaviors may propose OKF patches, update draft graph state, and run conformance checks. They must not write published OKF bundle files for a raw file until that upload request has one approval event. Separate raw file upload requests require separate approvals.
 
-## Future Product: KB Question Answering
+## Future Work: KB Question Answering
 
 When users ask questions about the KB, the system should follow the KB structure rather than performing unstructured retrieval only.
 
@@ -870,31 +1043,41 @@ answer:
 
 ## Evaluation Strategy
 
-Evaluation should be a first-class part of the system model.
+Evaluation is a first-class part of the system model and the pack contract. The near-term priority is DB query evaluation over third-party SQLite packs. KB ingestion and KB QA evals are Future Work.
 
-Text-to-SQL evals:
+### Text-to-SQL Eval Cases
 
-- input question
-- expected SQL properties
-- expected rows
+Runnable DB eval cases may include:
+
+- `id`
+- input `prompt`
+- expected SQL text or SQL policy constraints
+- expected params
+- expected rows or row summary
 - expected answer substrings
+- expected answer source, such as `deterministic` or `clarification`
+- expected planner-resolution status and imperfection types
 - forbidden SQL operations
 
-KB ingestion evals:
+The deterministic scorer can evaluate these fields directly when expected SQL/rows are public.
 
-- input file fixture
-- expected chunks
-- expected claims
-- expected KB page path
-- expected index entries
-- expected OKF frontmatter fields
+### Private Third-Party Scoring
 
-KB QA evals:
+A third party may choose not to disclose gold SQL or rows to the agent implementer. In that case:
 
-- input question
-- expected cited page
-- expected answer facts
-- forbidden unsupported claims
+- the public cases file contains prompts and policy constraints only;
+- the agent executes each case and records run evidence;
+- an eval-run export bundle is produced;
+- the third party scores `scoring-input.json` files externally;
+- external scores are attached as immutable artifacts and `eval.case_scored` / `external_judgment.recorded` events.
+
+This keeps benchmark answers private while preserving auditability.
+
+### Future Work Eval Types
+
+KB ingestion evals are deferred and may later include input file fixtures, expected chunks, expected claims, expected KB page paths, expected index entries, and expected OKF frontmatter fields.
+
+KB QA evals are deferred and may later include input questions, expected cited pages, expected answer facts, and forbidden unsupported claims.
 
 Evaluation should run without LLM calls first. LLM behaviors can be evaluated later through recorded fixtures and replay caches.
 
@@ -903,13 +1086,19 @@ Evaluation should run without LLM calls first. LLM behaviors can be evaluated la
 Initial DB CLI:
 
 ```text
-submit-question
-run-eval
-trace
-inspect-graph
+pack import              # planned v11.5
+pack validate
+pack schema
+text-to-sql ask
+text-to-sql context
+text-to-sql eval
+text-to-sql inspect
+text-to-sql adapt
+eval-run export          # planned v11.5
+eval-run attach-score    # planned v11.5
 ```
 
-Future KB CLI:
+Future Work KB CLI:
 
 ```text
 scan-files
@@ -958,7 +1147,7 @@ run execution
   -> next run
 ```
 
-Near-term adaptation scope is behavior-only. The system should not implement pack generation, `SKILL.md` generation, or broad harness runtime mutation yet. Runtime changes should be proposed only after repeated behavior-level evidence shows that the runtime itself is the limiting factor.
+Near-term adaptation scope is behavior-first. Minimal pack import/scaffold work is allowed for v11.5 because it is required to onboard third-party DBs, but generated `SKILL.md`, KB/RAG scaffolding, sub-agent orchestration, and broad harness runtime mutation remain deferred. Runtime changes should be proposed only after repeated behavior-level evidence shows that the runtime itself is the limiting factor.
 Current v09 implementation:
 
 - `text-to-sql adapt <run-selector>` reads a persisted SQLite event-store run and writes reproducible adaptation artifacts.
@@ -1071,7 +1260,7 @@ Allowed near-term behavior adaptation targets:
 
 Deferred adaptation targets:
 
-- pack generation
+- generated pack directories beyond minimal v11.5 pack import
 - `SKILL.md` generation
 - runtime source mutation
 - external write policy relaxation
@@ -1092,43 +1281,45 @@ Behavior adaptation candidates may be generated automatically, but applying them
 7. Start deterministic and TDD-first.
 8. Add LLM adapters only after contracts and evals are stable.
 9. Prefer event logs and graph diffs over hidden control flow.
-10. Keep Text-to-SQL and KB workflows as domain packs over the same runtime.
-11. Long-term, generate `SKILL.md` from system-model specs; near-term, defer packing and skill generation.
+10. Keep Text-to-SQL workflows as domain packs over the same runtime; keep KB/RAG workflows in Future Work until the deterministic DB path is proven with third-party packs.
+11. Long-term, generate `SKILL.md` from system-model specs; near-term, implement only minimal third-party pack onboarding and defer generated skills.
 12. Store external resource bindings in local `.env` files and commit non-secret `.env.example` files.
 13. Use `.tests` for test outputs and scratch artifacts.
-14. Treat OKF writes as approval-gated external mutations by default, with one approval per raw file upload request.
+14. Treat future OKF KB writes as approval-gated external mutations by default, with one approval per raw file upload request.
 15. Use event-log analysis to adapt behavior definitions first; runtime adaptation is a later, evidence-heavy step.
+16. Make eval-run evidence exportable so a third party can score runs from recorded events, graph snapshots, SQL, answers, and declared expectations.
 
 ## Near-Term Implementation Plan
 
-1. Keep implementation focused on behavior execution, not pack generation.
-2. Implement a deterministic CLI driver against the local runtime in `activegraph/text-to-sql-agent/src`.
-3. Implement deterministic behaviors for question -> intent -> SQL -> result -> answer.
-4. Record event traces, graph projections, run results, and eval results under `.tests`.
-5. Add event-log analysis that produces behavior adaptation candidates.
-6. Validate behavior adaptations with strict replay and eval cases before applying them.
-7. Handle environment variables with local `.env` plus committed non-secret `.env.example` conventions.
-8. Add optional LLM adapters behind the same behavior contracts only after deterministic behavior and adaptation traces are stable.
-9. Defer pack scaffolding and `SKILL.md` generation until the behavior loop is proven.
+1. Keep v11 deterministic Text-to-SQL behavior stable for declared hospital and TechShop packs.
+2. Add v11.5 minimal third-party pack onboarding from SQLite DB file, OKF schema bundle, and eval JSONL.
+3. Validate imported packs by checking DB accessibility, OKF schema coverage, declared table/column bindings, event-store configuration, and eval manifest wiring.
+4. Project the OKF schema bundle into runtime graph/context before query execution.
+5. Record eval-run events, graph snapshots, SQL/result/answer evidence, scoring inputs, and exported artifacts under `.tests/eval-runs`.
+6. Add `eval-run export` and `eval-run attach-score` so third-party scoring can be external but auditable.
+7. Feed failed eval evidence into adaptation proposals; applying YAML/code/eval changes remains explicit.
+8. Keep optional LLM answer composition behind deterministic SQL/result contracts; do not add implicit planner LLM fallback in v11.5.
+9. Defer generated `SKILL.md`, full pack directory generation, OKF KB ingestion, RAG query, and sub-agent orchestration.
 10. Later, generalize the same model shape for file-to-OKF-KB ingestion.
 
 ## Resolved Questions
 
-- `system-model.yaml` uses `activegraph.system-model.v0`, defined above, but near-term work should focus on behavior execution rather than complete pack scaffolding.
-- Packing and `SKILL.md` generation are deferred for now. Long-term, `SKILL.md` should be generated from system-model specs by the coding agent.
+- `system-model.yaml` uses the schema family defined above; near-term work should focus on deterministic behavior execution plus minimal v11.5 third-party pack onboarding.
+- Full generated pack directories and `SKILL.md` generation are deferred for now. Long-term, `SKILL.md` should be generated from system-model specs by the coding agent.
 - SQLite is the first persistent local event store.
 - Replay is strict for deterministic and recorded-fixture runs; live LLM runs are explicitly non-deterministic exploration.
 - Environment variables use local `.env` files with committed non-secret `.env.example` templates. Real local `.env` files should stay uncommitted.
-- `llm-wiki` integration writes to OKF Knowledge Bundles.
-- OKF approval happens once per raw file upload request. The approved run can write the OKF concept and index updates derived from that file.
-- KB page writes are approval-gated by default.
+- Near-term OKF use is schema-bundle input for DB pack onboarding, not KB writing.
+- Third-party eval runs should produce exportable event evidence so external scoring can be replayed and audited.
+- Future OKF KB writes require one approval per raw file upload request; the approved run can write the OKF concept and index updates derived from that file.
 
 ## Deferred Decisions
 
-- Exact pack scaffolding and pack loader behavior.
+- Generated pack directory scaffolding beyond minimal v11.5 pack import.
 - Whether generated `SKILL.md` files are committed, regenerated on demand, or both.
-- How much of the local ActiveGraph runtime should be wrapped versus modified directly for pack loading.
+- How much of the local ActiveGraph runtime should be wrapped versus modified directly after the minimal pack loader is proven.
 - How far behavior adaptation can be auto-applied after the eval suite becomes stable.
+- OKF KB ingestion, RAG query, and sub-agent orchestration.
 
 
 

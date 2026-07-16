@@ -785,21 +785,21 @@ incremental_roadmap:
       - "Implemented deterministic `resolve_sql_planner` behavior for v11 packs before intent parsing."
       - "Planner records `planner_resolution`, `decision_rationale`, and `clarification_request` graph objects."
       - "Low-confidence ambiguity returns clarification with no SQL; high-confidence rule-backed assumptions are recorded in graph state."
-  v12_okf_kb_ingestion:
+  v96_okf_kb_ingestion:
     status: deferred_until_db_query_response_complete
     focus: "Extend from DB querying to file-to-KB workflows after v09-v11 harden DB query behavior."
     deliverables:
       - "Approval-gated raw-file upload behavior with one approval per file."
       - "OKF Knowledge Bundle writer for okf-wiki, including index.md updates and structured page artifacts."
       - "Graph records raw_file, extraction_plan, kb_draft, approval, and kb_write_result objects."
-  v13_sql_rag_parallelism:
+  v97_sql_rag_parallelism:
     status: deferred_until_db_query_response_complete
     focus: "Let SQL and KB retrieval run as parallel behaviors over the same intent graph."
     deliverables:
       - "SQL path and RAG path subscribe to intent.created independently."
       - "Answer fusion behavior waits on query_result and/or kb_context, then records alignment, contradiction, and confidence."
       - "Inspect clearly shows why an answer used DB rows, KB evidence, or both."
-  v14_multi_agent_harness:
+  v98_multi_agent_harness:
     status: planned_after_kb_rag
     focus: "Promote mature behaviors into cooperating specialized agents."
     deliverables:
