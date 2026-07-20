@@ -294,6 +294,30 @@ def _echo_pack_validation(payload: dict[str, Any]) -> None:
         click.echo(f"  {check_status:6s} {check['name']}: {check['detail']}")
 
 
+
+@cmd_pack.command("import")
+@click.argument("pack_id")
+@click.option("--db", "db_file", type=click.Path(path_type=__import__("pathlib").Path), required=True, help="SQLite DB file for the third-party pack.")
+@click.option("--okf", "okf_root", type=click.Path(path_type=__import__("pathlib").Path), required=True, help="OKF schema bundle root containing index.md and tables/*.md.")
+@click.option("--evals", "evals_file", type=click.Path(path_type=__import__("pathlib").Path), required=True, help="JSONL eval cases for this pack.")
+@click.option("--json", "as_json", is_flag=True, help="Print the full JSON payload.")
+def cmd_pack_import(pack_id, db_file, okf_root, evals_file, as_json) -> None:
+    """Register a third-party SQLite DB + OKF schema-bundle pack."""
+    from activegraph.cli.pack_config import PackConfigError, import_thirdparty_pack
+
+    try:
+        payload = import_thirdparty_pack(pack_id, db_file=db_file, okf_root=okf_root, evals_file=evals_file)
+    except PackConfigError as exc:
+        click.echo(str(exc), err=True)
+        raise SystemExit(EXIT_USAGE_ERROR)
+    if as_json:
+        click.echo(_json.dumps(payload, ensure_ascii=False, indent=2))
+        return
+    click.echo(f"imported pack: {payload['pack']['id']}")
+    click.echo(f"system_model: {payload['system_model']}")
+    click.echo(f"eval_manifest: {payload['eval_manifest']}")
+    click.echo(f"generated_rules: {payload['generated_rules']}")
+
 @cmd_pack.command("validate")
 @click.argument("pack_id", required=False)
 @click.option("--all", "validate_all", is_flag=True, help="Validate every local agent pack.")
@@ -324,6 +348,56 @@ def cmd_pack_use(pack_id: str) -> None:
     pack = set_default_pack(pack_id)
     click.echo(f"default pack: {pack.id}")
 
+
+
+# ---- eval-run -----------------------------------------------------------
+
+
+@cli.group("eval-run")
+def cmd_eval_run() -> None:
+    """Export eval-run artifacts and attach external scores."""
+
+
+@cmd_eval_run.command("export")
+@click.argument("eval_run_id")
+@click.option("--eval-runs-dir", type=click.Path(path_type=__import__("pathlib").Path), default=None, help="Directory containing eval-run artifacts.")
+@click.option("--output-dir", type=click.Path(path_type=__import__("pathlib").Path), default=None, help="Destination directory for exported bundle.")
+@click.option("--json", "as_json", is_flag=True, help="Print the full JSON payload.")
+def cmd_eval_run_export(eval_run_id, eval_runs_dir, output_dir, as_json) -> None:
+    from activegraph.cli.eval_run import DEFAULT_EVAL_RUNS_DIR, EvalRunError, export_eval_run
+
+    try:
+        payload = export_eval_run(eval_run_id, eval_runs_dir=eval_runs_dir or DEFAULT_EVAL_RUNS_DIR, output_dir=output_dir)
+    except EvalRunError as exc:
+        click.echo(str(exc), err=True)
+        raise SystemExit(EXIT_NOT_FOUND)
+    if as_json:
+        click.echo(_json.dumps(payload, ensure_ascii=False, indent=2))
+        return
+    click.echo(f"exported eval_run: {payload['eval_run_id']}")
+    click.echo(f"export_dir: {payload['export_dir']}")
+
+
+@cmd_eval_run.command("attach-score")
+@click.argument("eval_run_id")
+@click.argument("case_id")
+@click.option("--score-file", type=click.Path(path_type=__import__("pathlib").Path), required=True, help="External JSON score file to attach.")
+@click.option("--eval-runs-dir", type=click.Path(path_type=__import__("pathlib").Path), default=None, help="Directory containing eval-run artifacts.")
+@click.option("--scorer", default="third-party", show_default=True, help="External scorer id.")
+@click.option("--json", "as_json", is_flag=True, help="Print the full JSON payload.")
+def cmd_eval_run_attach_score(eval_run_id, case_id, score_file, eval_runs_dir, scorer, as_json) -> None:
+    from activegraph.cli.eval_run import DEFAULT_EVAL_RUNS_DIR, EvalRunError, attach_external_score
+
+    try:
+        payload = attach_external_score(eval_run_id, case_id, score_file=score_file, eval_runs_dir=eval_runs_dir or DEFAULT_EVAL_RUNS_DIR, scorer=scorer)
+    except EvalRunError as exc:
+        click.echo(str(exc), err=True)
+        raise SystemExit(EXIT_USAGE_ERROR)
+    if as_json:
+        click.echo(_json.dumps(payload, ensure_ascii=False, indent=2))
+        return
+    click.echo(f"attached score: {payload['case_id']}")
+    click.echo(f"external_score_file: {payload['external_score_file']}")
 
 # ---- inspect ------------------------------------------------------------
 

@@ -1,9 +1,14 @@
 # Workspace (live task state)
 
 ## Current task
-Update design-spec.md for v11.5 third-party SQLite DB + OKF schema-bundle onboarding and eval-run event protocol; keep OKF KB/RAG and sub-agent work in Future Work.
+Implemented v11.5 deterministic third-party SQLite DB + OKF schema-bundle pack onboarding and eval-run event/artifact protocol.
 
 ## Open files
+- activegraph/text-to-sql-agent/agent/system-model.v99.yaml
+- plan.md
+- design-spec.md
+- activegraph/text-to-sql-agent/src/cli/main.py
+- activegraph/text-to-sql-agent/src/cli/eval_run.py
 - .agent/memory/working/WORKSPACE.md
 - activegraph/text-to-sql-agent/agent.py
 - activegraph/text-to-sql-agent/agent/packs.yaml
@@ -165,3 +170,52 @@ Expected if Ollama is available: `answer_source` becomes `llm`, `llm.status` bec
 - [x] Reframed OKF KB ingestion, RAG query, and sub-agent orchestration as Future Work.
 - [x] Updated evaluation strategy and required CLI surfaces around pack validation, schema projection, eval-run export, and external score attachment.
 - [x] Updated near-term implementation plan, resolved questions, deferred decisions, and design rules to match the v11.5 focus.
+## v11.5 third-party onboarding checkpoint
+- [x] Added `import_thirdparty_pack` in `activegraph.cli.pack_config` to register a third-party SQLite DB, OKF schema bundle, eval JSONL, generated v11 system model, event-store binding, and eval manifest entry.
+- [x] Added generated exact-prompt RuleCatalog support through `match.exact` for eval-backed deterministic bootstrap rules.
+- [x] Added `activegraph.cli.eval_run` for eval-run IDs, eval event JSONL, per-case result/trace/graph/scoring-input artifacts, export, and external score attachment.
+- [x] Extended `text-to-sql eval` to create `.tests/eval-runs/<eval_run_id>` artifacts and include `eval_run_id` in CLI/JSON output.
+- [x] Added top-level `pack import`, `eval-run export`, and `eval-run attach-score` CLI commands and exposed them in REPL help.
+- [x] Updated `design-spec.md`, `plan.md`, and `system-model.v99.yaml` to mark v11.5 implemented for the deterministic pack-runtime path.
+- [x] Tests: focused v11.5 `2 passed`; focused pack/eval regression `11 passed`; full `tests/test_activegraph_text_to_sql_tdd.py` `63 passed`.
+
+```
+• Implemented v11.5.
+
+  What changed:
+
+  - Added pack import for third-party SQLite DB + OKF schema bundle + eval JSONL onboarding.
+  - Added generated v11 system-model bootstrap from OKF table docs and eval cases with public expected_sql.
+  - Added match.exact support in RuleCatalog for imported eval-backed deterministic rules.
+  - Added eval-run protocol artifacts under .tests/eval-runs/<eval_run_id>/.
+  - Added eval-run export and eval-run attach-score.
+  - Extended text-to-sql eval to emit eval_run_id, per-case result.json, trace.jsonl, graph.json, and scoring-
+    input.json.
+
+  - Updated REPL/help, design-spec.md, plan.md, and system-model.v99.yaml.
+
+  Key files:
+
+  - activegraph/text-to-sql-agent/src/cli/pack_config.py
+  - activegraph/text-to-sql-agent/src/cli/eval_run.py
+  - activegraph/text-to-sql-agent/src/cli/text_to_sql.py
+  - activegraph/text-to-sql-agent/src/cli/main.py
+  - tests/test_activegraph_text_to_sql_tdd.py
+
+  Validation:
+
+  - 63 passed for full tests/test_activegraph_text_to_sql_tdd.py
+  - pack validate --all --json passed
+  - CLI smoke passed for:
+      - pack import --help
+      - eval-run export
+      - eval-run attach-score
+      - hospital eval with eval-run artifact generation
+
+  Important boundary: this is still deterministic pack onboarding, not generic NL-to-SQL. pack import generates exact-
+  prompt rules from eval cases that include expected_sql; private eval packs without public SQL can be registered/
+  evaluated, but useful answering still needs explicit rule/adaptation work.
+
+  Note: smoke/eval runs appended to tracked SQLite event stores under activegraph/data/. Existing unrelated workspace
+  changes such as .tmp deletions and packs.yaml default pack state were not reverted.
+```  

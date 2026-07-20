@@ -1,6 +1,8 @@
 """Pack registry helpers for local ActiveGraph agent configurations."""
 from __future__ import annotations
 
+import json
+import re
 import sqlite3
 import tempfile
 from dataclasses import dataclass
@@ -185,6 +187,238 @@ def set_default_pack(pack_id: str, config_file: str | Path = DEFAULT_PACKS_FILE)
     return resolve_pack(pack_id, config_file=path)
 
 
+
+def _safe_pack_filename(pack_id: str) -> str:
+    return re.sub(r"[^A-Za-z0-9_.-]+", "_", pack_id).strip("._-") or "thirdparty"
+
+
+def _read_jsonl(path: Path) -> list[dict[str, Any]]:
+    cases: list[dict[str, Any]] = []
+    with path.open("r", encoding="utf-8") as handle:
+        for line_no, line in enumerate(handle, start=1):
+            stripped = line.strip()
+            if not stripped:
+                continue
+            try:
+                item = json.loads(stripped)
+            except json.JSONDecodeError as exc:
+                raise PackConfigError(f"invalid eval JSONL {path} line {line_no}: {exc}") from exc
+            if not isinstance(item, dict):
+                raise PackConfigError(f"eval JSONL {path} line {line_no} must be an object")
+            cases.append(item)
+    return cases
+
+
+def _okf_table_files(okf_root: Path) -> list[Path]:
+    tables_dir = okf_root / "tables"
+    if not tables_dir.exists():
+        raise PackConfigError(f"OKF schema bundle must contain tables/: {okf_root}")
+    table_files = sorted(tables_dir.glob("*.md"))
+    if not table_files:
+        raise PackConfigError(f"OKF schema bundle tables/ is empty: {tables_dir}")
+    return table_files
+
+
+def _rel_to(path: Path, base: Path) -> str:
+    try:
+        return str(path.resolve().relative_to(base.resolve())).replace("\\", "/")
+    except ValueError:
+        return str(path.resolve())
+
+
+def _rule_from_eval_case(case: dict[str, Any], index: int) -> dict[str, Any] | None:
+    prompt = case.get("prompt")
+    sql = case.get("expected_sql")
+    if not isinstance(prompt, str) or not prompt or not isinstance(sql, str) or not sql.strip():
+        return None
+    params = case.get("expected_params", [])
+    if not isinstance(params, list):
+        params = []
+    case_id = str(case.get("id") or f"case_{index + 1:03d}")
+    return {
+        "id": f"generated_{case_id}",
+        "priority": 1000 - index,
+        "match": {"exact": prompt},
+        "intent": {
+            "kind": "lookup",
+            "entity": "thirdparty",
+            "filters": {},
+            "requested_fields": ["*"],
+        },
+        "sql": {"text": sql, "params": params},
+        "answer": {"formatter": "scalar_value", "template": "{value}"},
+        "eval_refs": [case_id],
+    }
+
+
+def _bootstrap_rule() -> dict[str, Any]:
+    return {
+        "id": "bootstrap_no_public_eval_sql",
+        "priority": -1000,
+        "match": {"exact": "__activegraph_bootstrap_unreachable__"},
+        "intent": {"kind": "bootstrap", "entity": "none", "filters": {}, "requested_fields": []},
+        "sql": {"text": "SELECT 1", "params": []},
+        "answer": {"formatter": "scalar_value", "template": "{value}"},
+        "eval_refs": ["bootstrap"],
+    }
+
+
+def _render_thirdparty_system_model(pack_id: str, okf_root: Path, table_files: list[Path], cases: list[dict[str, Any]]) -> dict[str, Any]:
+    relative_tables = [_rel_to(table, okf_root) for table in table_files]
+    rules = [rule for index, case in enumerate(cases) if (rule := _rule_from_eval_case(case, index)) is not None]
+    if not rules:
+        rules = [_bootstrap_rule()]
+    return {
+        "schema_version": "system-model.v11",
+        "kind": "activegraph.agent.system_model",
+        "name": f"{pack_id}-text-to-sql-agent-v11",
+        "display_name": f"{pack_id} Text-to-SQL Agent",
+        "status": "experimental",
+        "language": "ko",
+        "experiment": {
+            "id": "v11_5_thirdparty_pack_onboarding",
+            "title": "Third-party SQLite DB + OKF schema-bundle onboarding",
+            "hypothesis": "A third-party pack can be validated and evaluated from declarative DB, OKF schema, and eval inputs.",
+        },
+        "behavior_model": {
+            "behaviors": [
+                {"id": "parse_intent", "runtime": {"on": ["question.submitted"], "creates": ["question", "intent", "entity_validation", "answer"]}},
+                {"id": "compile_sql", "runtime": {"on": ["intent.created"], "creates": ["sql_query"]}},
+                {"id": "execute_sql", "runtime": {"on": ["sql.generated"], "creates": ["query_result"]}},
+                {"id": "synthesize_answer", "runtime": {"on": ["sql.executed"], "creates": ["answer"]}},
+            ]
+        },
+        "schema_projection": {
+            "id": f"{_safe_pack_filename(pack_id).replace('-', '_')}_okf_schema_projection",
+            "source": {"type": "okf_bundle", "root_env": "OKF_BUNDLE_ROOT", "root_pack_field": "schema.root"},
+            "include": {"tables": relative_tables},
+            "db_validation": {"compare_with_sqlite": True, "db_env": "DB_FILE"},
+        },
+        "entity_validation_model": {"id": f"{pack_id}_entity_validators_v11_5", "validators": {}},
+        "planning_model": {
+            "rule_catalog": {
+                "id": f"{_safe_pack_filename(pack_id).replace('-', '_')}_text_to_sql_rules_v01",
+                "matching_policy": {"no_match": {"user_message": "Unsupported prompt for third-party pack."}},
+                "answer_formatters": {"scalar_value": {"required_template_tokens": ["value"]}},
+                "rules": rules,
+            }
+        },
+    }
+
+
+def import_thirdparty_pack(
+    pack_id: str,
+    *,
+    db_file: str | Path,
+    okf_root: str | Path,
+    evals_file: str | Path,
+    config_file: str | Path = DEFAULT_PACKS_FILE,
+    eval_manifest_file: str | Path | None = None,
+    agent_dir: str | Path = AGENT_DIR,
+    data_dir: str | Path | None = None,
+    system_model_dir: str | Path | None = None,
+) -> dict[str, Any]:
+    if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_.-]*", pack_id):
+        raise PackConfigError("pack_id must contain only letters, numbers, dot, underscore, and hyphen")
+    config_path = Path(config_file)
+    config_path.parent.mkdir(parents=True, exist_ok=True)
+    db_path = Path(db_file).resolve()
+    okf_path = Path(okf_root).resolve()
+    evals_path = Path(evals_file).resolve()
+    if not db_path.exists():
+        raise PackConfigError(f"DB file not found: {db_path}")
+    if not (okf_path / "index.md").exists():
+        raise PackConfigError(f"OKF schema bundle index.md not found: {okf_path}")
+    if not evals_path.exists():
+        raise PackConfigError(f"eval cases file not found: {evals_path}")
+
+    table_files = _okf_table_files(okf_path)
+    cases = _read_jsonl(evals_path)
+    model_dir = Path(system_model_dir) if system_model_dir is not None else Path(agent_dir)
+    model_dir.mkdir(parents=True, exist_ok=True)
+    model_file = model_dir / f"system-model.{_safe_pack_filename(pack_id)}.v11.yaml"
+    model = _render_thirdparty_system_model(pack_id, okf_path, table_files, cases)
+    model_file.write_text(yaml.safe_dump(model, allow_unicode=True, sort_keys=False), encoding="utf-8")
+
+    if config_path.exists():
+        registry = yaml.safe_load(config_path.read_text(encoding="utf-8")) or {}
+    else:
+        registry = {}
+    if not isinstance(registry, dict):
+        raise PackConfigError(f"pack registry must be a mapping: {config_path}")
+    registry.setdefault("schema_version", SUPPORTED_PACK_SCHEMA)
+    if registry.get("schema_version") != SUPPORTED_PACK_SCHEMA:
+        raise PackConfigError(f"schema_version must be {SUPPORTED_PACK_SCHEMA}")
+    packs = registry.setdefault("packs", {})
+    if not isinstance(packs, dict):
+        raise PackConfigError("pack registry packs must be a mapping")
+    base_dir = config_path.resolve().parent
+    event_parent = Path(data_dir).resolve() if data_dir is not None else db_path.parent
+    event_store = event_parent / f"{_safe_pack_filename(pack_id)}_text_to_sql_events.sqlite"
+    event_parent.mkdir(parents=True, exist_ok=True)
+    packs[pack_id] = {
+        "display_name": f"{pack_id} DB Agent",
+        "runtime": "text-to-sql",
+        "system_model": _rel_to(model_file, base_dir),
+        "env": {
+            "DB_FILE": _rel_to(db_path, base_dir),
+            "EVENT_STORE": _rel_to(event_store, base_dir),
+            "OKF_BUNDLE_ROOT": _rel_to(okf_path, base_dir),
+        },
+        "capabilities": {"db": True, "schema": True, "kb": False},
+        "llm": {
+            "provider": "ollama",
+            "enabled": False,
+            "mode": "answer_composer",
+            "base_url": "http://localhost:11434/v1",
+            "model": "qwen2.5:7b",
+            "base_url_env": "OLLAMA_BASE_URL",
+            "model_env": "OLLAMA_MODEL",
+            "timeout_seconds": 30,
+            "fallback": "deterministic_answer",
+        },
+        "schema": {"format": "okf", "root": _rel_to(okf_path, base_dir)},
+    }
+    if registry.get("default_pack") not in packs:
+        registry["default_pack"] = pack_id
+    config_path.write_text(yaml.safe_dump(registry, allow_unicode=True, sort_keys=False), encoding="utf-8")
+
+    manifest_payload: dict[str, Any] | None = None
+    if eval_manifest_file is not None:
+        manifest_path = Path(eval_manifest_file)
+    else:
+        manifest_path = TEXT_TO_SQL_DIR / "evals" / "eval_manifest.yaml"
+    if manifest_path:
+        if manifest_path.exists():
+            manifest_payload = yaml.safe_load(manifest_path.read_text(encoding="utf-8")) or {}
+        else:
+            manifest_payload = {"schema_version": "activegraph.text_to_sql_evals.v01", "packs": {}}
+        if not isinstance(manifest_payload, dict):
+            raise PackConfigError(f"eval manifest must be a mapping: {manifest_path}")
+        manifest_payload.setdefault("schema_version", "activegraph.text_to_sql_evals.v01")
+        manifest_packs = manifest_payload.setdefault("packs", {})
+        if not isinstance(manifest_packs, dict):
+            raise PackConfigError("eval manifest packs must be a mapping")
+        manifest_base = manifest_path.resolve().parent
+        manifest_packs[pack_id] = {
+            "db": _rel_to(db_path, manifest_base),
+            "system_model": _rel_to(model_file, manifest_base),
+            "runnable": {"consolidated": _rel_to(evals_path, manifest_base)},
+            "coverage": {"consolidated_cases": len(cases), "domains": ["thirdparty_import"]},
+            "deferred": {"session_required": [], "unresolved_planner_or_schema": []},
+        }
+        manifest_path.parent.mkdir(parents=True, exist_ok=True)
+        manifest_path.write_text(yaml.safe_dump(manifest_payload, allow_unicode=True, sort_keys=False), encoding="utf-8")
+
+    pack = resolve_pack(pack_id, config_file=config_path)
+    return {
+        "ok": True,
+        "pack": pack_to_dict(pack),
+        "system_model": str(model_file.resolve()),
+        "eval_manifest": str(manifest_path.resolve()) if manifest_path else None,
+        "generated_rules": len(model["planning_model"]["rule_catalog"]["rules"]),
+        "schema_tables": [_rel_to(table, okf_path) for table in table_files],
+    }
 def pack_to_dict(pack: AgentPack) -> dict[str, Any]:
     return {
         "id": pack.id,

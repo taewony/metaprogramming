@@ -721,7 +721,7 @@ text-to-sql --pack thirdparty-db context "<sample prompt>" --json
 text-to-sql --pack thirdparty-db eval --json
 ```
 
-The current implementation has the lower-level pieces but not the `pack import` command yet. Until that command exists, onboarding is manual:
+The current implementation includes `pack import` for this minimal v11.5 path. It registers the DB, OKF schema bundle, eval cases, generated system-model file, and eval manifest entry. Manual onboarding remains useful for review or custom pack authoring:
 
 1. Copy the SQLite DB under `activegraph/data/`.
 2. Copy the OKF schema bundle under `activegraph/okf-wiki/`.
@@ -830,6 +830,7 @@ The scoring input should include prompt, final answer, SQL, params, rows or row 
 
 ### Acceptance Criteria For v11.5
 
+Status: implemented for the deterministic pack-runtime path.
 v11.5 is complete when:
 
 - a third-party DB and OKF schema bundle can be registered without modifying runtime source code;
@@ -1086,7 +1087,7 @@ Evaluation should run without LLM calls first. LLM behaviors can be evaluated la
 Initial DB CLI:
 
 ```text
-pack import              # planned v11.5
+pack import              # implemented v11.5
 pack validate
 pack schema
 text-to-sql ask
@@ -1094,8 +1095,8 @@ text-to-sql context
 text-to-sql eval
 text-to-sql inspect
 text-to-sql adapt
-eval-run export          # planned v11.5
-eval-run attach-score    # planned v11.5
+eval-run export          # implemented v11.5
+eval-run attach-score    # implemented v11.5
 ```
 
 Future Work KB CLI:

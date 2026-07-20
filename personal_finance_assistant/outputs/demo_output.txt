@@ -1,0 +1,117 @@
+Home
+----
+Personal Finance Assistant
+(using Local SLM)
+--------------------------------
+1. Expense Analysis
+2. Budget Planning
+3. Investment Advice
+4. Financial Chat
+5. Exit
+
+Demo 1 Input
+------------
+Salary
+3000
+
+Rent
+800
+
+Food
+500
+
+Shopping
+400
+
+Transport
+200
+
+Demo 1 SLM Output
+-----------------
+Monthly Expense Analysis
+
+Total Income : $3000
+
+Total Expense : $1900
+
+Saving : $1100
+
+Suggestion
+
+- Your saving rate is good.
+- Reduce shopping expenses.
+- Continue current budget.
+
+Demo 2 Input
+------------
+Income
+3000
+
+Saving Goal
+1000
+
+Demo 2 SLM Output
+-----------------
+Recommended Budget
+
+Housing
+30%
+
+Food
+20%
+
+Transport
+10%
+
+Shopping
+10%
+
+Saving
+30%
+
+Demo 3 Input
+------------
+Risk Level
+Low
+
+Demo 3 Output
+-------------
+Suggested Portfolio
+
+50% Bond
+
+30% ETF
+
+20% Cash
+
+Demo 3 Other Input
+------------------
+Risk Level
+High
+
+Demo 3 Other Output
+-------------------
+Suggested Portfolio
+
+60% ETF
+
+30% Stock
+
+10% Cash
+
+Demo 4 Input
+------------
+How can I reduce my monthly expenses?
+
+Demo 4 SLM Answer
+-----------------
+Here are three suggestions.
+
+1.
+Reduce unnecessary shopping.
+
+2.
+Set a monthly budget.
+
+3.
+Track every expense.

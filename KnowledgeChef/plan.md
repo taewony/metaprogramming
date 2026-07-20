@@ -157,6 +157,14 @@ v11_sql_planner_resolution:
     - "Implemented deterministic `resolve_sql_planner` behavior for v11 packs before intent parsing."
     - "Planner records `planner_resolution`, `decision_rationale`, and `clarification_request` graph objects."
     - "Low-confidence ambiguity returns clarification with no SQL; high-confidence rule-backed assumptions are recorded in graph state."
+
+v11_5_thirdparty_pack_onboarding:
+  status: completed
+  focus: "Register third-party SQLite DB + OKF schema bundle packs and evaluate them through auditable eval-run artifacts."
+  deliverables:
+    - "Implemented `pack import` to register DB, OKF schema bundle, eval JSONL, generated v11 system-model, event-store binding, and eval manifest entry."
+    - "Implemented eval-run artifact generation under `.tests/eval-runs/<eval_run_id>` with manifest, summary, per-case result, trace, graph, and scoring-input files."
+    - "Implemented `eval-run export` and `eval-run attach-score` so third-party scoring can remain external while still being recorded as immutable artifacts."
 ```
 
 Execution order:
@@ -164,7 +172,8 @@ Execution order:
 1. v09: Completed the event-log analyzer and adaptation proposal artifacts.
 2. v10: Completed session-scoped graph memory and reference resolution.
 3. v11: Completed deterministic planner-resolution behavior for imperfect real-world DB questions.
-4. With v09-v11 complete, the DB query/response hardening gate is ready for review before resuming OKF KB ingestion and RAG query work.
+4. v11.5: Completed third-party pack onboarding and eval-run evidence protocol for deterministic DB packs.
+5. With v09-v11.5 complete, the DB query/response hardening gate is ready for review before resuming OKF KB ingestion and RAG query work.
 
 The key boundary: `--llm` answer composition is post-SQL. It should not be mistaken for planner repair. Unsupported prompts must be handled by adaptation proposals, system-model patches, or planner-resolution behavior before SQL generation.
 ## ActiveGraph Integration Later

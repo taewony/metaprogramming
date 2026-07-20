@@ -785,6 +785,13 @@ incremental_roadmap:
       - "Implemented deterministic `resolve_sql_planner` behavior for v11 packs before intent parsing."
       - "Planner records `planner_resolution`, `decision_rationale`, and `clarification_request` graph objects."
       - "Low-confidence ambiguity returns clarification with no SQL; high-confidence rule-backed assumptions are recorded in graph state."
+  v11_5_thirdparty_pack_onboarding:
+    status: completed
+    focus: "Register third-party SQLite DB + OKF schema bundle packs and evaluate them through auditable eval-run artifacts."
+    deliverables:
+      - "Implemented `pack import` to register DB, OKF schema bundle, eval JSONL, generated v11 system-model, event-store binding, and eval manifest entry."
+      - "Implemented eval-run artifact generation under `.tests/eval-runs/<eval_run_id>` with manifest, summary, per-case result, trace, graph, and scoring-input files."
+      - "Implemented `eval-run export` and `eval-run attach-score` so third-party scoring can remain external while still being recorded as immutable artifacts."
   v96_okf_kb_ingestion:
     status: deferred_until_db_query_response_complete
     focus: "Extend from DB querying to file-to-KB workflows after v09-v11 harden DB query behavior."

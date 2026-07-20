@@ -397,6 +397,10 @@ class RuleCatalog:
         if empty_template is not None and not isinstance(empty_template, str):
             raise RuleCatalogError(f"rule {rule_id} answer.empty_template must be a string")
 
+        exact = match.get("exact")
+        if exact is not None and not isinstance(exact, str):
+            raise RuleCatalogError(f"rule {rule_id} match.exact must be a string")
+
         for field in ["contains_all", "contains_any", "compact_contains_all", "compact_contains_any"]:
             _string_list(match.get(field), field=f"match.{field}", rule_id=rule_id)
         regex = match.get("compact_regex")
@@ -489,6 +493,10 @@ class RuleCatalog:
     @staticmethod
     def _match_rule(rule: Rule, normalized: str, compact: str) -> dict[str, str] | None:
         match = rule.match
+        exact = match.get("exact")
+        if isinstance(exact, str) and normalized != _normalized_prompt(exact):
+            return None
+
         contains_all = _string_list(match.get("contains_all"), field="match.contains_all", rule_id=rule.id)
         if contains_all and not all(token.lower() in normalized for token in contains_all):
             return None

@@ -1,5 +1,5 @@
 schema_version: activegraph.packs.v01
-default_pack: hospital-db
+default_pack: techshop-db
 packs:
   hospital-db:
     display_name: Hospital DB Agent

@@ -65,7 +65,7 @@ def _print_modes(current_mode: str) -> None:
         marker = "*" if mode == current_mode else " "
         print(f"  {marker} {mode}")
     print("switch with: mode text-to-sql | mode activegraph")
-    print("pack commands are always available: pack list | pack current | pack inspect <id> | pack schema <id> | pack validate <id> | pack use <id>")
+    print("pack commands are always available: pack list | pack current | pack inspect <id> | pack schema <id> | pack validate <id> | pack import <id> | pack use <id>")
 
 def _print_shell_help(mode: str) -> None:
     print("REPL shell commands:")
@@ -80,6 +80,9 @@ def _print_shell_help(mode: str) -> None:
     print("  pack inspect <pack-id>     inspect pack DB/system-model/OKF bindings")
     print("  pack schema <pack-id>      project DB schema from the pack OKF bundle")
     print("  pack validate [pack-id]    validate pack files, DB, event store, and schema projection")
+    print("  pack import <pack-id>      register third-party DB + OKF schema bundle + eval cases")
+    print("  eval-run export <id>       export a v11.5 eval-run artifact bundle")
+    print("  eval-run attach-score <id> <case-id> --score-file score.json")
     print("  pack use <pack-id>         change the default pack in packs.yaml")
     print("  exit                       leave the REPL")
     print()

@@ -112,6 +112,8 @@ def test_agent_repl_help_mentions_pack_and_activegraph_mode():
     assert "pack list" in completed.stdout
     assert "pack schema <pack-id>" in completed.stdout
     assert "pack validate [pack-id]" in completed.stdout
+    assert "pack import <pack-id>" in completed.stdout
+    assert "eval-run export <id>" in completed.stdout
     assert "mode activegraph" in completed.stdout
     assert "Switch to original ActiveGraph shell with: mode activegraph" in completed.stdout
 def test_agent_pack_list_cli_shows_local_pack_registry():
@@ -1598,3 +1600,175 @@ def test_text_to_sql_eval_defaults_to_selected_pack_cases():
     assert payload["system_model"] == str(SYSTEM_MODEL_TECHSHOP_V11)
     assert payload["passed"] == 23
     assert payload["failed"] == 0
+
+
+def _write_thirdparty_fixture(tmp_path: Path) -> dict[str, Path]:
+    import sqlite3
+
+    root = tmp_path / "thirdparty"
+    db_dir = root / "db"
+    okf_dir = root / "okf-schema"
+    eval_dir = root / "evals"
+    tables_dir = okf_dir / "tables"
+    db_dir.mkdir(parents=True)
+    tables_dir.mkdir(parents=True)
+    eval_dir.mkdir(parents=True)
+
+    db_file = db_dir / "mini_crm.db"
+    with sqlite3.connect(db_file) as conn:
+        conn.execute("CREATE TABLE customers (id INTEGER PRIMARY KEY, name TEXT NOT NULL, grade TEXT NOT NULL)")
+        conn.executemany(
+            "INSERT INTO customers (id, name, grade) VALUES (?, ?, ?)",
+            [(1, "Alice", "VIP"), (2, "Bob", "BASIC"), (3, "Choi", "VIP")],
+        )
+
+    (okf_dir / "index.md").write_text(
+        "---\ntitle: Mini CRM Schema\ntype: knowledge-bundle\n---\n\n# Mini CRM Schema\n",
+        encoding="utf-8",
+    )
+    (tables_dir / "customers.md").write_text(
+        "---\n"
+        "title: Customers\n"
+        "type: table\n"
+        "table: customers\n"
+        "description: Customer records.\n"
+        "columns:\n"
+        "  - name: id\n"
+        "    type: INTEGER\n"
+        "    primary_key: true\n"
+        "  - name: name\n"
+        "    type: TEXT\n"
+        "  - name: grade\n"
+        "    type: TEXT\n"
+        "---\n\n# Customers\n",
+        encoding="utf-8",
+    )
+    cases_file = eval_dir / "cases.jsonl"
+    cases_file.write_text(
+        json.dumps(
+            {
+                "id": "mini_q001",
+                "prompt": "고객은 몇 명이야?",
+                "expected_sql": "SELECT COUNT(*) FROM customers",
+                "expected_params": [],
+                "expected_rows": [[3]],
+                "expected_answer_contains": ["3"],
+            },
+            ensure_ascii=False,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    return {"root": root, "db": db_file, "okf": okf_dir, "evals": cases_file}
+
+
+def test_v115_import_pack_registers_thirdparty_db_and_generates_system_model(tmp_path):
+    from activegraph.cli.pack_config import import_thirdparty_pack, resolve_pack, validate_pack
+    from activegraph.cli.schema_context import load_schema_context_for_pack
+
+    fixture = _write_thirdparty_fixture(tmp_path)
+    config_file = tmp_path / "packs.yaml"
+    manifest_file = tmp_path / "eval_manifest.yaml"
+    config_file.write_text(
+        yaml.safe_dump({"schema_version": "activegraph.packs.v01", "default_pack": "mini-crm", "packs": {}}, sort_keys=False),
+        encoding="utf-8",
+    )
+    manifest_file.write_text(
+        yaml.safe_dump({"schema_version": "activegraph.text_to_sql_evals.v01", "packs": {}}, sort_keys=False),
+        encoding="utf-8",
+    )
+
+    payload = import_thirdparty_pack(
+        "mini-crm",
+        db_file=fixture["db"],
+        okf_root=fixture["okf"],
+        evals_file=fixture["evals"],
+        config_file=config_file,
+        eval_manifest_file=manifest_file,
+        agent_dir=tmp_path,
+        data_dir=tmp_path / "data",
+        system_model_dir=tmp_path,
+    )
+
+    assert payload["ok"] is True
+    pack = resolve_pack("mini-crm", config_file=config_file)
+    assert pack.db_file == fixture["db"].resolve()
+    assert pack.schema_root == fixture["okf"].resolve()
+    assert pack.system_model.exists()
+    assert validate_pack(pack)["ok"] is True
+    schema_payload = load_schema_context_for_pack(pack)
+    assert schema_payload["ok"] is True
+    assert {table["name"] for table in schema_payload["tables"]} == {"customers"}
+
+    model = yaml.safe_load(pack.system_model.read_text(encoding="utf-8"))
+    rules = model["planning_model"]["rule_catalog"]["rules"]
+    assert rules[0]["match"]["exact"] == "고객은 몇 명이야?"
+    assert rules[0]["sql"]["text"] == "SELECT COUNT(*) FROM customers"
+
+    manifest = yaml.safe_load(manifest_file.read_text(encoding="utf-8"))
+    manifest_cases = Path(manifest["packs"]["mini-crm"]["runnable"]["consolidated"])
+    if not manifest_cases.is_absolute():
+        manifest_cases = manifest_file.parent / manifest_cases
+    assert manifest_cases.resolve() == fixture["evals"].resolve()
+
+
+def test_v115_run_eval_writes_eval_run_artifacts_and_external_score(tmp_path):
+    from activegraph.cli.eval_run import attach_external_score
+    from activegraph.cli.pack_config import import_thirdparty_pack, resolve_pack
+    from activegraph.cli.text_to_sql import run_eval
+
+    fixture = _write_thirdparty_fixture(tmp_path)
+    config_file = tmp_path / "packs.yaml"
+    manifest_file = tmp_path / "eval_manifest.yaml"
+    config_file.write_text(
+        yaml.safe_dump({"schema_version": "activegraph.packs.v01", "default_pack": "mini-crm", "packs": {}}, sort_keys=False),
+        encoding="utf-8",
+    )
+    manifest_file.write_text(
+        yaml.safe_dump({"schema_version": "activegraph.text_to_sql_evals.v01", "packs": {}}, sort_keys=False),
+        encoding="utf-8",
+    )
+    import_thirdparty_pack(
+        "mini-crm",
+        db_file=fixture["db"],
+        okf_root=fixture["okf"],
+        evals_file=fixture["evals"],
+        config_file=config_file,
+        eval_manifest_file=manifest_file,
+        agent_dir=tmp_path,
+        data_dir=tmp_path / "data",
+        system_model_dir=tmp_path,
+    )
+    pack = resolve_pack("mini-crm", config_file=config_file)
+    eval_runs_dir = tmp_path / "eval-runs"
+
+    payload = run_eval(
+        fixture["evals"],
+        pack.db_file,
+        tests_dir=tmp_path / "runs",
+        event_store=tmp_path / "events.sqlite",
+        system_model_file=pack.system_model,
+        pack=pack,
+        eval_runs_dir=eval_runs_dir,
+    )
+
+    assert payload["ok"] is True
+    assert payload["eval_run_id"].startswith("eval_")
+    run_dir = Path(payload["artifacts"]["eval_run_dir"])
+    assert (run_dir / "manifest.json").exists()
+    assert (run_dir / "summary.json").exists()
+    assert (run_dir / "eval_events.jsonl").exists()
+    case_dir = run_dir / "cases" / "mini_q001"
+    scoring_input = json.loads((case_dir / "scoring-input.json").read_text(encoding="utf-8"))
+    assert scoring_input["prompt"] == "고객은 몇 명이야?"
+    assert scoring_input["sql"] == "SELECT COUNT(*) FROM customers"
+    assert scoring_input["rows"] == [[3]]
+
+    score_file = tmp_path / "score.json"
+    score_file.write_text(json.dumps({"score": 1.0, "rubric": "exact", "notes": "ok"}), encoding="utf-8")
+    attached = attach_external_score(payload["eval_run_id"], "mini_q001", score_file=score_file, eval_runs_dir=eval_runs_dir)
+    assert attached["ok"] is True
+    assert Path(attached["external_score_file"]).exists()
+    events = (run_dir / "eval_events.jsonl").read_text(encoding="utf-8")
+    assert "eval.case_scored" in events
+    assert "external_judgment.recorded" in events

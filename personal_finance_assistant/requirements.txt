@@ -1,0 +1,3 @@
+﻿# Personal Finance Assistant requirements
+# The project uses Python standard library only.
+# Optional: install and run Ollama locally for real local SLM responses.

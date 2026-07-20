@@ -27,6 +27,7 @@ from activegraph.cli.hospital_logic import (
     validate_capture_entities,
     validate_select_sql,
 )
+from activegraph.cli.eval_run import DEFAULT_EVAL_RUNS_DIR, EvalRunRecorder, new_eval_run_id, write_case_artifacts, write_eval_manifest
 from activegraph.cli.full_context import assemble_full_context
 from activegraph.cli.llm_answer import LLMAnswerComposerError, compose_answer_with_llm, resolve_llm_config
 from activegraph.cli.pack_config import PackConfigError, resolve_pack
@@ -813,27 +814,45 @@ def run_eval(
     tests_dir: str | Path = DEFAULT_TESTS_DIR,
     event_store: str | Path | None = DEFAULT_EVENT_STORE_FILE,
     system_model_file: str | Path = DEFAULT_SYSTEM_MODEL_FILE,
+    pack: Any | None = None,
+    eval_runs_dir: str | Path = DEFAULT_EVAL_RUNS_DIR,
+    eval_run_id: str | None = None,
 ) -> dict[str, Any]:
     cases = load_cases(cases_file)
-    scored_cases = [
-        score_case(
-            case,
-            run_text_to_sql(
-                case["prompt"],
-                db_file,
-                tests_dir=tests_dir,
-                event_store=event_store,
-                system_model_file=system_model_file,
-            ),
+    resolved_eval_run_id = eval_run_id or new_eval_run_id()
+    recorder = EvalRunRecorder(
+        eval_run_id=resolved_eval_run_id,
+        pack_id=getattr(pack, "id", None),
+        cases_file=cases_file,
+        eval_runs_dir=eval_runs_dir,
+        event_store=event_store,
+    )
+    recorder.started(case_count=len(cases))
+    scored_cases: list[dict[str, Any]] = []
+    for case in cases:
+        recorder.case_started(case)
+        result = run_text_to_sql(
+            case["prompt"],
+            db_file,
+            tests_dir=tests_dir,
+            event_store=event_store,
+            system_model_file=system_model_file,
+            pack=pack,
+            pack_id=getattr(pack, "id", None),
         )
-        for case in cases
-    ]
+        scored = score_case(case, result)
+        scored["artifacts"] = write_case_artifacts(recorder, case, scored)
+        recorder.case_completed(case, scored)
+        scored_cases.append(scored)
     passed = sum(1 for case in scored_cases if case["ok"])
     failed = len(scored_cases) - passed
+    recorder.completed(passed=passed, failed=failed)
+    eval_artifacts = write_eval_manifest(recorder, cases=cases, scored_cases=scored_cases, passed=passed, failed=failed)
     return {
         "ok": failed == 0,
         "planner": "behavior",
         "model": None,
+        "eval_run_id": resolved_eval_run_id,
         "event_store": str(Path(event_store)) if event_store is not None else None,
         "store_url": sqlite_store_url(event_store) if event_store is not None else None,
         "system_model": str(Path(system_model_file)),
@@ -841,9 +860,8 @@ def run_eval(
         "passed": passed,
         "failed": failed,
         "cases": scored_cases,
+        "artifacts": eval_artifacts,
     }
-
-
 def behavior_specs(
     db_file: str | Path = DEFAULT_DB_FILE,
     *,
@@ -1202,12 +1220,16 @@ def echo_eval(payload: dict[str, Any], *, as_json: bool) -> None:
         return
 
     click.echo(f"summary: {payload['passed']} passed, {payload['failed']} failed")
+    if payload.get("eval_run_id"):
+        click.echo(f"eval_run_id: {payload['eval_run_id']}")
+    artifacts = payload.get("artifacts") or {}
+    if artifacts.get("eval_run_dir"):
+        click.echo(f"eval_run_dir: {artifacts['eval_run_dir']}")
     for case in payload["cases"]:
         status = "ok" if case["ok"] else "failed"
         click.echo(f"  {status:6s} {case['id']}")
         for failure in case["failures"]:
             click.echo(f"    {failure}")
-
 def _relation_source(relation: dict[str, Any]) -> str:
     return str(relation.get("source") or relation.get("from") or "")
 
@@ -1346,6 +1368,7 @@ def cmd_ask(
 @click.option("--db-file", type=click.Path(path_type=Path), default=None, help="Override DB file from selected pack.")
 @click.option("--tests-dir", type=click.Path(path_type=Path), default=DEFAULT_TESTS_DIR, show_default=True)
 @click.option("--event-store", type=click.Path(path_type=Path), default=None, help="Override event store from selected pack.")
+@click.option("--eval-runs-dir", type=click.Path(path_type=Path), default=DEFAULT_EVAL_RUNS_DIR, show_default=True, help="Directory for v11.5 eval-run artifacts.")
 @click.option("--json", "as_json", is_flag=True, help="Print the full JSON payload.")
 @click.pass_context
 def cmd_eval(
@@ -1354,6 +1377,7 @@ def cmd_eval(
     db_file: Path | None,
     tests_dir: Path,
     event_store: Path | None,
+    eval_runs_dir: Path,
     as_json: bool,
 ) -> None:
     """Run JSONL Text-to-SQL behavior eval cases."""
@@ -1365,11 +1389,12 @@ def cmd_eval(
         tests_dir=tests_dir,
         event_store=event_store,
         system_model_file=system_model_file,
+        pack=pack,
+        eval_runs_dir=eval_runs_dir,
     )
     echo_eval(payload, as_json=as_json)
     if not payload["ok"]:
         raise SystemExit(1)
-
 
 def _cmd_inspect_impl(
     run_selector: str | None,

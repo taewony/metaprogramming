@@ -1,0 +1,17 @@
+{
+  "salary": 3000,
+  "expenses": {
+    "Rent": 800,
+    "Food": 500,
+    "Shopping": 400,
+    "Transport": 200
+  },
+  "budget": {
+    "income": 3000,
+    "saving_goal": 1000
+  },
+  "investment": {
+    "risk_level": "Low"
+  },
+  "chat_question": "How can I reduce my monthly expenses?"
+}
