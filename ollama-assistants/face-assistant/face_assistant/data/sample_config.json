@@ -1,0 +1,11 @@
+{
+    "image": "data/sample_face.jpg",
+    "demo_functions": [
+        "Face Detection",
+        "Emotion Recognition",
+        "VLM Deep Analysis",
+        "Age & Gender Estimation"
+    ],
+    "ollama_model": "llava:7b",
+    "ollama_host": "http://localhost:11434"
+}

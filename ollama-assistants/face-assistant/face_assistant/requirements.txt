@@ -1,0 +1,6 @@
+# Face Recognition Assistant dependencies
+opencv-python>=4.8.0
+numpy>=1.24.0
+# Optional: install and run Ollama for VLM deep analysis
+# curl -fsSL https://ollama.com/install.sh | sh
+# ollama pull llava:7b
