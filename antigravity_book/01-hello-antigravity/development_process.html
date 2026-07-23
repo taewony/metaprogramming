@@ -1,0 +1,1229 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Antigravity Development Loop Dashboard</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-color: #0b0f19;
+            --card-bg: rgba(17, 24, 39, 0.6);
+            --card-border: rgba(255, 255, 255, 0.08);
+            --text-color: #f3f4f6;
+            --text-muted: #9ca3af;
+            
+            /* Step Colors */
+            --color-sysmodel: #06b6d4;
+            --color-impl: #3b82f6;
+            --color-eval: #8b5cf6;
+            --color-evidence: #f43f5e;
+            --color-insight: #f59e0b;
+            --color-decision: #10b981;
+            --color-nextmodel: #6366f1;
+            
+            --active-color: var(--color-sysmodel);
+            --glow-color: rgba(6, 182, 212, 0.15);
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Outfit', sans-serif;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow-x: hidden;
+            background-image: 
+                radial-gradient(at 10% 20%, rgba(59, 130, 246, 0.08) 0px, transparent 50%),
+                radial-gradient(at 90% 10%, rgba(139, 92, 246, 0.08) 0px, transparent 50%),
+                radial-gradient(at 50% 80%, rgba(16, 185, 129, 0.06) 0px, transparent 50%);
+            background-attachment: fixed;
+        }
+
+        header {
+            padding: 2rem 4rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid var(--card-border);
+            backdrop-filter: blur(10px);
+            background: rgba(11, 15, 25, 0.8);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .logo-section {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .logo-icon {
+            width: 32px;
+            height: 32px;
+            background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 1.2rem;
+            box-shadow: 0 0 15px rgba(139, 92, 246, 0.4);
+        }
+
+        header h1 {
+            font-size: 1.5rem;
+            font-weight: 700;
+            letter-spacing: -0.5px;
+            background: linear-gradient(to right, #f3f4f6, #9ca3af);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        header p {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            margin-top: 2px;
+        }
+
+        .controls-top {
+            display: flex;
+            gap: 1rem;
+            align-items: center;
+        }
+
+        .btn {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid var(--card-border);
+            color: var(--text-color);
+            padding: 0.6rem 1.2rem;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 500;
+            font-size: 0.9rem;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            backdrop-filter: blur(5px);
+        }
+
+        .btn:hover {
+            background: rgba(255, 255, 255, 0.1);
+            border-color: rgba(255, 255, 255, 0.2);
+            transform: translateY(-2px);
+        }
+
+        .btn.active {
+            background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+            border-color: transparent;
+            box-shadow: 0 4px 15px rgba(59, 130, 246, 0.3);
+        }
+
+        .main-container {
+            flex: 1;
+            display: grid;
+            grid-template-columns: 1.1fr 1.3fr;
+            padding: 2.5rem 4rem;
+            gap: 3rem;
+            max-width: 1600px;
+            margin: 0 auto;
+            width: 100%;
+        }
+
+        /* Left Side - Visual Loop Map */
+        .loop-visualizer {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            background: var(--card-bg);
+            border: 1px solid var(--card-border);
+            border-radius: 24px;
+            padding: 2rem;
+            backdrop-filter: blur(20px);
+            position: relative;
+            overflow: hidden;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+        }
+
+        .loop-visualizer::before {
+            content: '';
+            position: absolute;
+            width: 250px;
+            height: 250px;
+            background: var(--glow-color);
+            filter: blur(90px);
+            border-radius: 50%;
+            z-index: 0;
+            transition: background-color 0.8s ease;
+        }
+
+        .svg-container {
+            width: 100%;
+            max-width: 480px;
+            aspect-ratio: 1;
+            position: relative;
+            z-index: 1;
+        }
+
+        svg {
+            width: 100%;
+            height: 100%;
+            overflow: visible;
+        }
+
+        .loop-path-glow {
+            fill: none;
+            stroke: var(--active-color);
+            stroke-width: 6px;
+            opacity: 0.15;
+            transition: stroke 0.8s ease;
+        }
+
+        .loop-path {
+            fill: none;
+            stroke: rgba(255, 255, 255, 0.08);
+            stroke-width: 2px;
+            stroke-dasharray: 8, 8;
+        }
+
+        .loop-path-active {
+            fill: none;
+            stroke: var(--active-color);
+            stroke-width: 3px;
+            stroke-dasharray: 100 800;
+            stroke-dashoffset: 0;
+            animation: flowLight 8s linear infinite;
+            opacity: 0.8;
+            transition: stroke 0.8s ease;
+        }
+
+        @keyframes flowLight {
+            from { stroke-dashoffset: 900; }
+            to { stroke-dashoffset: 0; }
+        }
+
+        .node {
+            cursor: pointer;
+            transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+
+        .node-circle-glow {
+            fill: var(--node-color);
+            opacity: 0;
+            transform-origin: center;
+            transform: scale(1);
+            transition: all 0.4s ease;
+        }
+
+        .node.active .node-circle-glow {
+            opacity: 0.3;
+            transform: scale(2.2);
+            filter: blur(2px);
+        }
+
+        .node-circle {
+            fill: #111827;
+            stroke: var(--node-color);
+            stroke-width: 3px;
+            transition: all 0.4s ease;
+        }
+
+        .node:hover .node-circle {
+            fill: var(--node-color);
+            transform: scale(1.1);
+            transform-origin: center;
+        }
+
+        .node.active .node-circle {
+            fill: var(--node-color);
+            stroke-width: 4px;
+            stroke: #fff;
+            transform: scale(1.2);
+            transform-origin: center;
+            filter: drop-shadow(0 0 10px var(--node-color));
+        }
+
+        .node-text {
+            fill: var(--text-color);
+            font-size: 11px;
+            font-weight: 500;
+            text-anchor: middle;
+            pointer-events: none;
+            opacity: 0.7;
+            transition: all 0.3s ease;
+        }
+
+        .node.active .node-text {
+            opacity: 1;
+            font-weight: 700;
+            font-size: 12px;
+        }
+
+        .node-number {
+            fill: var(--node-color);
+            font-size: 10px;
+            font-weight: bold;
+            text-anchor: middle;
+            dominant-baseline: central;
+            pointer-events: none;
+            transition: fill 0.3s ease;
+        }
+
+        .node.active .node-number {
+            fill: #111827;
+        }
+
+        .loop-info-box {
+            margin-top: 1.5rem;
+            text-align: center;
+            z-index: 1;
+        }
+
+        .loop-info-box h3 {
+            font-size: 1.2rem;
+            margin-bottom: 0.3rem;
+            color: var(--text-color);
+        }
+
+        .loop-info-box p {
+            color: var(--text-muted);
+            font-size: 0.85rem;
+        }
+
+        /* Right Side - Detail Panel */
+        .detail-panel {
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+        }
+
+        .info-card {
+            background: var(--card-bg);
+            border: 1px solid var(--card-border);
+            border-radius: 24px;
+            padding: 2.2rem;
+            backdrop-filter: blur(20px);
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
+            position: relative;
+            overflow: hidden;
+            display: none;
+            opacity: 0;
+            transform: translateY(15px);
+            transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .info-card.active {
+            display: block;
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        .step-tag {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 0.3rem 0.8rem;
+            border-radius: 20px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+            margin-bottom: 1rem;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .card-header h2 {
+            font-size: 1.8rem;
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+            line-height: 1.2;
+        }
+
+        .subtitle-eng {
+            font-size: 0.95rem;
+            color: var(--text-muted);
+            margin-bottom: 1.5rem;
+            display: block;
+            font-family: 'Outfit', sans-serif;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .section-divider {
+            height: 1px;
+            background: var(--card-border);
+            margin: 1.2rem 0;
+        }
+
+        .desc-block {
+            margin-bottom: 1.5rem;
+        }
+
+        .desc-block h4 {
+            font-size: 0.9rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 0.5rem;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .desc-block p {
+            font-size: 1rem;
+            line-height: 1.6;
+            color: #d1d5db;
+        }
+
+        .mapping-block {
+            background: rgba(255, 255, 255, 0.02);
+            border-left: 3px solid var(--active-color);
+            padding: 1rem 1.2rem;
+            border-radius: 0 12px 12px 0;
+            margin-bottom: 1.5rem;
+        }
+
+        .mapping-block h5 {
+            font-size: 0.95rem;
+            font-weight: 600;
+            margin-bottom: 0.4rem;
+            color: #fff;
+        }
+
+        .mapping-block p {
+            font-size: 0.9rem;
+            color: var(--text-muted);
+            line-height: 1.5;
+        }
+
+        .code-container {
+            position: relative;
+            background: rgba(0, 0, 0, 0.4);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            border-radius: 12px;
+            overflow: hidden;
+            margin-top: 1rem;
+        }
+
+        .code-header {
+            background: rgba(255, 255, 255, 0.03);
+            padding: 0.5rem 1rem;
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+            font-family: 'Fira Code', monospace;
+        }
+
+        .code-lang {
+            text-transform: uppercase;
+            font-weight: 600;
+        }
+
+        pre {
+            padding: 1.2rem;
+            overflow-x: auto;
+            margin: 0;
+        }
+
+        code {
+            font-family: 'Fira Code', monospace;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            color: #e5e7eb;
+        }
+
+        .prompt-box {
+            background: rgba(245, 158, 11, 0.05);
+            border: 1px dashed rgba(245, 158, 11, 0.2);
+            padding: 1rem;
+            border-radius: 10px;
+            margin-bottom: 1.5rem;
+            position: relative;
+        }
+
+        .prompt-box::before {
+            content: '💬 PROMPT';
+            position: absolute;
+            top: -10px;
+            left: 15px;
+            background: #111827;
+            padding: 0 8px;
+            font-size: 0.7rem;
+            font-weight: 700;
+            color: #f59e0b;
+            border-radius: 4px;
+            border: 1px solid rgba(245, 158, 11, 0.2);
+        }
+
+        .prompt-box p {
+            font-size: 0.9rem;
+            color: #f3f4f6;
+            line-height: 1.5;
+            font-style: italic;
+        }
+
+        /* Interactive Widgets */
+        .widget-box {
+            background: rgba(255, 255, 255, 0.02);
+            border: 1px solid var(--card-border);
+            border-radius: 12px;
+            padding: 1.2rem;
+            margin-top: 1rem;
+        }
+
+        .widget-title {
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 0.8rem;
+        }
+
+        .rules-preview {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .rule-item {
+            background: rgba(255, 255, 255, 0.02);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            padding: 8px 12px;
+            border-radius: 6px;
+            font-size: 0.85rem;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .rule-bullet {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: var(--active-color);
+        }
+
+        /* Navigation Buttons at Bottom */
+        .step-navigator {
+            display: flex;
+            justify-content: space-between;
+            margin-top: auto;
+            padding-top: 1.5rem;
+        }
+
+        /* Footer */
+        footer {
+            margin-top: auto;
+            padding: 2rem 4rem;
+            text-align: center;
+            border-top: 1px solid var(--card-border);
+            color: var(--text-muted);
+            font-size: 0.85rem;
+            background: rgba(11, 15, 25, 0.5);
+            backdrop-filter: blur(10px);
+        }
+
+        footer a {
+            color: var(--text-color);
+            text-decoration: none;
+            font-weight: 500;
+            transition: color 0.3s;
+        }
+
+        footer a:hover {
+            color: #3b82f6;
+        }
+
+        /* Custom Color Theme for each slide */
+        .theme-sysmodel { --active-color: var(--color-sysmodel); --glow-color: rgba(6, 182, 212, 0.15); }
+        .theme-impl { --active-color: var(--color-impl); --glow-color: rgba(59, 130, 246, 0.15); }
+        .theme-eval { --active-color: var(--color-eval); --glow-color: rgba(139, 92, 246, 0.15); }
+        .theme-evidence { --active-color: var(--color-evidence); --glow-color: rgba(244, 63, 94, 0.15); }
+        .theme-insight { --active-color: var(--color-insight); --glow-color: rgba(245, 158, 11, 0.15); }
+        .theme-decision { --active-color: var(--color-decision); --glow-color: rgba(16, 185, 129, 0.15); }
+        .theme-nextmodel { --active-color: var(--color-nextmodel); --glow-color: rgba(99, 102, 241, 0.15); }
+
+        /* Animation utilities */
+        .fade-in {
+            animation: fadeIn 0.4s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* Code syntax coloring mockup */
+        .token.comment { color: #6b7280; font-style: italic; }
+        .token.keyword { color: #f472b6; }
+        .token.string { color: #34d399; }
+        .token.function { color: #60a5fa; }
+        .token.number { color: #fbbf24; }
+        .token.tag { color: #f87171; }
+        .token.attr { color: #fb923c; }
+
+        /* Live Mini Timer Simulator */
+        .mini-timer-box {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 1rem;
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 12px;
+            padding: 1rem;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .mini-timer-display {
+            font-family: 'Fira Code', monospace;
+            font-size: 1.8rem;
+            font-weight: bold;
+            color: var(--active-color);
+            text-shadow: 0 0 10px var(--glow-color);
+        }
+
+        .mini-timer-btn {
+            background: rgba(255, 255, 255, 0.08);
+            border: none;
+            color: #fff;
+            padding: 6px 12px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .mini-timer-btn:hover {
+            background: var(--active-color);
+            color: #111827;
+            font-weight: bold;
+        }
+
+        /* Live Terminal Simulation */
+        .terminal-box {
+            background: #05070c;
+            border-radius: 8px;
+            padding: 10px;
+            font-family: 'Fira Code', monospace;
+            font-size: 0.8rem;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .terminal-line {
+            margin-bottom: 4px;
+        }
+
+        .term-prompt { color: #10b981; }
+        .term-err { color: #f43f5e; }
+        .term-info { color: #3b82f6; }
+
+        @media (max-width: 1024px) {
+            .main-container {
+                grid-template-columns: 1fr;
+                padding: 1.5rem;
+                gap: 2rem;
+            }
+            header {
+                padding: 1.5rem;
+            }
+            footer {
+                padding: 1.5rem;
+            }
+        }
+    </style>
+</head>
+<body class="theme-sysmodel">
+
+    <header>
+        <div class="logo-section">
+            <div class="logo-icon">AG</div>
+            <div>
+                <h1>Antigravity Development Cycle</h1>
+                <p>과학적 프로그래밍 방법론 &amp; hello-antigravity 실습 매핑</p>
+            </div>
+        </div>
+        <div class="controls-top">
+            <button id="autoplay-btn" class="btn">
+                <span>▶ Auto Play</span>
+            </button>
+        </div>
+    </header>
+
+    <div class="main-container">
+        
+        <!-- Left Column: SVG Loop -->
+        <div class="loop-visualizer">
+            <div class="svg-container">
+                <svg viewBox="-20 -20 440 440">
+                    <!-- Glow and paths -->
+                    <path id="loopPathGlow" class="loop-path-glow" d="M 200, 20 A 180,180 0 1,1 199.9,20 Z" />
+                    <path id="loopPath" class="loop-path" d="M 200, 20 A 180,180 0 1,1 199.9,20 Z" />
+                    <path id="loopPathActive" class="loop-path-active" d="M 200, 20 A 180,180 0 1,1 199.9,20 Z" />
+                    
+                    <!-- Circular nodes mapping 7 steps -->
+                    <!-- 1. System Model (0 deg, Top: 200, 20) -->
+                    <g class="node active" data-step="1" style="--node-color: var(--color-sysmodel);">
+                        <circle class="node-circle-glow" cx="200" cy="20" r="14" />
+                        <circle class="node-circle" cx="200" cy="20" r="14" />
+                        <text class="node-number" cx="200" cy="20">1</text>
+                        <text class="node-text" x="200" y="-12">System Model</text>
+                    </g>
+                    
+                    <!-- 2. Implementation (~51 deg) -->
+                    <g class="node" data-step="2" style="--node-color: var(--color-impl);">
+                        <circle class="node-circle-glow" cx="340.5" cy="87.8" r="14" />
+                        <circle class="node-circle" cx="340.5" cy="87.8" r="14" />
+                        <text class="node-number" cx="340.5" cy="87.8">2</text>
+                        <text class="node-text" x="382" y="76">Implementation</text>
+                    </g>
+                    
+                    <!-- 3. Evaluation (~103 deg) -->
+                    <g class="node" data-step="3" style="--node-color: var(--color-eval);">
+                        <circle class="node-circle-glow" cx="375.4" cy="241.1" r="14" />
+                        <circle class="node-circle" cx="375.4" cy="241.1" r="14" />
+                        <text class="node-number" cx="375.4" cy="241.1">3</text>
+                        <text class="node-text" x="415" y="244">Evaluation</text>
+                    </g>
+                    
+                    <!-- 4. Evidence (~154 deg) -->
+                    <g class="node" data-step="4" style="--node-color: var(--color-evidence);">
+                        <circle class="node-circle-glow" cx="278.4" cy="362.2" r="14" />
+                        <circle class="node-circle" cx="278.4" cy="362.2" r="14" />
+                        <text class="node-number" cx="278.4" cy="362.2">4</text>
+                        <text class="node-text" x="310" y="388">Evidence</text>
+                    </g>
+                    
+                    <!-- 5. Insight (~206 deg) -->
+                    <g class="node" data-step="5" style="--node-color: var(--color-insight);">
+                        <circle class="node-circle-glow" cx="121.6" cy="362.2" r="14" />
+                        <circle class="node-circle" cx="121.6" cy="362.2" r="14" />
+                        <text class="node-number" cx="121.6" cy="362.2">5</text>
+                        <text class="node-text" x="90" y="388">Insight</text>
+                    </g>
+                    
+                    <!-- 6. Decision (~257 deg) -->
+                    <g class="node" data-step="6" style="--node-color: var(--color-decision);">
+                        <circle class="node-circle-glow" cx="24.6" cy="241.1" r="14" />
+                        <circle class="node-circle" cx="24.6" cy="241.1" r="14" />
+                        <text class="node-number" cx="24.6" cy="241.1">6</text>
+                        <text class="node-text" x="-15" y="244">Decision</text>
+                    </g>
+                    
+                    <!-- 7. Next System Model (~309 deg) -->
+                    <g class="node" data-step="7" style="--node-color: var(--color-nextmodel);">
+                        <circle class="node-circle-glow" cx="59.5" cy="87.8" r="14" />
+                        <circle class="node-circle" cx="59.5" cy="87.8" r="14" />
+                        <text class="node-number" cx="59.5" cy="87.8">7</text>
+                        <text class="node-text" x="18" y="76">Next Model</text>
+                    </g>
+                </svg>
+            </div>
+            
+            <div class="loop-info-box">
+                <h3 id="visualizer-title">System Model</h3>
+                <p id="visualizer-desc">시스템의 아키텍처 및 기획을 정의하는 단계</p>
+            </div>
+        </div>
+
+        <!-- Right Column: Detail Content Cards -->
+        <div class="detail-panel">
+            
+            <!-- STEP 1: System Model -->
+            <div class="info-card active" data-step="1">
+                <span class="step-tag" style="color: var(--color-sysmodel); border-color: rgba(6, 182, 212, 0.3);">Step 01</span>
+                <div class="card-header">
+                    <h2>시스템 모델</h2>
+                    <span class="subtitle-eng">System Model</span>
+                </div>
+                <div class="section-divider"></div>
+                
+                <div class="desc-block">
+                    <h4>💡 개념 정의</h4>
+                    <p>개발하고자 하는 시스템의 구조, 요구사항, 흐름을 추상적으로 개념화하여 정신적 또는 문서화된 설계 모델(Mental &amp; Structural Model)을 확립하는 최초 설계 단계입니다.</p>
+                </div>
+
+                <div class="prompt-box">
+                    <p>"웹으로 구현한 간단한 타이머를 만들어 줘, 바로 코드를 작성하지 말고, 먼저 전체 구현 순서와 파일별 핵심 로직을 정리한 Implementation_Plan.md 파일을 생성해 줘."</p>
+                </div>
+
+                <div class="mapping-block">
+                    <h5>🛠️ hello-antigravity 실습 매핑</h5>
+                    <p>에이전트에게 즉흥적으로 코드를 짜게 하지 않고, 구조화된 아키텍처 가이드라인인 <strong>Implementation_Plan.md</strong> 설계를 지시하고 이에 합의하는 기획 단계에 대응합니다.</p>
+                </div>
+
+                <div class="code-container">
+                    <div class="code-header">
+                        <span class="code-file">Implementation_Plan.md (구조 예시)</span>
+                        <span class="code-lang">markdown</span>
+                    </div>
+                    <pre><code># Implementation Plan: Focus Timer
+1. **Architecture Overview**
+   - Single-page application using modern HTML5 semantic elements
+   - Styled with custom CSS variables (themes, sizes, flexbox layout)
+   - Powered by OOP based Javascript Timer core
+2. **Components Specifications**
+   - Display: Hour/Min/Sec digits with localized labels
+   - Controls: Start, Pause, Reset action controls
+   - Presets: Custom quick preset buttons (e.g., Pasta 8 mins)</code></pre>
+                </div>
+            </div>
+
+            <!-- STEP 2: Implementation -->
+            <div class="info-card" data-step="2">
+                <span class="step-tag" style="color: var(--color-impl); border-color: rgba(59, 130, 246, 0.3);">Step 02</span>
+                <div class="card-header">
+                    <h2>코드 구현</h2>
+                    <span class="subtitle-eng">Implementation</span>
+                </div>
+                <div class="section-divider"></div>
+                
+                <div class="desc-block">
+                    <h4>💡 개념 정의</h4>
+                    <p>확립된 시스템 모델을 바탕으로, 실제 작동 가능한 소스 코드 파일들을 작성하고 개발 환경을 구축하여 설계를 구체물로 실현하는 단계입니다.</p>
+                </div>
+
+                <div class="prompt-box">
+                    <p>"현재 폴더에 hello.py 파일을 만들고 'Hello Antigravity!'를 출력하는 코드를 작성해 줘."</p>
+                </div>
+
+                <div class="mapping-block">
+                    <h5>🛠️ hello-antigravity 실습 매핑</h5>
+                    <p>초기 프로젝트를 생성하고, `hello.py` 출력 스크립트 작성 및 `index.html`, `style.css`, `script.js`로 이루어진 타이머 애플리케이션의 골격을 실제 코딩하는 과정입니다.</p>
+                </div>
+
+                <div class="code-container">
+                    <div class="code-header">
+                        <span class="code-file">hello.py</span>
+                        <span class="code-lang">python</span>
+                    </div>
+                    <pre><code><span class="token comment"># Hello Antigravity Python Script</span>
+<span class="token function">print</span>(<span class="token string">'Hello Antigravity!'</span>)</code></pre>
+                </div>
+                
+                <div class="code-container">
+                    <div class="code-header">
+                        <span class="code-file">script.js (Timer Class Constructor)</span>
+                        <span class="code-lang">javascript</span>
+                    </div>
+                    <pre><code><span class="token keyword">class</span> <span class="token function">Timer</span> {
+    <span class="token function">constructor</span>() {
+        <span class="token keyword">this</span>.hoursElement = document.<span class="token function">getElementById</span>(<span class="token string">'hours'</span>);
+        <span class="token keyword">this</span>.minutesElement = document.<span class="token function">getElementById</span>(<span class="token string">'minutes'</span>);
+        <span class="token keyword">this</span>.secondsElement = document.<span class="token function">getElementById</span>(<span class="token string">'seconds'</span>);
+        <span class="token keyword">this</span>.totalSeconds = <span class="token number">0</span>;
+        <span class="token keyword">this</span>.isRunning = <span class="token keyword">false</span>;
+        <span class="token keyword">this</span>.<span class="token function">initListeners</span>();
+    }
+}</code></pre>
+                </div>
+            </div>
+
+            <!-- STEP 3: Evaluation -->
+            <div class="info-card" data-step="3">
+                <span class="step-tag" style="color: var(--color-eval); border-color: rgba(139, 92, 246, 0.3);">Step 03</span>
+                <div class="card-header">
+                    <h2>평가 및 검증</h2>
+                    <span class="subtitle-eng">Evaluation</span>
+                </div>
+                <div class="section-divider"></div>
+                
+                <div class="desc-block">
+                    <h4>💡 개념 정의</h4>
+                    <p>작성된 코드를 실행 환경(런타임, 브라우저 등)에서 가동시키며 테스트 케이스, 요구조건, 정적 코드 분석기를 통해 예상대로 완벽히 동작하는지 검사하는 단계입니다.</p>
+                </div>
+
+                <div class="prompt-box">
+                    <p>"파스타 타이머 기능을 추가해 줘, 파스타 버튼을 누르면 자동으로 8분 타이머가 시작되게 만들어 줘."</p>
+                </div>
+
+                <div class="mapping-block">
+                    <h5>🛠️ hello-antigravity 실습 매핑</h5>
+                    <p>타이머를 직접 가동(Evaluation)하여 파스타 버튼(8분 자동 설정) 클릭 시의 시간 카운트다운 테스트, 영문 레이블의 한글화 변경 테스트, 다크 모드 ON/OFF 토글 동작성을 검증하는 과정입니다.</p>
+                </div>
+
+                <div class="widget-box">
+                    <div class="widget-title">Interactive Evaluation Simulator</div>
+                    <div class="mini-timer-box">
+                        <div class="mini-timer-display" id="sim-display">08:00</div>
+                        <button class="mini-timer-btn" id="sim-btn">🍝 Pasta 8m Test</button>
+                        <button class="mini-timer-btn" id="sim-reset-btn">Reset</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- STEP 4: Evidence -->
+            <div class="info-card" data-step="4">
+                <span class="step-tag" style="color: var(--color-evidence); border-color: rgba(244, 63, 94, 0.3);">Step 04</span>
+                <div class="card-header">
+                    <h2>객관적 증거</h2>
+                    <span class="subtitle-eng">Evidence</span>
+                </div>
+                <div class="section-divider"></div>
+                
+                <div class="desc-block">
+                    <h4>💡 개념 정의</h4>
+                    <p>검증(Evaluation) 수행 중 포착되는 명확한 런타임 결과물입니다. 성공적인 작동 메트릭, 컴파일러 경고, 터미널 에러 스택 트레이스, 브라우저 렌더링 디버깅 로그 등이 여기에 해당합니다.</p>
+                </div>
+
+                <div class="prompt-box">
+                    <p>"@Terminal 내용을 보고 방금 실행한 코드에 오류가 났는지 확인해줘."</p>
+                </div>
+
+                <div class="mapping-block">
+                    <h5>🛠️ hello-antigravity 실습 매핑</h5>
+                    <p>실제 브라우저의 콘솔 출력, 터미널(Terminal)의 컴파일 에러 메시지, 그리고 룰 및 린터 검사를 통과하지 못한 오류 등의 구체적 증거 데이터 수집 과정입니다.</p>
+                </div>
+
+                <div class="widget-box">
+                    <div class="widget-title">Captured Terminal Evidence</div>
+                    <div class="terminal-box">
+                        <div class="terminal-line"><span class="term-prompt">AG-CLI&gt;</span> npm run dev</div>
+                        <div class="terminal-line"><span class="term-info">[vite] dev server running at http://localhost:5173/</span></div>
+                        <div class="terminal-line"><span class="term-err">[ERROR] ReferenceError: timerInterval is not defined at reset() (script.js:142)</span></div>
+                        <div class="terminal-line"><span class="term-err">[LINT] .antigravityrules violation: "All custom timer functions must have Korean Docstrings."</span></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- STEP 5: Insight -->
+            <div class="info-card" data-step="5">
+                <span class="step-tag" style="color: var(--color-insight); border-color: rgba(245, 158, 11, 0.3);">Step 05</span>
+                <div class="card-header">
+                    <h2>통찰</h2>
+                    <span class="subtitle-eng">Insight</span>
+                </div>
+                <div class="section-divider"></div>
+                
+                <div class="desc-block">
+                    <h4>💡 개념 정의</h4>
+                    <p>증거(Evidence)로 획득된 데이터들을 정밀 분석하여, 에러가 발생한 메커니즘을 밝혀내고 구조적 결함이나 성능 병목, 혹은 협의된 룰과의 괴리를 근본적으로 해석해내는 단계입니다.</p>
+                </div>
+
+                <div class="prompt-box">
+                    <p>"@script.js#L39-54 이 코드가 어떻게 동작하는지 초보자도 알기 쉽게 설명해 줘."</p>
+                </div>
+
+                <div class="mapping-block">
+                    <h5>🛠️ hello-antigravity 실습 매핑</h5>
+                    <p>수집된 에러(clearInterval 누락)의 원인을 발견하고, `@.antigravityrules`에 명시된 규칙(예: 한국어 독스트링 작성, 변수 명명 규칙)을 지키지 않아 생기는 스타일 일관성 문제를 이해하는 논리적 분석 단계입니다.</p>
+                </div>
+
+                <div class="widget-box">
+                    <div class="widget-title">Antigravity Rules Check (Insight)</div>
+                    <div class="rules-preview">
+                        <div class="rule-item">
+                            <span class="rule-bullet" style="background: var(--color-evidence)"></span>
+                            <span>규칙 미준수: script.js 내 API Docstring 누락</span>
+                        </div>
+                        <div class="rule-item">
+                            <span class="rule-bullet" style="background: var(--color-decision)"></span>
+                            <span>통찰: 협업 및 메타프로그래밍의 유연성을 위해 한글 Docstring 추가가 시급함.</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- STEP 6: Decision -->
+            <div class="info-card" data-step="6">
+                <span class="step-tag" style="color: var(--color-decision); border-color: rgba(16, 185, 129, 0.3);">Step 06</span>
+                <div class="card-header">
+                    <h2>의사결정</h2>
+                    <span class="subtitle-eng">Decision</span>
+                </div>
+                <div class="section-divider"></div>
+                
+                <div class="desc-block">
+                    <h4>💡 개념 정의</h4>
+                    <p>통찰(Insight)을 기초로 삼아 결함을 치료하고 시스템 품질을 극대화하기 위해 구체적으로 어떤 모듈을 수정하고, 어떤 라이브러리 가이드(예: Material Design 3)를 반영할지 결정을 내리는 설계 수정 단계입니다.</p>
+                </div>
+
+                <div class="prompt-box">
+                    <p>"너는 테크니컬 라이터이자 UI 디자이너야... @directory reference 폴더에 있는 md 파일을 이용해서 지금 타이머의 디자인을 머터리얼 스타일로 변경해 줘."</p>
+                </div>
+
+                <div class="mapping-block">
+                    <h5>🛠️ hello-antigravity 실습 매핑</h5>
+                    <p>공식 문서와 가이드라인(`docs/reference/material_design_3.md`)을 읽어들여 <strong>머터리얼 스타일을 반영하기로 의사 결정</strong>하고, `.antigravityrules` 룰북 규칙을 코드 전반에 전격 적용하기로 확정하는 과정입니다.</p>
+                </div>
+
+                <div class="code-container">
+                    <div class="code-header">
+                        <span class="code-file">.antigravityrules (적용 컨벤션)</span>
+                        <span class="code-lang">yaml</span>
+                    </div>
+                    <pre><code># 3. 코딩 컨벤션 (Coding Standards) 적용 결정
+- **주석:** 모든 주요 함수와 클래스에는 '한국어'로 독스트링을 작성하세요.
+- **명명 규칙:** Python 변수/함수는 snake_case, React 컴포넌트는 PascalCase 적용.</code></pre>
+                </div>
+            </div>
+
+            <!-- STEP 7: Next System Model -->
+            <div class="info-card" data-step="7">
+                <span class="step-tag" style="color: var(--color-nextmodel); border-color: rgba(99, 102, 241, 0.3);">Step 07</span>
+                <div class="card-header">
+                    <h2>차기 시스템 모델</h2>
+                    <span class="subtitle-eng">Next System Model</span>
+                </div>
+                <div class="section-divider"></div>
+                
+                <div class="desc-block">
+                    <h4>💡 개념 정의</h4>
+                    <p>의사결정(Decision)이 충실히 반영되어, 버그가 제거되고 머터리얼 디자인 및 글로벌 룰 컨벤션이 통합된 새로운 차세대 설계 규격으로 진화하는 루프의 종착지이자 새로운 시작점입니다.</p>
+                </div>
+
+                <div class="prompt-box">
+                    <p>"지금까지 작업한 내용을 요약해서 다음 대화에서 쓸 수 있게 정리해 줘."</p>
+                </div>
+
+                <div class="mapping-block">
+                    <h5>🛠️ hello-antigravity 실습 매핑</h5>
+                    <p>규칙과 디자인 개편이 모두 완료된 타이머 애플리케이션의 고도화 버전 구조입니다. 이 최종 맥락은 에이전트에 의해 요약되어 다음 개발 세션의 최초 시스템 모델로 활용됩니다.</p>
+                </div>
+
+                <div class="code-container">
+                    <div class="code-header">
+                        <span class="code-file">Refactored script.js (한글 Docstring 탑재)</span>
+                        <span class="code-lang">javascript</span>
+                    </div>
+                    <pre><code>/**
+ * 타이머 애플리케이션의 핵심 로직을 담당하는 클래스입니다.
+ * 시간 설정, 시작, 일시정지, 초기화 및 테마 변경 기능을 제공합니다. (룰 적용완료)
+ */
+class Timer {
+    // ... 고도화되고 안정화된 Next System 구조 탑재
+}</code></pre>
+                </div>
+            </div>
+
+            <!-- Navigation Controls -->
+            <div class="step-navigator">
+                <button id="prev-btn" class="btn">◀ 이전 단계</button>
+                <button id="next-btn" class="btn">다음 단계 ▶</button>
+            </div>
+            
+        </div>
+    </div>
+
+    <footer>
+        <p>&copy; 2026 Google Antigravity Book Project. Crafted for <a href="file:///D:/code/metaprogramming/doit_antigravity_book/01-hello-antigravity/">hello-antigravity</a></p>
+    </footer>
+
+    <script>
+        const steps = [
+            {
+                step: 1,
+                title: "System Model (시스템 모델)",
+                desc: "구현할 시스템의 사양과 구조를 구상 및 설계하는 첫 단계",
+                theme: "theme-sysmodel"
+            },
+            {
+                step: 2,
+                title: "Implementation (코드 구현)",
+                desc: "설계된 시스템 모델에 부합하는 소스 코드를 구체적으로 구현하는 단계",
+                theme: "theme-impl"
+            },
+            {
+                step: 3,
+                title: "Evaluation (평가 및 검증)",
+                desc: "작성된 코드의 기능 작동성과 품질을 엄격하게 테스트하는 단계",
+                theme: "theme-eval"
+            },
+            {
+                step: 4,
+                title: "Evidence (객관적 증거)",
+                desc: "테스트 도중 수집된 터미널 에러 로그 및 시스템 메트릭 증거 데이터를 확보하는 단계",
+                theme: "theme-evidence"
+            },
+            {
+                step: 5,
+                title: "Insight (통찰)",
+                desc: "수집된 증거를 정밀 해독하여 에러 원인과 규칙 위반 메커니즘을 분석하는 단계",
+                theme: "theme-insight"
+            },
+            {
+                step: 6,
+                title: "Decision (의사결정)",
+                desc: "분석된 문제를 해결하고 새로운 디자인 사양을 도입하기로 결정하는 설계 수정 단계",
+                theme: "theme-decision"
+            },
+            {
+                step: 7,
+                title: "Next System Model (차기 모델)",
+                desc: "의사결정이 최종 병합되어 고도화된 한 차원 높은 차기 시스템 설계 모델 단계",
+                theme: "theme-nextmodel"
+            }
+        ];
+
+        let currentStep = 1;
+        let isAutoplay = false;
+        let autoplayInterval = null;
+
+        const body = document.body;
+        const nodes = document.querySelectorAll('.node');
+        const cards = document.querySelectorAll('.info-card');
+        const visualizerTitle = document.getElementById('visualizer-title');
+        const visualizerDesc = document.getElementById('visualizer-desc');
+        const prevBtn = document.getElementById('prev-btn');
+        const nextBtn = document.getElementById('next-btn');
+        const autoplayBtn = document.getElementById('autoplay-btn');
+
+        // Step switching logic
+        function setStep(stepNum) {
+            currentStep = stepNum;
+            const stepData = steps[stepNum - 1];
+
+            // 1. Change body class for background styling
+            body.className = stepData.theme;
+
+            // 2. Active class toggling on SVG nodes
+            nodes.forEach(node => {
+                const s = parseInt(node.getAttribute('data-step'));
+                if (s === stepNum) {
+                    node.classList.add('active');
+                } else {
+                    node.classList.remove('active');
+                }
+            });
+
+            // 3. Active card toggling
+            cards.forEach(card => {
+                const s = parseInt(card.getAttribute('data-step'));
+                if (s === stepNum) {
+                    card.classList.add('active');
+                    card.classList.add('fade-in');
+                    // Remove dynamic styling classes after anim completes
+                    setTimeout(() => card.classList.remove('fade-in'), 400);
+                } else {
+                    card.classList.remove('active');
+                }
+            });
+
+            // 4. Update loop visualizer info label
+            visualizerTitle.innerText = stepData.title;
+            visualizerDesc.innerText = stepData.desc;
+
+            // 5. Update Navigator state
+            prevBtn.disabled = stepNum === 1;
+            nextBtn.disabled = stepNum === 7;
+        }
+
+        // Event Listeners for Nodes
+        nodes.forEach(node => {
+            node.addEventListener('click', () => {
+                stopAutoplay();
+                const stepNum = parseInt(node.getAttribute('data-step'));
+                setStep(stepNum);
+            });
+        });
+
+        // Prev / Next button actions
+        prevBtn.addEventListener('click', () => {
+            stopAutoplay();
+            if (currentStep > 1) {
+                setStep(currentStep - 1);
+            }
+        });
+
+        nextBtn.addEventListener('click', () => {
+            stopAutoplay();
+            if (currentStep < 7) {
+                setStep(currentStep + 1);
+            }
+        });
+
+        // Autoplay logic
+        function startAutoplay() {
+            isAutoplay = true;
+            autoplayBtn.innerHTML = "<span>⏸ Pause</span>";
+            autoplayBtn.classList.add('active');
+            autoplayInterval = setInterval(() => {
+                let next = currentStep + 1;
+                if (next > 7) next = 1;
+                setStep(next);
+            }, 4500); // 4.5 seconds per step
+        }
+
+        function stopAutoplay() {
+            isAutoplay = false;
+            autoplayBtn.innerHTML = "<span>▶ Auto Play</span>";
+            autoplayBtn.classList.remove('active');
+            if (autoplayInterval) {
+                clearInterval(autoplayInterval);
+                autoplayInterval = null;
+            }
+        }
+
+        autoplayBtn.addEventListener('click', () => {
+            if (isAutoplay) {
+                stopAutoplay();
+            } else {
+                startAutoplay();
+            }
+        });
+
+        // --- Step 3 Live Timer Mock ---
+        const simDisplay = document.getElementById('sim-display');
+        const simBtn = document.getElementById('sim-btn');
+        const simResetBtn = document.getElementById('sim-reset-btn');
+        let simInterval = null;
+        let simSeconds = 480; // 8 minutes
+
+        function updateSimDisplay() {
+            const m = Math.floor(simSeconds / 60).toString().padStart(2, '0');
+            const s = (simSeconds % 60).toString().padStart(2, '0');
+            simDisplay.innerText = `${m}:${s}`;
+        }
+
+        simBtn.addEventListener('click', () => {
+            if (simInterval) {
+                clearInterval(simInterval);
+                simInterval = null;
+                simBtn.innerText = "🍝 Pasta 8m Test";
+            } else {
+                simBtn.innerText = "⏸ Pause Timer";
+                simInterval = setInterval(() => {
+                    if (simSeconds > 0) {
+                        simSeconds--;
+                        updateSimDisplay();
+                    } else {
+                        clearInterval(simInterval);
+                        simInterval = null;
+                        simBtn.innerText = "🎉 Done!";
+                    }
+                }, 100); // Speed up for visual effect
+            }
+        });
+
+        simResetBtn.addEventListener('click', () => {
+            if (simInterval) {
+                clearInterval(simInterval);
+                simInterval = null;
+            }
+            simSeconds = 480;
+            updateSimDisplay();
+            simBtn.innerText = "🍝 Pasta 8m Test";
+        });
+
+        // Initial setup
+        setStep(1);
+    </script>
+</body>
+</html>

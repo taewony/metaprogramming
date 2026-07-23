@@ -1,0 +1,1 @@
+Save the your artifact under artifacts/ at the repository root.

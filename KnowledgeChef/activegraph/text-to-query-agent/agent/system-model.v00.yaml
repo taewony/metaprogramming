@@ -1,0 +1,122 @@
+schema_version: text-to-query.system-model.v00
+kind: activegraph.agent.system_model
+name: text-to-query-agent-baseline
+status: baseline_scaffold
+language: ko
+
+experiment:
+  id: text_to_query_v00_baseline
+  title: Freeze Text-to-SQL v11.5 and start clean Text-to-Query architecture
+  cognitive_loop_stage: next_system_model
+  hypothesis: >-
+    The DB-only Text-to-SQL baseline should remain frozen as evidence, while the
+    next OKF/RAG-capable agent should start from a cleaner system-model-first
+    architecture that imports ActiveGraph as a runtime library.
+
+lineage:
+  frozen_reference: ../text-to-sql-agent/FREEZE.md
+  predecessor_roadmap: ../text-to-sql-agent/agent/system-model.v99.yaml
+  root_design_spec: ../../design-spec.md
+  cognitive_dashboard: ../../cognitive_dev_process.html
+
+runtime_boundary:
+  activegraph_library_imports:
+    - activegraph.Graph
+    - activegraph.Event
+    - activegraph.Runtime
+    - activegraph.behaviors.base.Behavior
+  application_layer_package: text_to_query_agent
+  entrypoint_policy: >-
+    CLI modules parse commands and render output only. Runtime assembly and
+    behavior execution belong to TextToQueryAgent service objects.
+
+object_model:
+  stable_objects:
+    - question
+    - planner_resolution
+    - intent
+    - sql_query
+    - query_result
+    - answer
+    - eval_run
+    - eval_case
+    - eval_case_result
+  future_objects:
+    - raw_file
+    - okf_bundle
+    - okf_concept
+    - kb_draft
+    - approval
+    - kb_write_result
+    - rag_context
+    - answer_fusion
+
+pack_model:
+  context_object: PackContext
+  required_bindings:
+    - pack_id
+    - system_model_file
+    - event_store
+    - tests_dir
+    - eval_runs_dir
+  optional_bindings:
+    - db_file
+    - schema_root
+    - kb_root
+    - llm_config
+  rule: >-
+    PackContext is the only resolved resource object passed into the runtime.
+    Module-level default paths are allowed only at CLI bootstrap boundaries.
+
+behavior_model:
+  migrated_first:
+    - id: project_schema_context
+      source_baseline: activegraph.cli.schema_context
+      target_layer: text_to_query_agent.adapters.okf_schema
+    - id: resolve_sql_planner
+      source_baseline: activegraph.cli.sql_planner
+      target_layer: text_to_query_agent.behaviors.sql_planner
+    - id: parse_intent
+      source_baseline: activegraph.cli.hospital_logic.RuleCatalog
+      target_layer: text_to_query_agent.system_model.rule_catalog
+    - id: compile_sql
+      source_baseline: activegraph.cli.text_to_sql
+      target_layer: text_to_query_agent.behaviors.sql_query
+    - id: execute_sql
+      source_baseline: activegraph.cli.hospital_logic.execute_sqlite
+      target_layer: text_to_query_agent.adapters.sqlite_db
+    - id: synthesize_answer
+      source_baseline: activegraph.cli.text_to_sql
+      target_layer: text_to_query_agent.behaviors.answer
+    - id: record_eval_run
+      source_baseline: activegraph.cli.eval_run
+      target_layer: text_to_query_agent.evals.eval_run
+
+query_targets:
+  current:
+    - sqlite_db
+    - okf_schema_bundle
+  future:
+    - okf_knowledge_bundle
+    - rag_index
+    - hybrid_sql_kb
+
+evaluation_gate:
+  compatibility_first:
+    - hospital_consolidated_eval_passes
+    - techshop_consolidated_eval_passes
+    - thirdparty_pack_import_smoke_passes
+    - eval_run_export_attach_score_smoke_passes
+  evidence_required:
+    - pytest_output
+    - eval_run_manifest
+    - per_case_trace_jsonl
+    - per_case_graph_json
+    - scoring_input_json
+
+out_of_scope_until_compatibility:
+  - okf_kb_write
+  - rag_answer_fusion
+  - sub_agent_orchestration
+  - generated_skill_md
+  - implicit_planner_llm_fallback

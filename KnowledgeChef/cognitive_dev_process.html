@@ -1,0 +1,380 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>ActiveGraph Text-to-Query Cognitive Dev Process</title>
+  <style>
+    :root {
+      --bg: #f7f8fb;
+      --panel: #ffffff;
+      --ink: #172033;
+      --muted: #5c677d;
+      --line: #d9deea;
+      --blue: #2563eb;
+      --cyan: #0891b2;
+      --violet: #7c3aed;
+      --rose: #e11d48;
+      --amber: #d97706;
+      --green: #059669;
+      --slate: #334155;
+      --code: #101827;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: var(--bg);
+      color: var(--ink);
+      line-height: 1.55;
+    }
+    header {
+      padding: 40px 28px 28px;
+      background: #111827;
+      color: #f8fafc;
+      border-bottom: 1px solid #0f172a;
+    }
+    header .wrap, main {
+      max-width: 1180px;
+      margin: 0 auto;
+    }
+    h1 {
+      margin: 0 0 10px;
+      font-size: clamp(28px, 4vw, 48px);
+      line-height: 1.08;
+      letter-spacing: 0;
+    }
+    h2 {
+      margin: 0 0 14px;
+      font-size: 24px;
+      letter-spacing: 0;
+    }
+    h3 {
+      margin: 0 0 10px;
+      font-size: 18px;
+      letter-spacing: 0;
+    }
+    p { margin: 0 0 12px; }
+    .lead {
+      max-width: 880px;
+      margin: 0;
+      color: #cbd5e1;
+      font-size: 17px;
+    }
+    .meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 18px;
+    }
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      min-height: 28px;
+      padding: 4px 10px;
+      border-radius: 999px;
+      background: #1f2937;
+      border: 1px solid #334155;
+      color: #e5e7eb;
+      font-size: 13px;
+      white-space: nowrap;
+    }
+    main { padding: 28px; }
+    section {
+      margin: 0 0 24px;
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 22px;
+    }
+    .grid {
+      display: grid;
+      gap: 16px;
+    }
+    .grid.two { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .grid.three { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    .card {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 16px;
+      background: #fff;
+      min-width: 0;
+    }
+    .card p:last-child { margin-bottom: 0; }
+    .small { color: var(--muted); font-size: 14px; }
+    .mono, code {
+      font-family: "Cascadia Mono", "SFMono-Regular", Consolas, monospace;
+      font-size: 13px;
+    }
+    pre {
+      margin: 10px 0 0;
+      padding: 14px;
+      overflow-x: auto;
+      border-radius: 8px;
+      color: #e5e7eb;
+      background: var(--code);
+      border: 1px solid #0f172a;
+    }
+    .flow {
+      display: grid;
+      grid-template-columns: repeat(7, minmax(120px, 1fr));
+      gap: 10px;
+      overflow-x: auto;
+      padding-bottom: 4px;
+    }
+    .step {
+      min-height: 118px;
+      border-radius: 8px;
+      padding: 12px;
+      color: white;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+    }
+    .step strong { font-size: 15px; }
+    .step span { font-size: 12px; opacity: .92; }
+    .s1 { background: var(--cyan); }
+    .s2 { background: var(--blue); }
+    .s3 { background: var(--violet); }
+    .s4 { background: var(--rose); }
+    .s5 { background: var(--amber); }
+    .s6 { background: var(--green); }
+    .s7 { background: var(--slate); }
+    .arch {
+      display: grid;
+      grid-template-columns: 1fr 72px 1fr;
+      gap: 16px;
+      align-items: stretch;
+    }
+    .arrow {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--muted);
+      font-size: 28px;
+      font-weight: 700;
+    }
+    ul { margin: 8px 0 0 18px; padding: 0; }
+    li { margin: 5px 0; }
+    .timeline {
+      position: relative;
+      display: grid;
+      gap: 12px;
+    }
+    .event {
+      display: grid;
+      grid-template-columns: 140px 1fr;
+      gap: 14px;
+      align-items: start;
+      padding: 12px 0;
+      border-top: 1px solid var(--line);
+    }
+    .event:first-child { border-top: 0; }
+    .event .label {
+      font-weight: 700;
+      color: var(--blue);
+    }
+    .file-list a {
+      color: var(--blue);
+      text-decoration: none;
+      word-break: break-word;
+    }
+    .file-list a:hover { text-decoration: underline; }
+    .note {
+      border-left: 4px solid var(--blue);
+      padding: 12px 14px;
+      background: #eff6ff;
+      border-radius: 4px;
+    }
+    .warning {
+      border-left-color: var(--amber);
+      background: #fffbeb;
+    }
+    @media (max-width: 860px) {
+      .grid.two, .grid.three, .arch { grid-template-columns: 1fr; }
+      .arrow { display: none; }
+      .event { grid-template-columns: 1fr; }
+      main { padding: 18px; }
+      section { padding: 18px; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="wrap">
+      <h1>ActiveGraph Text-to-Query Baseline</h1>
+      <p class="lead">A learning dashboard for the transition from the frozen Text-to-SQL v11.5 experiment to a clean Text-to-Query architecture prepared for OKF KB and RAG work.</p>
+      <div class="meta">
+        <span class="pill">Created: 2026-07-23</span>
+        <span class="pill">Frozen baseline: text-to-sql-agent v11.5</span>
+        <span class="pill">New baseline: text-to-query-agent v00</span>
+        <span class="pill">Mode: cognitive dev-loop</span>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <section>
+      <h2>Purpose</h2>
+      <div class="grid two">
+        <div>
+          <p>This dashboard turns the agent development process into a study artifact. It shows not only what files were created, but why the architectural transition exists and how future work should be evaluated.</p>
+          <p>The previous Text-to-SQL implementation remains valuable as evidence. The next Text-to-Query line starts from a cleaner system model so OKF KB ingestion and RAG can be added without overloading the experiment folder.</p>
+        </div>
+        <div class="note">
+          <strong>Core principle</strong>
+          <p class="small">Freeze the proven experiment. Start the product-shaped architecture from a declarative system model. Preserve behavior through eval evidence before adding new capability.</p>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <h2>Cognitive Dev-Loop</h2>
+      <div class="flow" aria-label="Cognitive development loop stages">
+        <div class="step s1"><strong>System Model</strong><span>Mental model and abductive architecture hypothesis</span></div>
+        <div class="step s2"><strong>Implementation</strong><span>Externalize the model into files, code, and folders</span></div>
+        <div class="step s3"><strong>Evaluation</strong><span>Run tests, evals, and behavioral checks</span></div>
+        <div class="step s4"><strong>Evidence</strong><span>Capture traces, graphs, outputs, failures, scores</span></div>
+        <div class="step s5"><strong>Insight</strong><span>Reconstruct schema from evidence</span></div>
+        <div class="step s6"><strong>Decision</strong><span>Choose the next controlled change</span></div>
+        <div class="step s7"><strong>Next Model</strong><span>Stabilize the improved system model</span></div>
+      </div>
+    </section>
+
+    <section>
+      <h2>Architecture Transition</h2>
+      <div class="arch">
+        <div class="card">
+          <h3>Frozen Reference</h3>
+          <p><strong>Folder:</strong> <span class="mono">activegraph/text-to-sql-agent</span></p>
+          <ul>
+            <li>DB-only deterministic baseline</li>
+            <li>Hospital and TechShop packs</li>
+            <li>Third-party pack import prototype</li>
+            <li>Eval-run export and score attachment</li>
+            <li>Reference tests: <span class="mono">63 passed</span></li>
+          </ul>
+        </div>
+        <div class="arrow">→</div>
+        <div class="card">
+          <h3>New Baseline</h3>
+          <p><strong>Folder:</strong> <span class="mono">activegraph/text-to-query-agent</span></p>
+          <ul>
+            <li>System-model-first architecture</li>
+            <li>ActiveGraph imported as runtime library</li>
+            <li><span class="mono">TextToQueryAgent</span> service boundary</li>
+            <li><span class="mono">PackContext</span> resource boundary</li>
+            <li>Prepared for DB, OKF schema, OKF KB, and RAG</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <h2>Layering Model</h2>
+      <pre>ActiveGraph runtime library
+  Graph / Event / Runtime / Behavior / EventStore
+
+TextToQueryAgent application layer
+  PackContext
+  SystemModelLoader
+  QueryTarget adapters
+  BehaviorFactory
+  EvalRun protocol
+  CLI / REPL</pre>
+      <p class="small">The new line should import ActiveGraph primitives instead of placing query-specific behavior inside the generic ActiveGraph CLI/runtime layer.</p>
+    </section>
+
+    <section>
+      <h2>Development Timeline</h2>
+      <div class="timeline">
+        <div class="event"><div class="label">v09</div><div>Event-log adaptation loop classifies failures and writes explicit proposals before source or YAML changes are applied.</div></div>
+        <div class="event"><div class="label">v10</div><div>Session-scoped graph memory resolves supported anaphora and ellipsis before LLM involvement.</div></div>
+        <div class="event"><div class="label">v11</div><div>Deterministic SQL planner resolution handles ambiguity, assumptions, and clarification requests before SQL generation.</div></div>
+        <div class="event"><div class="label">v11.5</div><div>Third-party SQLite DB + OKF schema bundle onboarding and eval-run event/artifact protocol are implemented.</div></div>
+        <div class="event"><div class="label">Freeze</div><div><span class="mono">text-to-sql-agent/FREEZE.md</span> makes the DB-only line a regression oracle and learning reference.</div></div>
+        <div class="event"><div class="label">v00 baseline</div><div><span class="mono">text-to-query-agent/agent/system-model.v00.yaml</span> externalizes the next system model.</div></div>
+      </div>
+    </section>
+
+    <section>
+      <h2>Evidence Protocol</h2>
+      <div class="grid two">
+        <div class="card">
+          <h3>Per Query</h3>
+          <pre>question.submitted
+planner.resolved
+intent.created
+sql.generated
+sql.executed
+answer.created</pre>
+        </div>
+        <div class="card">
+          <h3>Per Eval Run</h3>
+          <pre>.tests/eval-runs/&lt;eval_run_id&gt;/
+  manifest.json
+  summary.json
+  eval_events.jsonl
+  cases/&lt;case_id&gt;/
+    result.json
+    trace.jsonl
+    graph.json
+    scoring-input.json</pre>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <h2>Compatibility Gate</h2>
+      <div class="grid three">
+        <div class="card"><h3>DB Baseline</h3><p>Hospital and TechShop consolidated evals must pass through the new agent before OKF/RAG behavior is added.</p></div>
+        <div class="card"><h3>Pack Onboarding</h3><p>Third-party DB + OKF schema bundle import must remain inspectable and validation-first.</p></div>
+        <div class="card"><h3>Evidence Export</h3><p>Eval-run export and external score attachment must preserve immutable original evidence.</p></div>
+      </div>
+    </section>
+
+    <section>
+      <h2>Learning Artifacts</h2>
+      <div class="file-list grid two">
+        <div class="card">
+          <h3>Baseline Files</h3>
+          <ul>
+            <li><a href="activegraph/text-to-sql-agent/FREEZE.md">activegraph/text-to-sql-agent/FREEZE.md</a></li>
+            <li><a href="activegraph/text-to-query-agent/README.md">activegraph/text-to-query-agent/README.md</a></li>
+            <li><a href="activegraph/text-to-query-agent/agent/system-model.v00.yaml">activegraph/text-to-query-agent/agent/system-model.v00.yaml</a></li>
+            <li><a href="activegraph/text-to-query-agent/artifacts/00_refactoring_baseline.md">activegraph/text-to-query-agent/artifacts/00_refactoring_baseline.md</a></li>
+          </ul>
+        </div>
+        <div class="card">
+          <h3>Cognitive Process Files</h3>
+          <ul>
+            <li><a href="artifacts/activegraph_text_to_query_refactoring_plan.md">artifacts/activegraph_text_to_query_refactoring_plan.md</a></li>
+            <li><a href="cognitive_dev_process/activegraph-text-to-query/01_system_model.md">01_system_model.md</a></li>
+            <li><a href="cognitive_dev_process/activegraph-text-to-query/02_implementation.md">02_implementation.md</a></li>
+            <li><a href="cognitive_dev_process/activegraph-text-to-query/03_evaluation.md">03_evaluation.md</a></li>
+            <li><a href="cognitive_dev_process/activegraph-text-to-query/04_evidence.md">04_evidence.md</a></li>
+            <li><a href="cognitive_dev_process/activegraph-text-to-query/05_insight.md">05_insight.md</a></li>
+            <li><a href="cognitive_dev_process/activegraph-text-to-query/06_decision.md">06_decision.md</a></li>
+            <li><a href="cognitive_dev_process/activegraph-text-to-query/07_next_system_model.md">07_next_system_model.md</a></li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <h2>Next Coding Session</h2>
+      <div class="note warning">
+        <strong>Recommended next task</strong>
+        <p>Implement the first compatibility slice in `text-to-query-agent`: load `system-model.v00.yaml`, resolve a `PackContext`, instantiate `TextToQueryAgent`, and reproduce one hospital DB ask/eval path behind the new service boundary.</p>
+      </div>
+      <pre>Read first:
+  activegraph/text-to-sql-agent/FREEZE.md
+  activegraph/text-to-query-agent/README.md
+  activegraph/text-to-query-agent/agent/system-model.v00.yaml
+  artifacts/activegraph_text_to_query_refactoring_plan.md
+
+Then write a failing compatibility test before migrating code.</pre>
+    </section>
+  </main>
+</body>
+</html>

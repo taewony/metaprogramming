@@ -1,0 +1,1941 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Antigravity Multi-Project Cognitive Dev-Loop</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-color: #05070f;
+            --card-bg: rgba(10, 15, 28, 0.75);
+            --card-border: rgba(255, 255, 255, 0.05);
+            --text-color: #f9fafb;
+            --text-muted: #8e9aae;
+            
+            /* Step Colors */
+            --color-sysmodel: #06b6d4;
+            --color-impl: #3b82f6;
+            --color-eval: #8b5cf6;
+            --color-evidence: #f43f5e;
+            --color-insight: #f59e0b;
+            --color-decision: #10b981;
+            --color-nextmodel: #6366f1;
+            
+            --active-color: var(--color-sysmodel);
+            --glow-color: rgba(6, 182, 212, 0.2);
+            --project-color: #3b82f6;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Outfit', sans-serif;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow-x: hidden;
+            background-image: 
+                radial-gradient(at 0% 0%, rgba(6, 182, 212, 0.08) 0px, transparent 40%),
+                radial-gradient(at 100% 0%, rgba(139, 92, 246, 0.08) 0px, transparent 40%),
+                radial-gradient(at 50% 50%, rgba(16, 185, 129, 0.05) 0px, transparent 60%);
+            background-attachment: fixed;
+        }
+
+        header {
+            padding: 1.5rem 3rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid var(--card-border);
+            backdrop-filter: blur(16px);
+            background: rgba(5, 7, 15, 0.85);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .logo-section {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+        }
+
+        .logo-icon {
+            width: 38px;
+            height: 38px;
+            background: linear-gradient(135deg, #06b6d4, #8b5cf6);
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 900;
+            font-size: 1.25rem;
+            box-shadow: 0 0 20px rgba(6, 182, 212, 0.35);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        header h1 {
+            font-size: 1.4rem;
+            font-weight: 800;
+            letter-spacing: -0.5px;
+            background: linear-gradient(to right, #ffffff, #d1d5db);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        header p {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            margin-top: 1px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .project-switchers {
+            display: flex;
+            background: rgba(255, 255, 255, 0.03);
+            padding: 4px;
+            border-radius: 12px;
+            border: 1px solid var(--card-border);
+        }
+
+        .proj-btn {
+            background: transparent;
+            border: none;
+            color: var(--text-muted);
+            padding: 0.5rem 1.2rem;
+            border-radius: 8px;
+            font-weight: 600;
+            font-size: 0.85rem;
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .proj-btn.active {
+            color: #fff;
+            background: rgba(255, 255, 255, 0.08);
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+        }
+
+        .proj-btn#btn-mbti.active {
+            border: 1px solid rgba(6, 182, 212, 0.3);
+            text-shadow: 0 0 10px rgba(6, 182, 212, 0.4);
+        }
+
+        .proj-btn#btn-paper.active {
+            border: 1px solid rgba(139, 92, 246, 0.3);
+            text-shadow: 0 0 10px rgba(139, 92, 246, 0.4);
+        }
+
+        .controls-top {
+            display: flex;
+            gap: 0.8rem;
+            align-items: center;
+        }
+
+        .btn {
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid var(--card-border);
+            color: var(--text-color);
+            padding: 0.6rem 1.2rem;
+            border-radius: 10px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 0.85rem;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            backdrop-filter: blur(8px);
+        }
+
+        .btn:hover {
+            background: rgba(255, 255, 255, 0.08);
+            border-color: rgba(255, 255, 255, 0.15);
+            transform: translateY(-2px);
+        }
+
+        .btn.active {
+            background: linear-gradient(135deg, #06b6d4, #8b5cf6);
+            border-color: transparent;
+            box-shadow: 0 0 15px rgba(6, 182, 212, 0.3);
+        }
+
+        .main-container {
+            flex: 1;
+            display: grid;
+            grid-template-columns: 1fr 1.1fr;
+            padding: 2rem 3rem;
+            gap: 2.5rem;
+            max-width: 1700px;
+            margin: 0 auto;
+            width: 100%;
+        }
+
+        /* Left Side - Visual Loop Map */
+        .loop-visualizer {
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            align-items: center;
+            background: var(--card-bg);
+            border: 1px solid var(--card-border);
+            border-radius: 28px;
+            padding: 2.2rem;
+            backdrop-filter: blur(24px);
+            position: relative;
+            overflow: hidden;
+            box-shadow: 0 30px 60px rgba(0, 0, 0, 0.4);
+            height: fit-content;
+        }
+
+        .loop-visualizer::before {
+            content: '';
+            position: absolute;
+            width: 250px;
+            height: 250px;
+            background: var(--glow-color);
+            filter: blur(90px);
+            border-radius: 50%;
+            z-index: 0;
+            transition: background-color 0.8s ease, left 0.8s ease;
+            top: 25%;
+            left: 25%;
+        }
+
+        .svg-container {
+            width: 100%;
+            aspect-ratio: 1.8;
+            position: relative;
+            z-index: 1;
+        }
+
+        svg {
+            width: 100%;
+            height: 100%;
+            overflow: visible;
+        }
+
+        .loop-path-glow {
+            fill: none;
+            stroke-width: 8px;
+            opacity: 0.08;
+            transition: stroke 0.8s ease;
+        }
+
+        .loop-path {
+            fill: none;
+            stroke: rgba(255, 255, 255, 0.03);
+            stroke-width: 2px;
+            stroke-dasharray: 6, 6;
+        }
+
+        .loop-path-active {
+            fill: none;
+            stroke: var(--active-color);
+            stroke-width: 3.5px;
+            stroke-dasharray: 100 800;
+            stroke-dashoffset: 0;
+            animation: flowLight 8s linear infinite;
+            opacity: 0.9;
+            transition: stroke 0.8s ease;
+        }
+
+        .bridge-path {
+            fill: none;
+            stroke: rgba(255, 255, 255, 0.08);
+            stroke-width: 2.5px;
+            stroke-dasharray: 8, 8;
+            transition: stroke 0.8s ease;
+        }
+
+        .bridge-path.active {
+            stroke: url(#bridgeGradient);
+            stroke-width: 4px;
+            stroke-dasharray: 150 900;
+            animation: flowLight 6s linear infinite;
+        }
+
+        @keyframes flowLight {
+            from { stroke-dashoffset: 900; }
+            to { stroke-dashoffset: 0; }
+        }
+
+        .node {
+            cursor: pointer;
+            transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+
+        .node-circle-glow {
+            fill: var(--node-color);
+            opacity: 0;
+            transform-origin: center;
+            transform: scale(1);
+            transition: all 0.4s ease;
+        }
+
+        .node.active .node-circle-glow {
+            opacity: 0.25;
+            transform: scale(2.4);
+            filter: blur(4px);
+        }
+
+        .node-circle {
+            fill: #05070f;
+            stroke: var(--node-color);
+            stroke-width: 2.5px;
+            transition: all 0.4s ease;
+        }
+
+        .node:hover .node-circle {
+            fill: var(--node-color);
+            transform: scale(1.1);
+            transform-origin: center;
+        }
+
+        .node.active .node-circle {
+            fill: var(--node-color);
+            stroke-width: 3.5px;
+            stroke: #fff;
+            transform: scale(1.25);
+            transform-origin: center;
+            filter: drop-shadow(0 0 12px var(--node-color));
+        }
+
+        .node-text {
+            fill: var(--text-color);
+            font-size: 10px;
+            font-weight: 600;
+            text-anchor: middle;
+            pointer-events: none;
+            opacity: 0.4;
+            transition: all 0.3s ease;
+            letter-spacing: 0.2px;
+        }
+
+        .node.active .node-text {
+            opacity: 1;
+            font-weight: 800;
+            font-size: 11px;
+            fill: #fff;
+        }
+
+        .node-number {
+            fill: var(--node-color);
+            font-size: 10px;
+            font-weight: 800;
+            text-anchor: middle;
+            dominant-baseline: central;
+            pointer-events: none;
+            transition: fill 0.3s ease;
+        }
+
+        .node.active .node-number {
+            fill: #05070f;
+        }
+
+        .loop-info-box {
+            margin-top: 1.5rem;
+            text-align: center;
+            z-index: 1;
+            background: rgba(0, 0, 0, 0.25);
+            padding: 1rem 2rem;
+            border-radius: 16px;
+            border: 1px solid rgba(255, 255, 255, 0.03);
+            width: 100%;
+        }
+
+        .loop-info-box h3 {
+            font-size: 1.15rem;
+            margin-bottom: 0.3rem;
+            color: var(--text-color);
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+
+        .loop-info-box p {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            line-height: 1.4;
+        }
+
+        .info-card {
+            background: var(--card-bg);
+            border: 1px solid var(--card-border);
+            border-radius: 28px;
+            padding: 2.2rem;
+            backdrop-filter: blur(24px);
+            box-shadow: 0 30px 60px rgba(0, 0, 0, 0.3);
+            position: relative;
+            overflow: hidden;
+            display: none;
+            opacity: 0;
+            transform: translateY(20px);
+            transition: all 0.5s cubic-bezier(0.25, 1, 0.5, 1);
+        }
+
+        .info-card.active {
+            display: block;
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        .step-tag {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 0.3rem 0.9rem;
+            border-radius: 20px;
+            font-size: 0.7rem;
+            font-weight: 700;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            margin-bottom: 1.2rem;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            background: rgba(255, 255, 255, 0.02);
+        }
+
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            flex-wrap: wrap;
+            gap: 1rem;
+        }
+
+        .card-header-left h2 {
+            font-size: 1.8rem;
+            font-weight: 800;
+            margin-bottom: 0.3rem;
+            line-height: 1.2;
+            letter-spacing: -0.5px;
+        }
+
+        .subtitle-eng {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            display: block;
+            font-family: 'Outfit', sans-serif;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            font-weight: 500;
+        }
+
+        .cognitive-status {
+            background: rgba(255, 255, 255, 0.01);
+            border: 1px solid rgba(255, 255, 255, 0.03);
+            border-radius: 14px;
+            padding: 1rem;
+            display: flex;
+            flex-direction: column;
+            gap: 0.8rem;
+            min-width: 260px;
+        }
+
+        .gauge-item {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .gauge-label {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            display: flex;
+            justify-content: space-between;
+            font-weight: 600;
+        }
+
+        .gauge-track {
+            height: 6px;
+            background: rgba(255, 255, 255, 0.04);
+            border-radius: 3px;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .gauge-fill {
+            height: 100%;
+            background: var(--active-color);
+            border-radius: 3px;
+            width: 0%;
+            transition: width 1s cubic-bezier(0.4, 0, 0.2, 1);
+            box-shadow: 0 0 8px var(--active-color);
+        }
+
+        .section-divider {
+            height: 1px;
+            background: var(--card-border);
+            margin: 1.5rem 0;
+        }
+
+        .desc-block {
+            margin-bottom: 1.5rem;
+        }
+
+        .desc-block h4 {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 1.2px;
+            margin-bottom: 0.6rem;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-weight: 700;
+        }
+
+        .desc-block p {
+            font-size: 0.95rem;
+            line-height: 1.6;
+            color: #d1d5db;
+        }
+
+        .mapping-block {
+            background: rgba(255, 255, 255, 0.015);
+            border-left: 4px solid var(--active-color);
+            padding: 1.2rem;
+            border-radius: 0 16px 16px 0;
+            margin-bottom: 1.5rem;
+        }
+
+        .mapping-block h5 {
+            font-size: 0.95rem;
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+            color: #fff;
+        }
+
+        .mapping-block p {
+            font-size: 0.9rem;
+            color: var(--text-muted);
+            line-height: 1.55;
+        }
+
+        .code-container {
+            position: relative;
+            background: rgba(5, 7, 12, 0.7);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            border-radius: 14px;
+            overflow: hidden;
+            margin-top: 1.2rem;
+            box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.5);
+        }
+
+        .code-header {
+            background: rgba(255, 255, 255, 0.02);
+            padding: 0.6rem 1.2rem;
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+            font-family: 'Fira Code', monospace;
+        }
+
+        .code-lang {
+            text-transform: uppercase;
+            font-weight: 700;
+            letter-spacing: 0.5px;
+        }
+
+        pre {
+            padding: 1.3rem;
+            overflow-x: auto;
+            margin: 0;
+        }
+
+        code {
+            font-family: 'Fira Code', monospace;
+            font-size: 0.85rem;
+            line-height: 1.6;
+            color: #e5e7eb;
+        }
+
+        .prompt-box {
+            background: rgba(245, 158, 11, 0.02);
+            border: 1px dashed rgba(245, 158, 11, 0.15);
+            padding: 1.2rem;
+            border-radius: 12px;
+            margin-bottom: 1.5rem;
+            position: relative;
+        }
+
+        .prompt-box::before {
+            content: '💬 MULTI-SESSION PROMPT';
+            position: absolute;
+            top: -10px;
+            left: 18px;
+            background: #05070f;
+            padding: 0 10px;
+            font-size: 0.65rem;
+            font-weight: 800;
+            color: #f59e0b;
+            border-radius: 4px;
+            border: 1px solid rgba(245, 158, 11, 0.15);
+            letter-spacing: 0.5px;
+        }
+
+        .prompt-box p {
+            font-size: 0.9rem;
+            color: #f3f4f6;
+            line-height: 1.55;
+            font-style: italic;
+        }
+
+        /* Interactive Widgets */
+        .widget-box {
+            background: rgba(255, 255, 255, 0.01);
+            border: 1px solid var(--card-border);
+            border-radius: 14px;
+            padding: 1.3rem;
+            margin-top: 1.2rem;
+        }
+
+        .widget-title {
+            font-size: 0.8rem;
+            font-weight: 700;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+            margin-bottom: 0.9rem;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .step-navigator {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 2rem;
+            padding-top: 1.5rem;
+            border-top: 1px solid var(--card-border);
+        }
+
+        footer {
+            margin-top: auto;
+            padding: 2rem 3rem;
+            text-align: center;
+            border-top: 1px solid var(--card-border);
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            background: rgba(5, 7, 15, 0.6);
+            backdrop-filter: blur(16px);
+            letter-spacing: 0.3px;
+        }
+
+        footer a {
+            color: var(--text-color);
+            text-decoration: none;
+            font-weight: 600;
+        }
+
+        /* Color classes */
+        .theme-sysmodel { --active-color: var(--color-sysmodel); --glow-color: rgba(6, 182, 212, 0.15); }
+        .theme-impl { --active-color: var(--color-impl); --glow-color: rgba(59, 130, 246, 0.15); }
+        .theme-eval { --active-color: var(--color-eval); --glow-color: rgba(139, 92, 246, 0.15); }
+        .theme-evidence { --active-color: var(--color-evidence); --glow-color: rgba(244, 63, 94, 0.15); }
+        .theme-insight { --active-color: var(--color-insight); --glow-color: rgba(245, 158, 11, 0.15); }
+        .theme-decision { --active-color: var(--color-decision); --glow-color: rgba(16, 185, 129, 0.15); }
+        .theme-nextmodel { --active-color: var(--color-nextmodel); --glow-color: rgba(99, 102, 241, 0.15); }
+
+        .theme-bridge { --active-color: #e2e8f0; --glow-color: rgba(255, 255, 255, 0.1); }
+
+        .fade-in {
+            animation: fadeIn 0.45s cubic-bezier(0.25, 1, 0.5, 1) forwards;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(12px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* Token colors */
+        .token.comment { color: #5c6370; font-style: italic; }
+        .token.keyword { color: #c678dd; }
+        .token.string { color: #98c379; }
+        .token.function { color: #61afef; }
+        .token.number { color: #d19a66; }
+        .token.class { color: #e5c07b; }
+
+        /* Simulated Web/DB widgets */
+        .realtime-box {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            background: rgba(0, 0, 0, 0.4);
+            border-radius: 14px;
+            padding: 1.2rem;
+            border: 1px solid rgba(255, 255, 255, 0.04);
+            box-shadow: inset 0 2px 10px rgba(0, 0, 0, 0.6);
+        }
+
+        .realtime-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 0.8rem;
+            font-weight: 700;
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #10b981;
+            box-shadow: 0 0 10px #10b981;
+            display: inline-block;
+        }
+
+        .realtime-postits {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            min-height: 80px;
+            align-items: center;
+            position: relative;
+        }
+
+        .sim-postit {
+            background: #fef08a;
+            color: #1c1917;
+            padding: 10px;
+            width: 100px;
+            height: 70px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+            border-radius: 4px;
+            cursor: grab;
+            position: absolute;
+            transition: transform 0.1s;
+            user-select: none;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+        }
+
+        .sim-postit:active {
+            cursor: grabbing;
+            transform: scale(1.05);
+        }
+
+        .db-logs {
+            background: #020306;
+            border-radius: 8px;
+            padding: 8px 12px;
+            font-family: 'Fira Code', monospace;
+            font-size: 0.75rem;
+            color: #a7f3d0;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            max-height: 70px;
+            overflow-y: auto;
+        }
+
+        .mbti-sim-box {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            background: rgba(0, 0, 0, 0.4);
+            border-radius: 14px;
+            padding: 1rem;
+        }
+
+        .mbti-progress {
+            height: 10px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 5px;
+            overflow: hidden;
+        }
+
+        .mbti-progress-fill {
+            width: 0%;
+            height: 100%;
+            background: var(--color-sysmodel);
+            transition: width 0.3s;
+        }
+
+        .mbti-btn-group {
+            display: flex;
+            gap: 8px;
+        }
+
+        .mbti-choice-btn {
+            flex: 1;
+            background: rgba(255,255,255,0.04);
+            border: 1px solid rgba(255,255,255,0.1);
+            color: #fff;
+            padding: 8px;
+            border-radius: 6px;
+            font-size: 0.75rem;
+            cursor: pointer;
+            transition: 0.2s;
+        }
+
+        .mbti-choice-btn:hover {
+            background: var(--color-sysmodel);
+            color: #05070f;
+            font-weight: 700;
+        }
+
+        @media (max-width: 1120px) {
+            .main-container {
+                grid-template-columns: 1fr;
+                padding: 1.5rem;
+                gap: 2rem;
+            }
+        }
+    </style>
+</head>
+<body class="theme-sysmodel">
+
+    <header>
+        <div class="logo-section">
+            <div class="logo-icon">AG</div>
+            <div>
+                <h1>Antigravity Cognitive Continuous Loop</h1>
+                <p>연속 프로젝트 수행에 따른 인지 상태 및 지식 진화 루프</p>
+            </div>
+        </div>
+        <div class="project-switchers">
+            <button id="btn-mbti" class="proj-btn active">04. MBTI Test</button>
+            <button id="btn-paper" class="proj-btn">05. Rolling Paper</button>
+        </div>
+        <div class="controls-top">
+            <button id="autoplay-btn" class="btn">
+                <span>▶ Auto Play Tour</span>
+            </button>
+        </div>
+    </header>
+
+    <div class="main-container">
+        
+        <!-- Left Column: Double SVG Loop -->
+        <div class="loop-visualizer">
+            <div class="svg-container">
+                <svg viewBox="0 0 740 320">
+                    <defs>
+                        <!-- Gradient for project transition bridge -->
+                        <linearGradient id="bridgeGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+                            <stop offset="0%" stop-color="var(--color-nextmodel)" />
+                            <stop offset="50%" stop-color="#fff" />
+                            <stop offset="100%" stop-color="var(--color-sysmodel)" />
+                        </linearGradient>
+                    </defs>
+
+                    <!-- Left loop (MBTI) outline -->
+                    <path class="loop-path-glow" d="M 180, 160 A 100,100 0 1,1 179.9,160 Z" style="stroke: var(--color-sysmodel);" />
+                    <path class="loop-path" d="M 180, 160 A 100,100 0 1,1 179.9,160 Z" />
+                    <path id="loopPathActiveA" class="loop-path-active" d="M 180, 160 A 100,100 0 1,1 179.9,160 Z" style="stroke: var(--color-sysmodel);" />
+
+                    <!-- Bridge Connection -->
+                    <path id="bridgeGlow" class="bridge-path" d="M 280, 160 Q 370,120 460, 160" />
+                    <path id="bridgeActive" class="bridge-path" d="M 280, 160 Q 370,120 460, 160" />
+
+                    <!-- Right loop (Rolling Paper) outline -->
+                    <path class="loop-path-glow" d="M 560, 160 A 100,100 0 1,1 559.9,160 Z" style="stroke: var(--color-eval);" />
+                    <path class="loop-path" d="M 560, 160 A 100,100 0 1,1 559.9,160 Z" />
+                    <path id="loopPathActiveB" class="loop-path-active" d="M 560, 160 A 100,100 0 1,1 559.9,160 Z" style="stroke: var(--color-eval);" />
+
+                    <!-- LEFT LOOP NODES (MBTI, Steps 1-7) -->
+                    <!-- 1. System Model (180, 60) -->
+                    <g class="node active" data-proj="mbti" data-step="1" style="--node-color: var(--color-sysmodel);">
+                        <circle class="node-circle-glow" cx="180" cy="60" r="12" />
+                        <circle class="node-circle" cx="180" cy="60" r="12" />
+                        <text class="node-number" cx="180" cy="60">1</text>
+                        <text class="node-text" x="180" y="42">System Model</text>
+                    </g>
+                    <!-- 2. Implementation (258, 98) -->
+                    <g class="node" data-proj="mbti" data-step="2" style="--node-color: var(--color-impl);">
+                        <circle class="node-circle-glow" cx="258" cy="98" r="12" />
+                        <circle class="node-circle" cx="258" cy="98" r="12" />
+                        <text class="node-number" cx="258" cy="98">2</text>
+                        <text class="node-text" x="300" y="93">Impl</text>
+                    </g>
+                    <!-- 3. Evaluation (278, 182) -->
+                    <g class="node" data-proj="mbti" data-step="3" style="--node-color: var(--color-eval);">
+                        <circle class="node-circle-glow" cx="278" cy="182" r="12" />
+                        <circle class="node-circle" cx="278" cy="182" r="12" />
+                        <text class="node-number" cx="278" cy="182">3</text>
+                        <text class="node-text" x="315" y="185">Eval</text>
+                    </g>
+                    <!-- 4. Evidence (222, 248) -->
+                    <g class="node" data-proj="mbti" data-step="4" style="--node-color: var(--color-evidence);">
+                        <circle class="node-circle-glow" cx="222" cy="248" r="12" />
+                        <circle class="node-circle" cx="222" cy="248" r="12" />
+                        <text class="node-number" cx="222" cy="248">4</text>
+                        <text class="node-text" x="235" y="270">Evidence</text>
+                    </g>
+                    <!-- 5. Insight (138, 248) -->
+                    <g class="node" data-proj="mbti" data-step="5" style="--node-color: var(--color-insight);">
+                        <circle class="node-circle-glow" cx="138" cy="248" r="12" />
+                        <circle class="node-circle" cx="138" cy="248" r="12" />
+                        <text class="node-number" cx="138" cy="248">5</text>
+                        <text class="node-text" x="125" y="270">Insight</text>
+                    </g>
+                    <!-- 6. Decision (82, 182) -->
+                    <g class="node" data-proj="mbti" data-step="6" style="--node-color: var(--color-decision);">
+                        <circle class="node-circle-glow" cx="82" cy="182" r="12" />
+                        <circle class="node-circle" cx="82" cy="182" r="12" />
+                        <text class="node-number" cx="82" cy="182">6</text>
+                        <text class="node-text" x="50" y="185">Decision</text>
+                    </g>
+                    <!-- 7. Next Model (102, 98) -->
+                    <g class="node" data-proj="mbti" data-step="7" style="--node-color: var(--color-nextmodel);">
+                        <circle class="node-circle-glow" cx="102" cy="98" r="12" />
+                        <circle class="node-circle" cx="102" cy="98" r="12" />
+                        <text class="node-number" cx="102" cy="98">7</text>
+                        <text class="node-text" x="65" y="93">Next Sys</text>
+                    </g>
+
+
+                    <!-- COGNITIVE SHIFT BRIDGE NODE (370, 130) -->
+                    <g class="node" id="bridge-node" data-step="8" style="--node-color: #fff;">
+                        <circle class="node-circle-glow" cx="370" cy="130" r="14" />
+                        <circle class="node-circle" cx="370" cy="130" r="14" style="stroke: url(#bridgeGradient); stroke-width: 3px;" />
+                        <text class="node-number" cx="370" cy="130" style="fill: #fff;">⇄</text>
+                        <text class="node-text" x="370" y="105" style="font-size: 11px; fill: #e2e8f0; font-weight:800;">Epistemic Bridge</text>
+                    </g>
+
+
+                    <!-- RIGHT LOOP NODES (Rolling Paper, Steps 9-15) -->
+                    <!-- 1(9). System Model (560, 60) -->
+                    <g class="node" data-proj="paper" data-step="9" style="--node-color: var(--color-sysmodel);">
+                        <circle class="node-circle-glow" cx="560" cy="60" r="12" />
+                        <circle class="node-circle" cx="560" cy="60" r="12" />
+                        <text class="node-number" cx="560" cy="60">1</text>
+                        <text class="node-text" x="560" y="42">System Model</text>
+                    </g>
+                    <!-- 2(10). Implementation (638, 98) -->
+                    <g class="node" data-proj="paper" data-step="10" style="--node-color: var(--color-impl);">
+                        <circle class="node-circle-glow" cx="638" cy="98" r="12" />
+                        <circle class="node-circle" cx="638" cy="98" r="12" />
+                        <text class="node-number" cx="638" cy="98">2</text>
+                        <text class="node-text" x="680" y="93">Impl</text>
+                    </g>
+                    <!-- 3(11). Evaluation (658, 182) -->
+                    <g class="node" data-proj="paper" data-step="11" style="--node-color: var(--color-eval);">
+                        <circle class="node-circle-glow" cx="658" cy="182" r="12" />
+                        <circle class="node-circle" cx="658" cy="182" r="12" />
+                        <text class="node-number" cx="658" cy="182">3</text>
+                        <text class="node-text" x="695" y="185">Eval</text>
+                    </g>
+                    <!-- 4(12). Evidence (602, 248) -->
+                    <g class="node" data-proj="paper" data-step="12" style="--node-color: var(--color-evidence);">
+                        <circle class="node-circle-glow" cx="602" cy="248" r="12" />
+                        <circle class="node-circle" cx="602" cy="248" r="12" />
+                        <text class="node-number" cx="602" cy="248">4</text>
+                        <text class="node-text" x="615" y="270">Evidence</text>
+                    </g>
+                    <!-- 5(13). Insight (518, 248) -->
+                    <g class="node" data-proj="paper" data-step="13" style="--node-color: var(--color-insight);">
+                        <circle class="node-circle-glow" cx="518" cy="248" r="12" />
+                        <circle class="node-circle" cx="518" cy="248" r="12" />
+                        <text class="node-number" cx="518" cy="248">5</text>
+                        <text class="node-text" x="505" y="270">Insight</text>
+                    </g>
+                    <!-- 6(14). Decision (462, 182) -->
+                    <g class="node" data-proj="paper" data-step="14" style="--node-color: var(--color-decision);">
+                        <circle class="node-circle-glow" cx="462" cy="182" r="12" />
+                        <circle class="node-circle" cx="462" cy="182" r="12" />
+                        <text class="node-number" cx="462" cy="182">6</text>
+                        <text class="node-text" x="430" y="185">Decision</text>
+                    </g>
+                    <!-- 7(15). Next Model (482, 98) -->
+                    <g class="node" data-proj="paper" data-step="15" style="--node-color: var(--color-nextmodel);">
+                        <circle class="node-circle-glow" cx="482" cy="98" r="12" />
+                        <circle class="node-circle" cx="482" cy="98" r="12" />
+                        <text class="node-number" cx="482" cy="98">7</text>
+                        <text class="node-text" x="445" y="93">Next Sys</text>
+                    </g>
+                </svg>
+            </div>
+            
+            <div class="loop-info-box">
+                <h3 id="visualizer-title"><span class="status-dot" style="background:#06b6d4; box-shadow:0 0 10px #06b6d4;"></span> System Model (04. MBTI)</h3>
+                <p id="visualizer-desc">IT B급 감성을 담은 유저 성향 테스트의 초기 구조 설계 및 콘텐츠 JSON 기획</p>
+            </div>
+        </div>
+
+        <!-- Right Column: Detail Content Cards -->
+        <div class="detail-panel">
+            
+            <!-- ==================== PROJECT 04: MBTI TEST CARDS ==================== -->
+            
+            <!-- STEP 1: System Model -->
+            <div class="info-card active" data-proj="mbti" data-step="1">
+                <span class="step-tag" style="color: var(--color-sysmodel); border-color: rgba(6, 182, 212, 0.25);">Step 01</span>
+                <div class="card-header">
+                    <div class="card-header-left">
+                        <h2>04. MBTI - 시스템 모델</h2>
+                        <span class="subtitle-eng">System Model: Abductive Reasoning</span>
+                    </div>
+                    <div class="cognitive-status">
+                        <div class="gauge-item">
+                            <span class="gauge-label"><span>🧠 인지 모드:</span> <strong>콘텐츠 기획 및 추상 설계</strong></span>
+                            <div class="gauge-track"><div class="gauge-fill" data-width="80%"></div></div>
+                        </div>
+                        <div class="gauge-item">
+                            <span class="gauge-label"><span>💾 작동 기억 부하 (Working Memory):</span> <strong>45%</strong></span>
+                            <div class="gauge-track"><div class="gauge-fill" data-width="45%"></div></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="section-divider"></div>
+                <div class="desc-block">
+                    <h4>💡 인지 작용</h4>
+                    <p>개발자 MBTI 문항과 결과 데이터를 기획하고 B급 감성과 유머 코드를 연합하여 작동 구조를 머릿속 스키마로 가동해 보는 가추적 추론 설계 단계입니다.</p>
+                </div>
+                <div class="prompt-box">
+                    <p>"개발자들이 공감할 수 있는 개발자 성향 테스트(MBTI)의 문항과 결과 데이터를 기획해 줘. 개발자들이 공감할 수 있는 'B급 감성'과 '전문성'을 섞어서... 파일 이름은 mbti_content로 하고 md 파일로 만들어 줘."</p>
+                </div>
+                <div class="mapping-block">
+                    <h5>🛠️ 실제 구현 대응</h5>
+                    <p>기획자와의 공동 작업처럼 에이전트에게 <strong>mbti_content.md</strong> 요구사항을 도출하게 하고, 시작-질문-결과 흐름을 담은 User Flow 마인드맵을 정립하는 과정입니다.</p>
+                </div>
+                <div class="code-container">
+                    <div class="code-header">
+                        <span class="code-file">mbti_content.md (기획서)</span>
+                        <span class="code-lang">markdown</span>
+                    </div>
+                    <pre><code># 개발자 성향 MBTI 테스트 기획
+## 결과 유형
+- **프런트엔드형** (CSS 빌런, 컴포넌트 깎기 장인)
+- **백엔드형** (DB의 수호자, 쿼리 튜닝 귀재)
+- **스크립트 자동화 빌런** (반복 작업은 무조건 자동화)
+## 질문 구성
+- Q1: 금요일 오후 5시 30분, 급한 배포 요청이 왔을 때 나의 반응은?
+  - A: 일단 로컬에서 올려본다 (스크립트 빌런 쪽 점수 가중)
+  - B: 정중히 월요일 아침 배포를 제안한다 (생존 전문가 쪽 점수 가중)</code></pre>
+                </div>
+            </div>
+
+            <!-- STEP 2: Implementation -->
+            <div class="info-card" data-proj="mbti" data-step="2">
+                <span class="step-tag" style="color: var(--color-impl); border-color: rgba(59, 130, 246, 0.25);">Step 02</span>
+                <div class="card-header">
+                    <div class="card-header-left">
+                        <h2>04. MBTI - 코드 구현</h2>
+                        <span class="subtitle-eng">Implementation: Translating to Components</span>
+                    </div>
+                    <div class="cognitive-status">
+                        <div class="gauge-item">
+                            <span class="gauge-label"><span>🧠 인지 모드:</span> <strong>컴포넌트 설계 및 코드 외재화</strong></span>
+                            <div class="gauge-track"><div class="gauge-fill" data-width="95%"></div></div>
+                        </div>
+                        <div class="gauge-item">
+                            <span class="gauge-label"><span>💾 작동 기억 부하 (Working Memory):</span> <strong>85%</strong></span>
+                            <div class="gauge-track"><div class="gauge-fill" data-width="85%"></div></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="section-divider"></div>
+                <div class="desc-block">
+                    <h4>💡 인지 작용</h4>
+                    <p>설계 문서에 담긴 작동 논리를 Next.js 컴포넌트 구조로 전개하는 외재화 단계입니다. 복잡한 컴포넌트 위계와 Framer Motion 상태 관리가 작동 기억에 집중 로드됩니다.</p>
+                </div>
+                <div class="prompt-box">
+                    <p>"Shadcn/ui 라이브러리를 사용 중이야. mbti_design_guide.md를 이용해서 전체 테마에 맞춰 컴포넌트를 만들어 줘. 재사용할 수 있도록 컴포넌트를 파일별로 나누어 줘."</p>
+                </div>
+                <div class="mapping-block">
+                    <h5>🛠️ 실제 구현 대응</h5>
+                    <p>`shadcn_guide.md`에서 설치된 필수 컴포넌트(Card, Button, Progress)를 임포트하여 `page.tsx`에 Framer Motion 기반의 컴포넌트 구조를 설계하고 CSS 클래스를 최적화합니다.</p>
+                </div>
+                <div class="code-container">
+                    <div class="code-header">
+                        <span class="code-file">src/components/QuestionCard.tsx</span>
+                        <span class="code-lang">tsx</span>
+                    </div>
+                    <pre><code><span class="token keyword">import</span> <span class="token class">{ Card, CardContent }</span> from <span class="token string">"@/components/ui/card"</span><span class="token comment">;</span>
+<span class="token keyword">import</span> <span class="token class">{ RadioGroup, RadioGroupItem }</span> from <span class="token string">"@/components/ui/radio-group"</span><span class="token comment">;</span>
+
+<span class="token keyword">export default function</span> <span class="token function">QuestionCard</span><span class="token comment">({ question, onSelect })</span> {
+  <span class="token keyword">return</span> (
+    <span class="token keyword">&lt;</span><span class="token class">Card</span> className="p-6 border-cyan-500/20 bg-black/40"<span class="token keyword">&gt;</span>
+      <span class="token keyword">&lt;</span><span class="token class">CardContent</span><span class="token keyword">&gt;</span>
+        <span class="token keyword">&lt;</span>h2 className="text-xl font-bold mb-4"<span class="token keyword">&gt;</span>{question.text}<span class="token keyword">&lt;</span>/h2<span class="token keyword">&gt;</span>
+        <span class="token comment">// RadioGroup 리스트 구현...</span>
+      <span class="token keyword">&lt;</span>/<span class="token class">CardContent</span><span class="token keyword">&gt;</span>
+    <span class="token keyword">&lt;</span>/<span class="token class">Card</span><span class="token keyword">&gt;</span>
+  );
+}</code></pre>
+                </div>
+            </div>
+
+            <!-- STEP 3: Evaluation -->
+            <div class="info-card" data-proj="mbti" data-step="3">
+                <span class="step-tag" style="color: var(--color-eval); border-color: rgba(139, 92, 246, 0.25);">Step 03</span>
+                <div class="card-header">
+                    <div class="card-header-left">
+                        <h2>04. MBTI - 평가 및 검증</h2>
+                        <span class="subtitle-eng">Evaluation: User Flow Verification</span>
+                    </div>
+                    <div class="cognitive-status">
+                        <div class="gauge-item">
+                            <span class="gauge-label"><span>🧠 인지 모드:</span> <strong>예측 동작 흐름 시뮬레이션</strong></span>
+                            <div class="gauge-track"><div class="gauge-fill" data-width="65%"></div></div>
+                        </div>
+                        <div class="gauge-item">
+                            <span class="gauge-label"><span>💾 작동 기억 부하 (Working Memory):</span> <strong>50%</strong></span>
+                            <div class="gauge-track"><div class="gauge-fill" data-width="50%"></div></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="section-divider"></div>
+                <div class="desc-block">
+                    <h4>💡 인지 작용</h4>
+                    <p>시작 화면에서 사용자가 이름을 입력하고 질문으로 넘어가며 최종 스코어가 집계되어 올바른 MBTI 결과 페이지로 수렴하는지를 단계별로 가동하여 테스트하는 과정입니다.</p>
+                </div>
+                <div class="prompt-box">
+                    <p>"시작 버튼을 누르면 질문 화면이 나오도록 해줘. 이때 user.name(닉네임)은 리액트 상태에 기억하고 있어야 해."</p>
+                </div>
+                <div class="mapping-block">
+                    <h5>🛠️ 실제 구현 대응</h5>
+                    <p>로컬 브라우저 렌더링 피드백을 통해 인트로 페이드아웃 효과와 질문 페이지의 닉네임 프롭스 전달이 설계 모델과 완벽히 호환되는지 상태 변화를 시뮬레이션합니다.</p>
+                </div>
+                <div class="widget-box">
+                    <div class="widget-title"><span>Interactive Test Simulator</span> <span style="font-size:0.7rem; color:var(--color-sysmodel);">React State simulator</span></div>
+                    <div class="mbti-sim-box">
+                        <div style="font-size:0.8rem; display:flex; justify-content:space-between;">
+                            <span>User Nickname: <strong id="sim-user">Developer</strong></span>
+                            <span>Progress: <strong id="sim-mbti-progress">0%</strong></span>
+                        </div>
+                        <div class="mbti-progress">
+                            <div class="mbti-progress-fill" id="sim-mbti-bar"></div>
+                        </div>
+                        <div class="mbti-btn-group">
+                            <button class="mbti-choice-btn" onclick="triggerMbtiStep(1)">배포한다 (A형)</button>
+                            <button class="mbti-choice-btn" onclick="triggerMbtiStep(2)">월요일에 한다 (B형)</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- STEP 4: Evidence -->
+            <div class="info-card" data-proj="mbti" data-step="4">
+                <span class="step-tag" style="color: var(--color-evidence); border-color: rgba(244, 63, 94, 0.25);">Step 04</span>
+                <div class="card-header">
+                    <div class="card-header-left">
+                        <h2>04. MBTI - 객관적 증거</h2>
+                        <span class="subtitle-eng">Evidence: Catching State Flaws</span>
+                    </div>
+                    <div class="cognitive-status">
+                        <div class="gauge-item">
+                            <span class="gauge-label"><span>🧠 인지 모드:</span> <strong>부조화 로그 및 결함 포착</strong></span>
+                            <div class="gauge-track"><div class="gauge-fill" data-width="40%"></div></div>
+                        </div>
+                        <div class="gauge-item">
+                            <span class="gauge-label"><span>💾 작동 기억 부하 (Working Memory):</span> <strong>30%</strong></span>
+                            <div class="gauge-track"><div class="gauge-fill" data-width="30%"></div></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="section-divider"></div>
+                <div class="desc-block">
+                    <h4>💡 인지 작용</h4>
+                    <p>로컬 작동 평가 중 발생한 예상외의 상태 증발 현상(예: 결과 화면 진입 전 새로고침 시 닉네임 초기화)과 카카오톡 공유 API 초기화 실패 로그 등의 **증거 원시 데이터**를 수집하는 단계입니다.</p>
+                </div>
+                <div class="prompt-box">
+                    <p>"방금 결과 화면에서 공유 버튼을 눌렀을 때 Kakao is not defined 에러가 발생했어. 터미널 및 콘솔 메시지를 확인해 줘."</p>
+                </div>
+                <div class="mapping-block">
+                    <h5>🛠️ 실제 구현 대응</h5>
+                    <p>브라우저 DevTools 콘솔 창에 찍힌 에러 데이터 및 Next.js SSR 렌더링에 따른 `window` 객체 비활성화 오류 추적 메시지를 획득합니다.</p>
+                </div>
+                <div class="code-container">
+                    <div class="code-header">
+                        <span class="code-file">Web Console Logs</span>
+                        <span class="code-lang">Javascript console</span>
+                    </div>
+                    <pre><code>[Error] ReferenceError: Kakao is not defined at shareKakao (ResultCard.tsx:42)
+[Warning] Prop `className` did not match. Server: "text-cyan-500" Client: "text-amber-500" (Hydration Mismatch)</code></pre>
+                </div>
+            </div>
+
+            <!-- STEP 5: Insight -->
+            <div class="info-card" data-proj="mbti" data-step="5">
+                <span class="step-tag" style="color: var(--color-insight); border-color: rgba(245, 158, 11, 0.25);">Step 05</span>
+                <div class="card-header">
+                    <div class="card-header-left">
+                        <h2>04. MBTI - 통찰</h2>
+                        <span class="subtitle-eng">Insight: Finding Epistemic Limits</span>
+                    </div>
+                    <div class="cognitive-status">
+                        <div class="gauge-item">
+                            <span class="gauge-label"><span>🧠 인지 모드:</span> <strong>로컬 상태 한계 인식 및 구조 통찰</strong></span>
+                            <div class="gauge-track"><div class="gauge-fill" data-width="85%"></div></div>
+                        </div>
+                        <div class="gauge-item">
+                            <span class="gauge-label"><span>💾 작동 기억 부하 (Working Memory):</span> <strong>60%</strong></span>
+                            <div class="gauge-track"><div class="gauge-fill" data-width="60%"></div></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="section-divider"></div>
+                <div class="desc-block">
+                    <h4>💡 인지 작용</h4>
+                    <p>로컬 리액트 Context나 useState만으로는 모든 사용자 데이터를 수집/축적하는 글로벌 통계 분석이 원천적으로 불가능하며, 공유 API는 반드시 외부 스크립트 비동기 마운트 처리가 필수적임을 통찰하는 단계입니다.</p>
+                </div>
+                <div class="prompt-box">
+                    <p>"질문에 대한 배점을 담당하는 로직에서 '스크립트 자동화 빌런'이 더 높은 확률로 배정되도록 코드를 고도화해 줘. 그리고 이 로컬 기록을 어떻게 공유 서버에 연동할 수 있을까?"</p>
+                </div>
+                <div class="mapping-block">
+                    <h5>🛠️ 실제 구현 대응</h5>
+                    <p>기존 코드의 채점 클래스 가중치 계산식을 변경하고, <strong>서버리스 백엔드 데이터베이스의 결핍</strong>을 인지적 한계로 정식 규정하는 지식의 재조정 과정입니다.</p>
+                </div>
+                <div class="widget-box">
+                    <div class="widget-title">Epistemic Insight Summary</div>
+                    <div class="rules-preview">
+                        <div class="rule-item">
+                            <span class="rule-bullet" style="background: var(--color-evidence);"></span>
+                            <span>로컬 아키텍처 한계: 새로고침 시 사용자 입력 닉네임 분실 발생</span>
+                        </div>
+                        <div class="rule-item">
+                            <span class="rule-bullet" style="background: var(--color-insight);"></span>
+                            <span>네트워크적 한계: 로컬에만 귀속된 MBTI 집계로 '전체 개발자 평균 MBTI 통계' 공유 불가</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- STEP 6: Decision -->
+            <div class="info-card" data-proj="mbti" data-step="6">
+                <span class="step-tag" style="color: var(--color-decision); border-color: rgba(16, 185, 129, 0.25);">Step 06</span>
+                <div class="card-header">
+                    <div class="card-header-left">
+                        <h2>04. MBTI - 의사결정</h2>
+                        <span class="subtitle-eng">Decision: Designing a DB Sync Plan</span>
+                    </div>
+                    <div class="cognitive-status">
+                        <div class="gauge-item">
+                            <span class="gauge-label"><span>🧠 인지 모드:</span> <strong>클라우드 백엔드 연동 계획 타결</strong></span>
+                            <div class="gauge-track"><div class="gauge-fill" data-width="80%"></div></div>
+                        </div>
+                        <div class="gauge-item">
+                            <span class="gauge-label"><span>💾 작동 기억 부하 (Working Memory):</span> <strong>65%</strong></span>
+                            <div class="gauge-track"><div class="gauge-fill" data-width="65%"></div></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="section-divider"></div>
+                <div class="desc-block">
+                    <h4>💡 인지 작용</h4>
+                    <p>전체 사용자 결과를 공유하고 영속 보관하기 위해 Next.js의 정적 아키텍처 구조를 보완할 <strong>외부 DB 서비스(Supabase) 연동 계획을 수립</strong>하고 RLS 및 API 호출 구조를 결정하는 단계입니다.</p>
+                </div>
+                <div class="prompt-box">
+                    <p>"로컬 MBTI 결과를 데이터베이스 테이블에 등록하여 글로벌 통계를 볼 수 있게 설계하고, 다음 프로젝트에서는 이를 완전히 반영한 웹 서비스를 기획해 보자."</p>
+                </div>
+                <div class="mapping-block">
+                    <h5>🛠️ 실제 구현 대응</h5>
+                    <p>디자인 개편과 카카오톡 공유 기능 교정을 마무리 짓고, <strong>차기 프로젝트에서는 수파베이스 풀스택 설계를 도입</strong>하겠다는 아키텍처 수정 결의 과정입니다.</p>
+                </div>
+                <div class="code-container">
+                    <div class="code-header">
+                        <span class="code-file">Next Project Architecture Decisions</span>
+                        <span class="code-lang">json</span>
+                    </div>
+                    <pre><code>{
+  "project_type": "Fullstack Cloud Web App",
+  "database": "Supabase (PostgreSQL)",
+  "auth": "OAuth Kakao + Supabase Auth",
+  "security": "Row Level Security (RLS) Policy"
+}</code></pre>
+                </div>
+            </div>
+
+            <!-- STEP 7: Next System Model -->
+            <div class="info-card" data-proj="mbti" data-step="7">
+                <span class="step-tag" style="color: var(--color-nextmodel); border-color: rgba(99, 102, 241, 0.25);">Step 07</span>
+                <div class="card-header">
+                    <div class="card-header-left">
+                        <h2>04. MBTI - 차기 시스템 모델</h2>
+                        <span class="subtitle-eng">Next System Model: Epistemic Consolidation</span>
+                    </div>
+                    <div class="cognitive-status">
+                        <div class="gauge-item">
+                            <span class="gauge-label"><span>🧠 인지 모드:</span> <strong>스키마의 고도화 및 상태 요약</strong></span>
+                            <div class="gauge-track"><div class="gauge-fill" data-width="70%"></div></div>
+                        </div>
+                        <div class="gauge-item">
+                            <span class="gauge-label"><span>💾 작동 기억 부하 (Working Memory):</span> <strong>30%</strong></span>
+                            <div class="gauge-track"><div class="gauge-fill" data-width="30%"></div></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="section-divider"></div>
+                <div class="desc-block">
+                    <h4>💡 인지 작용</h4>
+                    <p>개발자 MBTI 테스트의 프런트엔드 UI/UX 및 로직 구현 완료를 통해 얻은 기술적 경험이 정착되어, <strong>'DB와 인증이 통합된 클라우드 서비스 모델'</strong>이라는 한 단계 도약한 아키텍처 스키마를 고정하는 단계입니다.</p>
+                </div>
+                <div class="prompt-box">
+                    <p>"지금까지의 Next.js + Tailwind 디자인 구축 경험과 한계를 요약해서 다음 프로젝트의 기본 맥락으로 계승하자."</p>
+                </div>
+                <div class="mapping-block">
+                    <h5>🛠️ 실제 구현 대응</h5>
+                    <p>개발 성향 테스트 결과 공유 로직까지 완성한 상태를 세션 기록으로 고정하고, 한 차원 넓은 스케일의 풀스택 롤링페이퍼 서비스 기획으로 인지적 교량을 형성합니다.</p>
+                </div>
+                <div class="code-container">
+                    <div class="code-header">
+                        <span class="code-file">mbti_final_schema.json</span>
+                        <span class="code-lang">json</span>
+                    </div>
+                    <pre><code>{
+  "version": "1.2.0 (Stable Intro-Question-Result Flow)",
+  "design_framework": "Shadcn/ui & Tailwind CSS Integration",
+  "epistemic_output": "Ready to scale from Local State to Cloud Shared DB (Supabase)"
+}</code></pre>
+                </div>
+            </div>
+
+
+            <!-- ==================== EPISTEMIC SHIFT BRIDGE CARD ==================== -->
+            <div class="info-card" data-step="8">
+                <span class="step-tag" style="color: #fff; border-color: rgba(255, 255, 255, 0.3); background: rgba(255, 255, 255, 0.05);">Epistemic Bridge</span>
+                <div class="card-header">
+                    <div class="card-header-left">
+                        <h2>프로젝트 전이 &amp; 인지적 도약</h2>
+                        <span class="subtitle-eng">Cognitive Shift &amp; Knowledge Transfer</span>
+                    </div>
+                    <div class="cognitive-status">
+                        <div class="gauge-item">
+                            <span class="gauge-label"><span>🧠 지식 전이 수준:</span> <strong>99% (UI/UX 패턴 계승)</strong></span>
+                            <div class="gauge-track"><div class="gauge-fill" data-width="99%"></div></div>
+                        </div>
+                        <div class="gauge-item">
+                            <span class="gauge-label"><span>💾 아키텍처 팽창률 (Architecture Expansion):</span> <strong>250%</strong></span>
+                            <div class="gauge-track"><div class="gauge-fill" data-width="90%"></div></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="section-divider"></div>
+                <div class="desc-block">
+                    <h4>🌉 인지적 가교 (Cognitive Bridge)</h4>
+                    <p>개발자 MBTI 프로젝트의 로컬 상태 중심 설계 한계를 타파하기 위해, 개발자의 인지 구조가 <strong>'로컬 단독 실행 웹'에서 '실시간 다중 접속 클라우드 웹/앱'으로 대전환(Epistemic Expansion)</strong>을 겪는 시점입니다.</p>
+                    <p style="margin-top: 10px;">이전 프로젝트에서 체득한 Tailwind CSS 및 Shadcn/ui 디자인 가이드라인 컴포넌트 깎기 기술은 새로운 롤링페이퍼 서비스의 클라이언트 영역으로 고스란히 이식됩니다.</p>
+                </div>
+                <div class="widget-box" style="border-color: rgba(6, 182, 212, 0.2); background: rgba(6, 182, 212, 0.02);">
+                    <div class="widget-title" style="color: #e2e8f0;">Knowledge Cascade Flow (지식의 캐스케이드)</div>
+                    <div style="font-size:0.9rem; line-height: 1.6; color:#94a3b8;">
+                        <div style="margin-bottom:8px;">📦 <strong>04. MBTI 유산:</strong> UI 애니메이션(Framer Motion) 숙련도 + Shadcn 설치 노하우</div>
+                        <div>🚀 <strong>05. 롤링페이퍼 목표:</strong> Supabase DB 관계 모델 설계 + RLS 보안 정책 구축 + 실시간 동기화 + Expo 모바일 앱 패키징</div>
+                    </div>
+                </div>
+            </div>
+
+
+            <!-- ==================== PROJECT 05: ROLLING PAPER CARDS ==================== -->
+            
+            <!-- STEP 9 (Paper 1): System Model -->
+            <div class="info-card" data-proj="paper" data-step="9">
+                <span class="step-tag" style="color: var(--color-sysmodel); border-color: rgba(6, 182, 212, 0.25);">Step 01</span>
+                <div class="card-header">
+                    <div class="card-header-left">
+                        <h2>05. 롤페이퍼 - 시스템 모델</h2>
+                        <span class="subtitle-eng">System Model: Fullstack DB Schema Design</span>
+                    </div>
+                    <div class="cognitive-status">
+                        <div class="gauge-item">
+                            <span class="gauge-label"><span>🧠 인지 모드:</span> <strong>관계형 DB 및 인프라 설계</strong></span>
+                            <div class="gauge-track"><div class="gauge-fill" data-width="85%"></div></div>
+                        </div>
+                        <div class="gauge-item">
+                            <span class="gauge-label"><span>💾 작동 기억 부하 (Working Memory):</span> <strong>55%</strong></span>
+                            <div class="gauge-track"><div class="gauge-fill" data-width="55%"></div></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="section-divider"></div>
+                <div class="desc-block">
+                    <h4>💡 인지 작용</h4>
+                    <p>사용자들이 생성하는 방(Boards)과 방문자들이 붙이는 포스트잇(Messages) 간의 1:N 관계형 데이터 스키마와 Supabase 연동 방안을 개념화하는 단계입니다.</p>
+                </div>
+                <div class="prompt-box">
+                    <p>"새로 만들 “디지털 롤링페이퍼” 서비스의 데이터베이스 테이블 구조와 컬럼을 설계해 줘. 수파베이스를 이용해서 서버 없이 백엔드를 구축하려고 해. 방(boards)을 만들면 방문자들이 그 보드에 여러 개의 메시지(messages/포스트잇)를 남기는 구조야. 관계를 명확히 포함해서 한눈에 보기 쉬운 표 형태로 정리해 줘."</p>
+                </div>
+                <div class="mapping-block">
+                    <h5>🛠️ 실제 구현 대응</h5>
+                    <p>에이전트를 통해 `boards`와 `messages` 테이블의 외래키(Foreign Key) 매핑 명세서를 정의하고, 기획 요건을 관계형 테이블 표 형태로 가시화하는 논리 기획 과정입니다.</p>
+                </div>
+                <div class="code-container">
+                    <div class="code-header">
+                        <span class="code-file">Database Table Schema design</span>
+                        <span class="code-lang">table</span>
+                    </div>
+                    <pre><code>* Table: boards
+  - id (UUID, Primary Key)
+  - title (text, 방 제목)
+  - owner_id (UUID, 생성 사용자 식별자)
+* Table: messages
+  - id (bigint, Primary Key)
+  - board_id (UUID, Foreign Key -> boards.id)
+  - content (text, 포스트잇 내용)
+  - x_pos (integer), y_pos (integer) -> 포스트잇 2D 좌표</code></pre>
+                </div>
+            </div>
+
+            <!-- STEP 10 (Paper 2): Implementation -->
+            <div class="info-card" data-proj="paper" data-step="10">
+                <span class="step-tag" style="color: var(--color-impl); border-color: rgba(59, 130, 246, 0.25);">Step 02</span>
+                <div class="card-header">
+                    <div class="card-header-left">
+                        <h2>05. 롤페이퍼 - 코드 구현</h2>
+                        <span class="subtitle-eng">Implementation: SQL Schemas &amp; Client Sync</span>
+                    </div>
+                    <div class="cognitive-status">
+                        <div class="gauge-item">
+                            <span class="gauge-label"><span>🧠 인지 모드:</span> <strong>Supabase 마이그레이션 &amp; API 구현</strong></span>
+                            <div class="gauge-track"><div class="gauge-fill" data-width="95%"></div></div>
+                        </div>
+                        <div class="gauge-item">
+                            <span class="gauge-label"><span>💾 작동 기억 부하 (Working Memory):</span> <strong>95%</strong></span>
+                            <div class="gauge-track"><div class="gauge-fill" data-width="95%"></div></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="section-divider"></div>
+                <div class="desc-block">
+                    <h4>💡 인지 작용</h4>
+                    <p>설계된 스키마를 Supabase SQL 콘솔에 적용하여 테이블을 생성하고, 클라이언트(Next.js)단에서 Supabase 클라이언트 SDK를 통해 인증(Auth) 및 CRUD API를 프로그래밍하는 외재화 단계입니다.</p>
+                </div>
+                <div class="prompt-box">
+                    <p>"해당 설계도에 맞춘 PostgreSQL SQL 쿼리를 작성해줘. 그리고 Supabase Auth(로그인) 기능을 연동하기 위한 초기 설정과 코드를 작성해 줘."</p>
+                </div>
+                <div class="mapping-block">
+                    <h5>🛠️ 실제 구현 대응</h5>
+                    <p>데이터베이스 마이그레이션 스크립트를 빌드하고, 클라이언트 소스코드에 Supabase 연동 인스턴스 초기화 파일(`supabaseClient.js`)을 배포합니다.</p>
+                </div>
+                <div class="code-container">
+                    <div class="code-header">
+                        <span class="code-file">supabase_init.sql</span>
+                        <span class="code-lang">sql</span>
+                    </div>
+                    <pre><code><span class="token keyword">CREATE TABLE</span> boards (
+  id UUID <span class="token keyword">DEFAULT</span> gen_random_uuid() <span class="token keyword">PRIMARY KEY</span>,
+  title TEXT <span class="token keyword">NOT NULL</span>,
+  owner_id UUID <span class="token keyword">REFERENCES</span> auth.users(id)
+);
+
+<span class="token keyword">CREATE TABLE</span> messages (
+  id BIGSERIAL <span class="token keyword">PRIMARY KEY</span>,
+  board_id UUID <span class="token keyword">REFERENCES</span> boards(id) <span class="token keyword">ON DELETE CASCADE</span>,
+  content TEXT <span class="token keyword">NOT NULL</span>,
+  x_pos INT <span class="token keyword">DEFAULT</span> <span class="token number">0</span>,
+  y_pos INT <span class="token keyword">DEFAULT</span> <span class="token number">0</span>
+);</code></pre>
+                </div>
+            </div>
+
+            <!-- STEP 11 (Paper 3): Evaluation -->
+            <div class="info-card" data-proj="paper" data-step="11">
+                <span class="step-tag" style="color: var(--color-eval); border-color: rgba(139, 92, 246, 0.25);">Step 03</span>
+                <div class="card-header">
+                    <div class="card-header-left">
+                        <h2>05. 롤페이퍼 - 평가 및 검증</h2>
+                        <span class="subtitle-eng">Evaluation: Authentication &amp; Drag Interaction</span>
+                    </div>
+                    <div class="cognitive-status">
+                        <div class="gauge-item">
+                            <span class="gauge-label"><span>🧠 인지 모드:</span> <strong>인증 세션 검증 및 드래그 동작 테스트</strong></span>
+                            <div class="gauge-track"><div class="gauge-fill" data-width="70%"></div></div>
+                        </div>
+                        <div class="gauge-item">
+                            <span class="gauge-label"><span>💾 작동 기억 부하 (Working Memory):</span> <strong>60%</strong></span>
+                            <div class="gauge-track"><div class="gauge-fill" data-width="60%"></div></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="section-divider"></div>
+                <div class="desc-block">
+                    <h4>💡 인지 작용</h4>
+                    <p>로그인한 사용자가 정상적으로 보드를 개설할 수 있는지와 더불어, 보드 캔버스 위에서 <strong>포스트잇 객체를 드래그하여 이동할 때 마우스/터치 좌표가 실시간으로 수집되는지</strong> 평가하는 과정입니다.</p>
+                </div>
+                <div class="prompt-box">
+                    <p>"포스트잇을 마우스 롱클릭으로 잡아서 옮기면 해당 위치로 포스트잇이 이동하도록 해줘. 이동이 완료되면 해당 포스트잇의 좌표를 데이터베이스에 임시 반영해 보자."</p>
+                </div>
+                <div class="mapping-block">
+                    <h5>🛠️ 실제 구현 대응</h5>
+                    <p>마우스 드래그 핸들러를 바인딩하고 드롭하는 순간의 `ClientX/Y` 물리 좌표를 환산하는 수학적 모델 검증을 런타임 환경에서 전개합니다.</p>
+                </div>
+                <div class="widget-box">
+                    <div class="widget-title"><span>Interactive Drag &amp; Drop Simulator</span> <span style="font-size:0.7rem; color:var(--color-eval);">Drag post-it</span></div>
+                    <div class="realtime-box">
+                        <div class="realtime-header">
+                            <span>Canvas Area</span>
+                            <span><span class="status-dot"></span> Live Sync</span>
+                        </div>
+                        <div class="realtime-postits" id="canvas-container">
+                            <div class="sim-postit" id="sim-postit-obj" style="left:120px; top:5px;">Drag Me!</div>
+                        </div>
+                        <div class="db-logs" id="db-coords-logs">
+                            [System] Ready to drag post-it.
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- STEP 12 (Paper 4): Evidence -->
+            <div class="info-card" data-proj="paper" data-step="12">
+                <span class="step-tag" style="color: var(--color-evidence); border-color: rgba(244, 63, 94, 0.25);">Step 04</span>
+                <div class="card-header">
+                    <div class="card-header-left">
+                        <h2>05. 롤페이퍼 - 객관적 증거</h2>
+                        <span class="subtitle-eng">Evidence: Catching Security Failures</span>
+                    </div>
+                    <div class="cognitive-status">
+                        <div class="gauge-item">
+                            <span class="gauge-label"><span>🧠 인지 모드:</span> <strong>인증 만료 및 RLS 보안 오류 수집</strong></span>
+                            <div class="gauge-track"><div class="gauge-fill" data-width="45%"></div></div>
+                        </div>
+                        <div class="gauge-item">
+                            <span class="gauge-label"><span>💾 작동 기억 부하 (Working Memory):</span> <strong>25%</strong></span>
+                            <div class="gauge-track"><div class="gauge-fill" data-width="25%"></div></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="section-divider"></div>
+                <div class="desc-block">
+                    <h4>💡 인지 작용</h4>
+                    <p>비로그인 방문자가 보드를 조작하려 할 때 데이터베이스 단에서 거부되는 RLS(Row Level Security) 정책 에러 및 포스트잇 좌표 드롭 시 DB 커넥션 병목으로 발생하는 트랜잭션 지연 메트릭 데이터를 확보하는 단계입니다.</p>
+                </div>
+                <div class="prompt-box">
+                    <p>"로그인하지 않은 상태에서 데이터를 입력하려다 차단당했어. Boards 테이블에 INSERT 정책을 추가하는 SQL을 확인하고 에러 로그를 분석해줘."</p>
+                </div>
+                <div class="mapping-block">
+                    <h5>🛠️ 실제 구현 대응</h5>
+                    <p>PostgreSQL 엔진의 `42501: permission denied for table boards` 에러 코드 및 네트워크 탭의 HTTP 403 Forbidden 상태 응답 증거를 검증 스택으로 추출합니다.</p>
+                </div>
+                <div class="code-container">
+                    <div class="code-header">
+                        <span class="code-file">Postgres Error Logs &amp; Network Trace</span>
+                        <span class="code-lang">log</span>
+                    </div>
+                    <pre><code>{
+  "code": "42501",
+  "details": null,
+  "hint": null,
+  "message": "new row violates row-level security policy for table \"boards\""
+}
+[Network] POST https://your-supabase-url.supabase.co/rest/v1/boards -> 403 Forbidden</code></pre>
+                </div>
+            </div>
+
+            <!-- STEP 13 (Paper 5): Insight -->
+            <div class="info-card" data-proj="paper" data-step="13">
+                <span class="step-tag" style="color: var(--color-insight); border-color: rgba(245, 158, 11, 0.25);">Step 05</span>
+                <div class="card-header">
+                    <div class="card-header-left">
+                        <h2>05. 롤페이퍼 - 통찰</h2>
+                        <span class="subtitle-eng">Insight: Realtime Sync &amp; Mobile Barriers</span>
+                    </div>
+                    <div class="cognitive-status">
+                        <div class="gauge-item">
+                            <span class="gauge-label"><span>🧠 인지 모드:</span> <strong>다중 사용자 동기화 결함 원인 간파</strong></span>
+                            <div class="gauge-track"><div class="gauge-fill" data-width="85%"></div></div>
+                        </div>
+                        <div class="gauge-item">
+                            <span class="gauge-label"><span>💾 작동 기억 부하 (Working Memory):</span> <strong>65%</strong></span>
+                            <div class="gauge-track"><div class="gauge-fill" data-width="65%"></div></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="section-divider"></div>
+                <div class="desc-block">
+                    <h4>💡 인지 작용</h4>
+                    <p>사용자 A가 포스트잇을 이동시켰을 때, 동시 접속 중인 사용자 B의 화면이 갱신되지 않는 이유는 단순 REST API 폴링 방식의 한계 때문이며, **실시간 양방향 웹소켓 브로드캐스트(Realtime DB Subscribe)**가 전면적으로 도입되어야 함을 파악하는 통찰 단계입니다.</p>
+                </div>
+                <div class="prompt-box">
+                    <p>"데이터베이스가 추가되거나 변경되면 다른 유저의 화면에서도 DB가 자동으로 실시간 업데이트되도록 만들려면 어떤 로직을 추가해야 할까?"</p>
+                </div>
+                <div class="mapping-block">
+                    <h5>🛠️ 실제 구현 대응</h5>
+                    <p>PostgreSQL의 WAL(Write-Ahead Log) 기반 복제 시스템 채널을 클라이언트 브라우저가 직접 리슨(Listen)하는 아키텍처 개편안의 논리적 연결성을 도출합니다.</p>
+                </div>
+                <div class="widget-box">
+                    <div class="widget-title">Epistemic Insight: Realtime &amp; Mobility</div>
+                    <div class="rules-preview">
+                        <div class="rule-item">
+                            <span class="rule-bullet" style="background: var(--color-evidence);"></span>
+                            <span>구조적 병목: REST HTTP 단방향 통신으로 인한 다중 접속 상태 동기화 부재</span>
+                        </div>
+                        <div class="rule-item">
+                            <span class="rule-bullet" style="background: var(--color-insight);"></span>
+                            <span>인지적 확장: 웹을 넘어 모바일 유저의 접근성을 위한 WebView 컨테이너 및 Expo 도입 기획 수립</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- STEP 14 (Paper 6): Decision -->
+            <div class="info-card" data-proj="paper" data-step="14">
+                <span class="step-tag" style="color: var(--color-decision); border-color: rgba(16, 185, 129, 0.25);">Step 06</span>
+                <div class="card-header">
+                    <div class="card-header-left">
+                        <h2>05. 롤페이퍼 - 의사결정</h2>
+                        <span class="subtitle-eng">Decision: Multi-Channel Realtime Integration</span>
+                    </div>
+                    <div class="cognitive-status">
+                        <div class="gauge-item">
+                            <span class="gauge-label"><span>🧠 인지 모드:</span> <strong>보안 강화 정책 및 모바일 패키징 결정</strong></span>
+                            <div class="gauge-track"><div class="gauge-fill" data-width="85%"></div></div>
+                        </div>
+                        <div class="gauge-item">
+                            <span class="gauge-label"><span>💾 작동 기억 부하 (Working Memory):</span> <strong>70%</strong></span>
+                            <div class="gauge-track"><div class="gauge-fill" data-width="70%"></div></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="section-divider"></div>
+                <div class="desc-block">
+                    <h4>💡 인지 작용</h4>
+                    <p>Supabase RLS 규칙에 `auth.uid() = owner_id` 검증식을 삽입하여 보안을 철벽 강화하기로 결의하고, **`Supabase Realtime Channel`을 전면 도입**하는 동시에 Expo 기반 React Native 앱 개발을 전격적으로 추진하기로 최종 승인하는 의사결정 단계입니다.</p>
+                </div>
+                <div class="prompt-box">
+                    <p>"boards 테이블 INSERT 시 owner_id가 로그인 ID와 같아야 한다는 RLS SQL을 적용해 줘. 그리고 React Native(Expo) 앱 WebView로 이 서비스를 패키징하고 안드로이드 물리 뒤로가기를 연동하는 코드를 작성해줘."</p>
+                </div>
+                <div class="mapping-block">
+                    <h5>🛠️ 실제 구현 대응</h5>
+                    <p>보안 정책 SQL을 적용하여 DB 보안을 완성하고, 모바일 네이티브 뒤로가기 제어 및 로딩 인디케이터를 연동한 모바일 프로젝트 아키텍처를 결정합니다.</p>
+                </div>
+                <div class="code-container">
+                    <div class="code-header">
+                        <span class="code-file">App.js (Expo WebView Integration)</span>
+                        <span class="code-lang">javascript</span>
+                    </div>
+                    <pre><code><span class="token keyword">import</span> <span class="token class">{ WebView }</span> from <span class="token string">'react-native-webview'</span><span class="token comment">;</span>
+<span class="token keyword">import</span> <span class="token class">{ BackHandler }</span> from <span class="token string">'react-native'</span><span class="token comment">;</span>
+
+<span class="token comment">// 안드로이드 물리 백버튼 눌렀을 때 웹 뷰 히스토리 백 제어</span>
+BackHandler.<span class="token function">addEventListener</span>(<span class="token string">'hardwareBackPress'</span>, () => {
+  <span class="token keyword">if</span> (webViewRef.current) {
+    webViewRef.current.<span class="token function">goBack</span>();
+    <span class="token keyword">return true</span>;
+  }
+  <span class="token keyword">return false</span>;
+});</code></pre>
+                </div>
+            </div>
+
+            <!-- STEP 15 (Paper 7): Next System Model -->
+            <div class="info-card" data-proj="paper" data-step="15">
+                <span class="step-tag" style="color: var(--color-nextmodel); border-color: rgba(99, 102, 241, 0.25);">Step 07</span>
+                <div class="card-header">
+                    <div class="card-header-left">
+                        <h2>05. 롤페이퍼 - 차기 시스템 모델</h2>
+                        <span class="subtitle-eng">Next System Model: Consolidated Realtime Ecosystem</span>
+                    </div>
+                    <div class="cognitive-status">
+                        <div class="gauge-item">
+                            <span class="gauge-label"><span>🧠 인지 모드:</span> <strong>분산 하이브리드 아키텍처 구축 완료</strong></span>
+                            <div class="gauge-track"><div class="gauge-fill" data-width="75%"></div></div>
+                        </div>
+                        <div class="gauge-item">
+                            <span class="gauge-label"><span>💾 작동 기억 부하 (Working Memory):</span> <strong>20%</strong></span>
+                            <div class="gauge-track"><div class="gauge-fill" data-width="20%"></div></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="section-divider"></div>
+                <div class="desc-block">
+                    <h4>💡 인지 작용</h4>
+                    <p>실시간 데이터 동기화, RLS 기반 보안, 모바일 앱으로의 패키징 확장성 및 부록의 **MCP(Model Context Protocol) 날씨/파일 시스템 에이전트 확장**까지 융합되어 다차원 분산 시스템 설계 규격을 정착시키는 단계입니다.</p>
+                </div>
+                <div class="prompt-box">
+                    <p>"지금까지의 Supabase 연동 데이터 실시간 동기화 상태 및 모바일 앱 배포 준비 프로세스 흐름을 최종 요약하고 context 메모리에 완벽히 인덱싱해줘."</p>
+                </div>
+                <div class="mapping-block">
+                    <h5>🛠️ 실제 구현 대응</h5>
+                    <p>클라이언트(Next.js)와 백엔드(Supabase Serverless), 네이티브 껍데기(Expo App)가 완벽한 삼각 구도로 동작하는 풀스택 생태계 모델을 최종 검증하고 기록을 마감합니다.</p>
+                </div>
+                <div class="code-container">
+                    <div class="code-header">
+                        <span class="code-file">final_fullstack_ecosystem.json</span>
+                        <span class="code-lang">json</span>
+                    </div>
+                    <pre><code>{
+  "project_title": "Digital Rolling Paper Service",
+  "client_deployment": "Vercel Serverless (Next.js)",
+  "backend_service": "Supabase Realtime PostgreSQL Database",
+  "native_container": "Expo WebView Wrapper (Android/iOS Compatible)",
+  "extensibility_protocol": "Model Context Protocol (MCP) Integrated"
+}</code></pre>
+                </div>
+            </div>
+
+            <!-- Navigation Controls -->
+            <div class="step-navigator">
+                <button id="prev-btn" class="btn">◀ 이전 단계</button>
+                <button id="next-btn" class="btn">다음 단계 ▶</button>
+            </div>
+            
+        </div>
+    </div>
+
+    <footer>
+        <p>&copy; 2026 Google Antigravity Book Project. Crafted for <a href="file:///D:/code/metaprogramming/doit_antigravity_book/">doit_antigravity_book</a></p>
+    </footer>
+
+    <script>
+        const steps = [
+            // Project 04 (MBTI)
+            { id: 1, proj: "mbti", step: 1, title: "System Model (04. MBTI)", desc: "Abductive Reasoning: IT B급 감성 개발자 성향 테스트 기획서 및 JSON 명세서 설계", theme: "theme-sysmodel" },
+            { id: 2, proj: "mbti", step: 2, title: "Implementation (04. MBTI)", desc: "Externalization: Next.js 및 Shadcn/ui 디자인 가이드에 따른 화면 컴포넌트 깎기 구현", theme: "theme-impl" },
+            { id: 3, proj: "mbti", step: 3, title: "Evaluation (04. MBTI)", desc: "Predictive Verification: 인트로 입력 상태값 메모리 기억 및 라우팅 플로우 런타임 검사", theme: "theme-eval" },
+            { id: 4, proj: "mbti", step: 4, title: "Evidence (04. MBTI)", desc: "Raw Data Capture: 결과물 공유 API 오류 및 Hydration 불일치 브라우저 콘솔 경고 포착", theme: "theme-evidence" },
+            { id: 5, proj: "mbti", step: 5, title: "Insight (04. MBTI)", desc: "Schema Reconstruction: 로컬 상태(React State) 영속성 한계 및 클라우드 DB 인프라 결핍 인지", theme: "theme-insight" },
+            { id: 6, proj: "mbti", step: 6, title: "Decision (04. MBTI)", desc: "Alternative Value Judgment: 로컬 아키텍처 개편 및 Supabase 풀스택 외부 솔루션 연동 계획 타결", theme: "theme-decision" },
+            { id: 7, proj: "mbti", step: 7, title: "Next System Model (04. MBTI)", desc: "Schema Consolidation: DB 및 인증 생태계로 확장 준비가 끝난 차세대 타이머/테스트 시스템 아키텍처", theme: "theme-nextmodel" },
+            
+            // Epistemic Bridge
+            { id: 8, proj: "bridge", step: 8, title: "Epistemic Bridge (인지적 전이)", desc: "Cognitive Shift: 로컬 웹 앱의 상태 한계를 딛고, 실시간 동적 풀스택 DB 아키텍처로의 인지적 진화 교량", theme: "theme-bridge" },
+
+            // Project 05 (Rolling Paper)
+            { id: 9, proj: "paper", step: 1, title: "System Model (05. 롤페이퍼)", desc: "Abductive Reasoning: 1:N 보드-메시지 관계형 데이터 테이블 및 Supabase 인프라 논리 설계", theme: "theme-sysmodel" },
+            { id: 10, proj: "paper", step: 2, title: "Implementation (05. 롤페이퍼)", desc: "Externalization: Supabase DB SQL 생성 및 클라이언트 SDK 연동 인증/로그인 API 코드 구현", theme: "theme-impl" },
+            { id: 11, proj: "paper", step: 3, title: "Evaluation (05. 롤페이퍼)", desc: "Predictive Verification: 로그인 세션 보드 생성 테스트 및 포스트잇 좌표 드래그 앤 드롭 수학 모델 캔버스 검사", theme: "theme-eval" },
+            { id: 12, proj: "paper", step: 4, title: "Evidence (05. 롤페이퍼)", desc: "Raw Data Capture: 비로그인 사용자의 방 개설 거부 RLS(행 보안 정책) 위반 PostgreSQL 42501 에러 데이터 검출", theme: "theme-evidence" },
+            { id: 13, proj: "paper", step: 5, title: "Insight (05. 롤페이퍼)", desc: "Schema Reconstruction: REST 폴링 한계 돌파를 위한 Realtime 웹소켓 채널 도입 및 모바일 크로스 오버 필요성 획득", theme: "theme-insight" },
+            { id: 14, proj: "paper", step: 6, title: "Decision (05. 롤페이퍼)", desc: "Alternative Value Judgment: RLS 정책 조건 보강, Realtime Listen 코드 병합, Expo React Native 앱 WebView 패키징 확정", theme: "theme-decision" },
+            { id: 15, proj: "paper", step: 7, title: "Next System Model (05. 롤페이퍼)", desc: "Schema Consolidation: 웹-모바일이 통합되고 보안과 실시간 멀티플레이 기능, MCP AI 대리자 확장이 가미된 완성형 분산 생태계 정착", theme: "theme-nextmodel" }
+        ];
+
+        let currentActiveId = 1;
+        let isAutoplay = false;
+        let autoplayInterval = null;
+
+        const body = document.body;
+        const nodes = document.querySelectorAll('.node');
+        const cards = document.querySelectorAll('.info-card');
+        const visualizerTitle = document.getElementById('visualizer-title');
+        const visualizerDesc = document.getElementById('visualizer-desc');
+        const prevBtn = document.getElementById('prev-btn');
+        const nextBtn = document.getElementById('next-btn');
+        const autoplayBtn = document.getElementById('autoplay-btn');
+        
+        const btnMbti = document.getElementById('btn-mbti');
+        const btnPaper = document.getElementById('btn-paper');
+
+        const bridgeGlow = document.getElementById('bridgeGlow');
+        const bridgeActive = document.getElementById('bridgeActive');
+        const visualizerContainer = document.querySelector('.loop-visualizer');
+
+        function setStep(id) {
+            currentActiveId = id;
+            const stepData = steps.find(s => s.id === id);
+
+            // Update Body Background Theme
+            body.className = stepData.theme;
+
+            // Update Project Button Highlighter
+            if (stepData.proj === "mbti" || (stepData.proj === "bridge" && id === 8)) {
+                btnMbti.classList.add('active');
+                btnPaper.classList.remove('active');
+                visualizerContainer.style.setProperty('--glow-color', 'rgba(6, 182, 212, 0.15)');
+            } else if (stepData.proj === "paper") {
+                btnMbti.classList.remove('active');
+                btnPaper.classList.add('active');
+                visualizerContainer.style.setProperty('--glow-color', 'rgba(139, 92, 246, 0.15)');
+            }
+
+            // Bridge path activation styling
+            if (id >= 7 && id <= 9) {
+                bridgeGlow.classList.add('active');
+                bridgeActive.classList.add('active');
+            } else {
+                bridgeGlow.classList.remove('active');
+                bridgeActive.classList.remove('active');
+            }
+
+            // SVG Nodes active toggling
+            nodes.forEach(node => {
+                const stepNum = parseInt(node.getAttribute('data-step'));
+                if (stepNum === id) {
+                    node.classList.add('active');
+                } else {
+                    node.classList.remove('active');
+                }
+            });
+
+            // Card details swap with gauge loading
+            cards.forEach(card => {
+                const stepNum = parseInt(card.getAttribute('data-step'));
+                if (stepNum === id) {
+                    card.classList.add('active');
+                    card.classList.add('fade-in');
+                    
+                    // Fill cognitive status gauges
+                    const fills = card.querySelectorAll('.gauge-fill');
+                    fills.forEach(fill => {
+                        const targetWidth = fill.getAttribute('data-width');
+                        setTimeout(() => {
+                            fill.style.width = targetWidth;
+                        }, 50);
+                    });
+
+                    setTimeout(() => card.classList.remove('fade-in'), 450);
+                } else {
+                    card.classList.remove('active');
+                    const fills = card.querySelectorAll('.gauge-fill');
+                    fills.forEach(fill => {
+                        fill.style.width = '0%';
+                    });
+                }
+            });
+
+            // Label text update
+            const dotColor = id <= 7 ? '#06b6d4' : (id === 8 ? '#ffffff' : '#8b5cf6');
+            visualizerTitle.innerHTML = `<span class="status-dot" style="background:${dotColor}; box-shadow:0 0 10px ${dotColor};"></span> ${stepData.title}`;
+            visualizerDesc.innerText = stepData.desc;
+
+            // Nav buttons update
+            prevBtn.disabled = id === 1;
+            nextBtn.disabled = id === 15;
+        }
+
+        // SVG Node clicks
+        nodes.forEach(node => {
+            node.addEventListener('click', () => {
+                stopAutoplay();
+                const id = parseInt(node.getAttribute('data-step'));
+                setStep(id);
+            });
+        });
+
+        // Top navigation button switcher
+        btnMbti.addEventListener('click', () => {
+            stopAutoplay();
+            setStep(1);
+        });
+
+        btnPaper.addEventListener('click', () => {
+            stopAutoplay();
+            setStep(9);
+        });
+
+        // Bottom Prev/Next button
+        prevBtn.addEventListener('click', () => {
+            stopAutoplay();
+            if (currentActiveId > 1) {
+                setStep(currentActiveId - 1);
+            }
+        });
+
+        nextBtn.addEventListener('click', () => {
+            stopAutoplay();
+            if (currentActiveId < 15) {
+                setStep(currentActiveId + 1);
+            }
+        });
+
+        // Autoplay logic
+        function startAutoplay() {
+            isAutoplay = true;
+            autoplayBtn.innerHTML = "<span>⏸ Pause Tour</span>";
+            autoplayBtn.classList.add('active');
+            autoplayInterval = setInterval(() => {
+                let next = currentActiveId + 1;
+                if (next > 15) next = 1;
+                setStep(next);
+            }, 6000); // 6 seconds for comfortable reading
+        }
+
+        function stopAutoplay() {
+            isAutoplay = false;
+            autoplayBtn.innerHTML = "<span>▶ Auto Play Tour</span>";
+            autoplayBtn.classList.remove('active');
+            if (autoplayInterval) {
+                clearInterval(autoplayInterval);
+                autoplayInterval = null;
+            }
+        }
+
+        autoplayBtn.addEventListener('click', () => {
+            if (isAutoplay) {
+                stopAutoplay();
+            } else {
+                startAutoplay();
+            }
+        });
+
+
+        // --- STEP 3: MBTI Simulator State ---
+        let mbtiVal = 0;
+        function triggerMbtiStep(choice) {
+            mbtiVal += 25;
+            if (mbtiVal > 100) mbtiVal = 0;
+            document.getElementById('sim-mbti-bar').style.width = mbtiVal + "%";
+            document.getElementById('sim-mbti-progress').innerText = mbtiVal + "%";
+            const names = ["Developer", "Senior Hacker", "Spaghetti Master", "Clean Coder", "Deploy Villain"];
+            if (mbtiVal === 100) {
+                document.getElementById('sim-user').innerText = names[Math.floor(Math.random() * names.length)] + " 🎉";
+            } else {
+                document.getElementById('sim-user').innerText = "Testing...";
+            }
+        }
+
+
+        // --- STEP 11: Rolling paper dragging simulator ---
+        const postit = document.getElementById('sim-postit-obj');
+        const canvas = document.getElementById('canvas-container');
+        const dbLogs = document.getElementById('db-coords-logs');
+        let isDragging = false;
+        let startX, startY, leftInitial, topInitial;
+
+        postit.addEventListener('mousedown', (e) => {
+            isDragging = true;
+            startX = e.clientX;
+            startY = e.clientY;
+            leftInitial = parseInt(postit.style.left) || 0;
+            topInitial = parseInt(postit.style.top) || 0;
+            postit.style.cursor = 'grabbing';
+            e.preventDefault();
+        });
+
+        document.addEventListener('mousemove', (e) => {
+            if (!isDragging) return;
+            const deltaX = e.clientX - startX;
+            const deltaY = e.clientY - startY;
+            let targetLeft = leftInitial + deltaX;
+            let targetTop = topInitial + deltaY;
+
+            // clamp coordinates inside simulator box
+            if (targetLeft < 5) targetLeft = 5;
+            if (targetLeft > 230) targetLeft = 230;
+            if (targetTop < -25) targetTop = -25;
+            if (targetTop > 30) targetTop = 30;
+
+            postit.style.left = targetLeft + "px";
+            postit.style.top = targetTop + "px";
+
+            dbLogs.innerHTML = `[Local State] Tracking coords: x=${targetLeft}, y=${targetTop + 30}`;
+        });
+
+        document.addEventListener('mouseup', () => {
+            if (!isDragging) return;
+            isDragging = false;
+            postit.style.cursor = 'grab';
+            const finalLeft = parseInt(postit.style.left);
+            const finalTop = parseInt(postit.style.top) + 30;
+
+            // Simulate DB SQL update trigger
+            dbLogs.innerHTML = `<span style="color:#10b981;">[Database SQL] UPDATE messages SET x_pos=${finalLeft}, y_pos=${finalTop} WHERE id=1049; (SUCCESS)</span>`;
+        });
+
+        // Initialize first step
+        setStep(1);
+    </script>
+</body>
+</html>

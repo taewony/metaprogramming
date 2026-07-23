@@ -235,7 +235,45 @@ Expected if Ollama is available: `answer_source` becomes `llm`, `llm.status` bec
 - [x] Added cognitive dev-loop markdown sequence under `cognitive_dev_process/activegraph-text-to-query/` for System Model, Implementation, Evaluation, Evidence, Insight, Decision, and Next System Model.
 - [x] Generated root `cognitive_dev_process.html` as a self-contained learning dashboard with architecture transition, evidence protocol, compatibility gate, and links to generated artifacts.
 - [x] Validated generated file existence plus Python AST and YAML parse for the new baseline scaffold.
-## Artifact process rewrite checkpoint
-- [x] Rewrote `artifacts/SKILL.md` into a reusable `cognitive-dev-loop` skill for staged Coding Agent development.
-- [x] Rewrote `artifacts/cognitive_dev_process.md` into a general cognitive/epistemic development process covering system models, TDD/evals, evidence, insight, decisions, ActiveGraph projection, baseline freezes, and learning artifacts.
-- [x] Validated `artifacts/SKILL.md` frontmatter with PyYAML and checked required cognitive process sections.
+
+---
+
+생성한 핵심 산출물:
+
+  - activegraph/text-to-sql-agent/FREEZE.md
+    text-to-sql-agent를 v11.5 frozen baseline으로 고정하는 문서입니다.
+
+  - activegraph/text-to-query-agent/README.md
+    새 text-to-query-agent baseline의 목적, layering, compatibility gate를 정리했습니다.
+
+  - activegraph/text-to-query-agent/agent/system-model.v00.yaml
+    새 agent의 baseline system model입니다.
+
+  - activegraph/text-to-query-agent/artifacts/00_refactoring_baseline.md
+    freeze + new folder 전략의 rationale artifact입니다.
+
+  - artifacts/activegraph_text_to_query_refactoring_plan.md
+    root artifacts/에 저장한 refactoring plan입니다.
+
+  - cognitive_dev_process.html
+    root folder에 만든 self-contained 학습용 HTML 대시보드입니다.
+
+  - cognitive_dev_process/activegraph-text-to-query/01~07_*.md
+    System Model → Implementation → Evaluation → Evidence → Insight → Decision → Next System Model 흐름으로 단계별 학습
+    자료를 만들었습니다.
+
+  새 baseline scaffold에는 최소 코드도 포함했습니다:
+
+  - activegraph/text-to-query-agent/src/text_to_query_agent/app.py
+  - activegraph/text-to-query-agent/src/text_to_query_agent/__init__.py
+
+  검증:
+
+  - 생성 대상 파일 존재 확인 완료
+  - 새 Python scaffold AST parse 통과
+  - system-model.v00.yaml YAML parse 통과
+  - HTML 주요 섹션 확인 완료
+
+  다음 작업으로는 text-to-query-agent에서 첫 compatibility slice를 TDD로 시작하면 됩니다: PackContext를 통해 hospital
+  pack을 로드하고, TextToQueryAgent service boundary 뒤에서 기존 “의사는 모두 몇명이야?” 흐름을 재현하는 테스트부터 가는
+  게 좋습니다.

@@ -1,0 +1,383 @@
+:root {
+    /* Material Design 3 Color Tokens - Dark Mode (Default) */
+    --md-sys-color-primary: #6bdbac;
+    --md-sys-color-on-primary: #003826;
+    --md-sys-color-primary-container: #005138;
+    --md-sys-color-on-primary-container: #89f8c7;
+    --md-sys-color-secondary: #b3ccbe;
+    --md-sys-color-on-secondary: #1e352a;
+    --md-sys-color-secondary-container: #354b40;
+    --md-sys-color-on-secondary-container: #cfe9da;
+    --md-sys-color-tertiary: #a5ccdf;
+    --md-sys-color-on-tertiary: #073543;
+    --md-sys-color-tertiary-container: #244c5b;
+    --md-sys-color-on-tertiary-container: #c1e8fc;
+    --md-sys-color-error: #ffb4ab;
+    --md-sys-color-on-error: #690005;
+    --md-sys-color-error-container: #93000a;
+    --md-sys-color-on-error-container: #ffdad6;
+    --md-sys-color-background: #191c1a;
+    --md-sys-color-on-background: #e1e3df;
+    --md-sys-color-surface: #191c1a;
+    --md-sys-color-on-surface: #e1e3df;
+    --md-sys-color-surface-variant: #404944;
+    --md-sys-color-on-surface-variant: #bfc9c2;
+    --md-sys-color-outline: #8a938d;
+    --md-sys-color-outline-variant: #404944;
+    --md-sys-color-surface-container-low: #191c1a;
+    --md-sys-color-surface-container: #1d201e;
+    --md-sys-color-surface-container-high: #272b29;
+    --md-sys-color-surface-container-highest: #323633;
+
+    /* Typography Tokens */
+    --md-sys-typescale-display-large-font: 'Roboto', sans-serif;
+    --md-sys-typescale-display-large-size: 57px;
+    --md-sys-typescale-display-large-weight: 400;
+    --md-sys-typescale-headline-medium-font: 'Roboto', sans-serif;
+    --md-sys-typescale-headline-medium-size: 28px;
+    --md-sys-typescale-headline-medium-weight: 400;
+    --md-sys-typescale-body-large-font: 'Roboto', sans-serif;
+    --md-sys-typescale-body-large-size: 16px;
+    --md-sys-typescale-body-large-weight: 400;
+    --md-sys-typescale-label-large-font: 'Roboto', sans-serif;
+    --md-sys-typescale-label-large-size: 14px;
+    --md-sys-typescale-label-large-weight: 500;
+
+    /* Shape Tokens */
+    --md-sys-shape-corner-small: 8px;
+    --md-sys-shape-corner-medium: 12px;
+    --md-sys-shape-corner-large: 16px;
+    --md-sys-shape-corner-extra-large: 28px;
+    --md-sys-shape-corner-full: 9999px;
+
+    /* Elevation (Surface Tints) - handled via opacity overlays in M3, simplified here */
+    --md-sys-elevation-level-1: 0 1px 2px rgba(0, 0, 0, 0.3), 0 1px 3px 1px rgba(0, 0, 0, 0.15);
+    --md-sys-elevation-level-2: 0 1px 2px rgba(0, 0, 0, 0.3), 0 2px 6px 2px rgba(0, 0, 0, 0.15);
+    --md-sys-elevation-level-3: 0 1px 3px rgba(0, 0, 0, 0.3), 0 4px 8px 3px rgba(0, 0, 0, 0.15);
+}
+
+body.light-mode {
+    /* Material Design 3 Color Tokens - Light Mode */
+    --md-sys-color-primary: #006c4c;
+    --md-sys-color-on-primary: #ffffff;
+    --md-sys-color-primary-container: #89f8c7;
+    --md-sys-color-on-primary-container: #002114;
+    --md-sys-color-secondary: #4c6357;
+    --md-sys-color-on-secondary: #ffffff;
+    --md-sys-color-secondary-container: #cfe9da;
+    --md-sys-color-on-secondary-container: #092016;
+    --md-sys-color-tertiary: #3e6473;
+    --md-sys-color-on-tertiary: #ffffff;
+    --md-sys-color-tertiary-container: #c1e8fc;
+    --md-sys-color-on-tertiary-container: #001f2a;
+    --md-sys-color-error: #ba1a1a;
+    --md-sys-color-on-error: #ffffff;
+    --md-sys-color-error-container: #ffdad6;
+    --md-sys-color-on-error-container: #410002;
+    --md-sys-color-background: #fbfdf9;
+    --md-sys-color-on-background: #191c1a;
+    --md-sys-color-surface: #fbfdf9;
+    --md-sys-color-on-surface: #191c1a;
+    --md-sys-color-surface-variant: #dbe5de;
+    --md-sys-color-on-surface-variant: #404944;
+    --md-sys-color-outline: #707974;
+    --md-sys-color-outline-variant: #bfc9c2;
+    --md-sys-color-surface-container-low: #f5f7f3;
+    --md-sys-color-surface-container: #eff1ed;
+    --md-sys-color-surface-container-high: #e9ebe7;
+    --md-sys-color-surface-container-highest: #e3e6e2;
+}
+
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+body {
+    font-family: var(--md-sys-typescale-body-large-font);
+    background-color: var(--md-sys-color-background);
+    color: var(--md-sys-color-on-background);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+    transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+.container {
+    background-color: var(--md-sys-color-surface-container);
+    padding: 3rem;
+    border-radius: var(--md-sys-shape-corner-extra-large);
+    text-align: center;
+    width: 90%;
+    max-width: 480px;
+    position: relative;
+    overflow: hidden;
+    /* Needed for elevation overlay */
+    /* Elevation 1 */
+    box-shadow: var(--md-sys-elevation-level-1);
+    transition: background-color 0.3s ease, box-shadow 0.3s ease;
+}
+
+/* Surface Tint Overlay for Elevation */
+.container::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background-color: var(--md-sys-color-primary);
+    opacity: 0.05;
+    /* Level 1 Tint */
+    z-index: 0;
+    transition: opacity 0.3s ease;
+}
+
+.container:hover::before {
+    opacity: 0.08;
+    /* Level 2 Tint */
+}
+
+.container:hover {
+    /* Elevation 2 on hover */
+    box-shadow: var(--md-sys-elevation-level-2);
+}
+
+.header-controls {
+    position: absolute;
+    top: 1.5rem;
+    right: 1.5rem;
+}
+
+/* Icon Button (Standard) */
+.btn-icon {
+    background: transparent;
+    border: none;
+    color: var(--md-sys-color-on-surface-variant);
+    font-size: 1.5rem;
+    cursor: pointer;
+    padding: 8px;
+    border-radius: var(--md-sys-shape-corner-full);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background-color 0.2s, color 0.2s;
+}
+
+.btn-icon:hover {
+    background-color: rgba(var(--md-sys-color-on-surface-variant), 0.08);
+    /* State layer */
+    color: var(--md-sys-color-on-surface);
+}
+
+.timer-display {
+    font-family: var(--md-sys-typescale-display-large-font);
+    font-size: var(--md-sys-typescale-display-large-size);
+    font-weight: var(--md-sys-typescale-display-large-weight);
+    margin-top: 1rem;
+    margin-bottom: 2.5rem;
+    display: flex;
+    justify-content: center;
+    align-items: baseline;
+    color: var(--md-sys-color-primary);
+}
+
+.time-unit {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    width: 80px;
+}
+
+.time-unit label {
+    font-family: var(--md-sys-typescale-label-large-font);
+    font-size: 0.75rem;
+    /* Small label */
+    color: var(--md-sys-color-on-surface-variant);
+    margin-top: 0.25rem;
+    font-weight: 500;
+    letter-spacing: 0.5px;
+}
+
+.separator {
+    font-size: 3rem;
+    margin: 0 0.25rem;
+    color: var(--md-sys-color-outline);
+    opacity: 0.5;
+    transform: translateY(-12px);
+}
+
+.input-group {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    margin-bottom: 2.5rem;
+    gap: 8px;
+}
+
+/* Outlined Text Field Style */
+.input-group input {
+    width: 64px;
+    height: 56px;
+    padding: 8px;
+    border-radius: var(--md-sys-shape-corner-small);
+    border: 1px solid var(--md-sys-color-outline);
+    background: transparent;
+    color: var(--md-sys-color-on-surface);
+    font-family: var(--md-sys-typescale-headline-medium-font);
+    font-size: 1.5rem;
+    text-align: center;
+    outline: none;
+    transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.input-group input:focus {
+    border-color: var(--md-sys-color-primary);
+    border-width: 2px;
+    /* No glow in M3, just thicker border */
+}
+
+.input-group input::placeholder {
+    color: var(--md-sys-color-on-surface-variant);
+    opacity: 0.5;
+}
+
+.input-separator {
+    font-size: 1.5rem;
+    color: var(--md-sys-color-on-surface-variant);
+}
+
+.controls {
+    display: flex;
+    justify-content: center;
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+}
+
+/* Material 3 Button Styles */
+.btn {
+    height: 40px;
+    padding: 0 24px;
+    border-radius: var(--md-sys-shape-corner-full);
+    border: none;
+    font-family: var(--md-sys-typescale-label-large-font);
+    font-size: var(--md-sys-typescale-label-large-size);
+    font-weight: var(--md-sys-typescale-label-large-weight);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
+    position: relative;
+    overflow: hidden;
+}
+
+/* State Layer for Buttons */
+.btn::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background-color: currentColor;
+    opacity: 0;
+    transition: opacity 0.2s ease;
+    pointer-events: none;
+}
+
+.btn:hover::after {
+    opacity: 0.08;
+}
+
+.btn:focus-visible::after {
+    opacity: 0.12;
+}
+
+.btn:active::after {
+    opacity: 0.12;
+}
+
+.btn:disabled {
+    opacity: 0.38;
+    cursor: not-allowed;
+    box-shadow: none;
+}
+
+/* Filled Button (Primary) */
+.primary {
+    background-color: var(--md-sys-color-primary);
+    color: var(--md-sys-color-on-primary);
+    box-shadow: var(--md-sys-elevation-level-1);
+}
+
+.primary:hover:not(:disabled) {
+    box-shadow: var(--md-sys-elevation-level-2);
+    /* Overlay handled by generic .btn::after */
+}
+
+.primary:active:not(:disabled) {
+    /* Overlay handled by generic .btn::after */
+}
+
+/* Tonal Button (Secondary) */
+.secondary {
+    background-color: var(--md-sys-color-secondary-container);
+    color: var(--md-sys-color-on-secondary-container);
+}
+
+.secondary:hover:not(:disabled) {
+    /* Overlay handled by generic .btn::after */
+    box-shadow: var(--md-sys-elevation-level-1);
+}
+
+/* Text Button (Tertiary) */
+.tertiary {
+    background: transparent;
+    color: var(--md-sys-color-primary);
+    padding: 0 12px;
+    /* Less padding for text buttons */
+}
+
+.tertiary:hover:not(:disabled) {
+    /* Overlay handled by generic .btn::after */
+    background-color: transparent;
+}
+
+/* Hide number input arrows */
+input::-webkit-outer-spin-button,
+input::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
+
+.presets {
+    margin-top: 2rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid var(--md-sys-color-outline-variant);
+    display: flex;
+    justify-content: center;
+    gap: 0.5rem;
+}
+
+/* Filter Chip Style for Presets */
+.preset {
+    height: 32px;
+    padding: 0 16px;
+    border-radius: 8px;
+    border: 1px solid var(--md-sys-color-outline);
+    background: transparent;
+    color: var(--md-sys-color-on-surface-variant);
+    font-family: var(--md-sys-typescale-label-large-font);
+    font-size: var(--md-sys-typescale-label-large-size);
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.preset:hover {
+    background-color: var(--md-sys-color-surface-container-highest);
+    border-color: var(--md-sys-color-on-surface-variant);
+}
+
+/* Utility class for hidden elements */
+.hidden {
+    display: none !important;
+}

@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Focus Timer</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+    <div class="container">
+        <div class="header-controls">
+            <button id="theme-toggle" class="btn-icon" aria-label="Toggle Dark Mode">
+                🌙
+            </button>
+        </div>
+        <div class="timer-display">
+            <div class="time-unit">
+                <span id="hours">00</span>
+                <label>시간</label>
+            </div>
+            <span class="separator">:</span>
+            <div class="time-unit">
+                <span id="minutes">00</span>
+                <label>분</label>
+            </div>
+            <span class="separator">:</span>
+            <div class="time-unit">
+                <span id="seconds">00</span>
+                <label>초</label>
+            </div>
+        </div>
+
+        <div class="input-group" id="input-group">
+            <input type="number" id="input-hours" placeholder="00" min="0" max="99">
+            <span class="input-separator">:</span>
+            <input type="number" id="input-minutes" placeholder="00" min="0" max="59">
+            <span class="input-separator">:</span>
+            <input type="number" id="input-seconds" placeholder="00" min="0" max="59">
+        </div>
+
+        <div class="controls">
+            <button id="start-btn" class="btn primary">시작</button>
+            <button id="pause-btn" class="btn secondary" disabled>일시정지</button>
+            <button id="reset-btn" class="btn tertiary">초기화</button>
+        </div>
+
+        <div class="presets">
+            <button id="pasta-btn" class="btn preset">🍝 Pasta (8m)</button>
+        </div>
+    </div>
+    <script src="script.js"></script>
+</body>
+
+</html>
