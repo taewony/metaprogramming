@@ -239,3 +239,13 @@ Expected if Ollama is available: `answer_source` becomes `llm`, `llm.status` bec
 - [x] Rewrote `artifacts/SKILL.md` into a reusable `cognitive-dev-loop` skill for staged Coding Agent development.
 - [x] Rewrote `artifacts/cognitive_dev_process.md` into a general cognitive/epistemic development process covering system models, TDD/evals, evidence, insight, decisions, ActiveGraph projection, baseline freezes, and learning artifacts.
 - [x] Validated `artifacts/SKILL.md` frontmatter with PyYAML and checked required cognitive process sections.
+## Two-paper draft checkpoint
+- [x] Created `docs/paper1_micro_vllm_educational_systems_artifact_draft.md` as a revised micro-vLLM paper centered on Windows-native inference-engine migration, fixed-context agent workloads, and assumed successful prefix KV-cache experiments.
+- [x] Created `docs/paper2_activegraph_educational_knowledge_agent_draft.md` as the broader educational knowledge-agent paper using OKF, ActiveGraph event logs, graph projection, executable evidence, and CUDA/nano-vLLM course material.
+- [x] Marked all hypothetical experimental numbers with `[ASSUMED]` so they can be replaced with measured data before submission.
+## Paper #1 active work checkpoint
+- [x] Inventoried KernelAgent stages: `0-MatMul`, `1-FMHA`, `2-LLM-from-scratch`, and `3-micro-vllm`.
+- [x] Confirmed Paper #1 should use host-PC for source/paper/script preparation and target-PC RTX5070 for all final GPU measurements.
+- [x] Added `docs/paper1_execution_plan.md` with contribution framing, host/target split, existing evidence, and prefix KV-cache experiment plan.
+- [x] Added `KernelAgent/3-micro-vllm/bench_prefix_cache.py` to measure no-cache, warm-cache, and prefix-changed fixed-context workloads.
+- [x] Validated benchmark script with AST parsing and `--help`; GPU execution remains target-PC work because host Python lacks `torch`.

@@ -1,0 +1,176 @@
+• 결론부터: 단기 논문화는 현재 micro_vllm.pdf 방향이 더 feasible합니다. 이미 구현체, 측정값, 비교
+  baseline, 실패 분석이 있습니다. 반면 “educational knowledge agent” 논문은 연구 주제로는 더 크고
+  교수님의 장기 비전과 잘 맞지만, 아직 논문으로 쓰려면 시스템 구현 + 평가 설계가 새로 필요합니다.
+
+  현재 micro-vLLM 논문의 강점
+
+  - 실제 구현과 실험 결과가 있음: Windows native cuTile backend, WSL2 FlashAttention 비교, Green
+    Contexts 반복 측정, allocator thrashing 분석.
+
+  - 결과가 과장되지 않음: “성능 우위”가 아니라 “Windows-native migration, educational path,
+    bottleneck analysis”로 포지셔닝한 점이 좋습니다.
+
+  - CUDA Python 1.0, cuTile, nano-vLLM, Green Contexts는 시의성이 있습니다. NVIDIA CUDA docs도
+    CUDA Python을 공식 구성요소로 설명하고, CUDA Toolkit 쪽에서도 CUDA Python 1.0을 언급합니다.
+    nano-vLLM도 약 1,200 lines의 readable vLLM 구현체로 교육용 분석 대상에 적합합니다.
+    Sources: NVIDIA CUDA Python docs, CUDA Toolkit docs, nano-vLLM GitHub, vLLM docs.
+
+  현재 논문의 약점
+
+  - contribution이 4개로 너무 많습니다: kernel migration, agent co-design, Green Contexts,
+    allocator thrashing. 심사자는 “핵심 기여가 무엇인가?”를 물을 가능성이 큽니다.
+
+  - agent co-design 부분은 현재 측정 가능한 evaluation이 약합니다. “TechLead agent가 실험 설계에
+    도움을 줬다”는 주장은 흥미롭지만, 정량 평가가 없으면 방법론 설명에 머물 수 있습니다.
+
+  - 실험 규모가 작습니다: single RTX 5070, runs 3/4/8, variance/error bar 부족. KCC/워크샵/실증 논
+    문은 가능하지만, 강한 systems paper로 밀기엔 아직 약합니다.
+
+  - Green Contexts 결과는 mixed result입니다. 이건 나쁜 게 아니라 오히려 “tail latency trade-
+    off”로 정직하게 쓰면 좋습니다.
+
+  Educational Knowledge Agent 논문의 강점
+
+  - 교수님의 “Information Organizing and Retrieval” 관심사와 훨씬 직접적으로 맞습니다.
+  - ActiveGraph, OKF, event log, graph projection, eval-run protocol을 교육 시스템으로 묶으면 독창
+    적인 프레임이 나옵니다.
+
+  - CUDA Python / nano-vLLM을 “학습 대상 지식체계”로 삼으면 일반 RAG 교육 챗봇보다 훨씬 차별화됩니
+    다.
+
+  하지만 현재는 더 덜 feasible합니다
+
+  - 아직 learner model, curriculum model, retrieval metrics, learning outcome 평가가 없습니다.
+  - 최소한 OKF course bundle, retrieval/evidence citation, learner task traces, pre/post or task-
+    completion evaluation이 필요합니다.
+
+  - IR 논문으로 쓰려면 Recall@k, MRR, citation correctness, unsupported-claim rate 같은 평가가 필
+    요하고, 교육 논문으로 쓰려면 학습 효과나 과제 수행 개선 근거가 필요합니다.
+
+  내 판단
+
+  1. 단기 제출: 현재 micro_vllm.pdf를 다듬어서 제출하는 것이 더 현실적입니다.
+     제목/초점을 “Windows-native LLM inference engine migration as educational systems artifact”
+     쪽으로 좁히세요.
+
+  2. 중기 대표 논문: educational knowledge agent가 더 큰 논문이 될 수 있습니다.
+     다만 이건 micro-vLLM을 학습 콘텐츠로 삼아 ActiveGraph/OKF 기반 교육 agent를 만든 뒤, trace/
+     eval/learner-task 데이터를 쌓아야 합니다.
+
+  3. 가장 좋은 전략: 둘을 분리하지 말고 순서화하세요.
+      - Paper 1: micro-vLLM: CUDA Python/nano-vLLM 학습 가능한 inference-engine migration 실증.
+      - Paper 2: ActiveGraph Educational Knowledge Agent: Paper 1의 구현/실험/실패 로그를 OKF 지식
+        체계로 조직하고, 학생이 질문/실험/검색/디버깅하는 agent system.
+
+  즉, 지금은 current micro-vLLM paper를 먼저 완성하고, 그것을 educational knowledge agent 논문의
+  domain corpus + 실험 substrate로 사용하는 방향이 가장 강합니다.
+
+─ Worked for 1m 10s ──────────────────────────────────────────────────────────────────────────────
+
+
+› System Prompt나 DB schema가 담긴 text-to-sql SKILL.md와 같이 고정된 context에 대해 nano-vllm의
+  prefix KV cache 방식에 대한 효율성 실증 data를 추가하여,  “Windows-native LLM inference engine
+  migration as educational systems artifact” 완성해서 논문 채택 가능성을 높일 수 있을까?
+
+
+◦ Searching the web
+
+• Searched the web for vLLM automatic prefix caching official documentation prefix caching KV
+  cache
+
+──────────────────────────────────────────────────────────────────────────────────────────────────
+
+• Yes. 이 data를 추가하면 현재 micro-vLLM 논문의 채택 가능성을 꽤 높일 수 있습니다. 이유는 명확합
+  니다: 지금 논문은 “Windows-native migration + 병목 분석”은 있지만, 성능상 긍정적인 실증 포인트가
+  약합니다. Prefix KV cache는 고정 context가 반복되는 교육/DB/agent workload에서 성능 개선을 보여
+  주기 좋은 실험입니다.
+
+  왜 좋은가
+  System Prompt + DB schema + SKILL.md는 거의 변하지 않는 긴 prefix입니다. nano-vLLM 문서도 prefix
+  caching이 “same system prompt or few-shot block” 같은 반복 prefix에서 prefill compute를 제거한다
+  고 설명합니다. vLLM의 APC도 같은 원리입니다: 공유 prefix의 KV cache를 재사용해 prefill 시간을 줄
+  입니다.
+  Sources: nano-vLLM prefix caching
+  (https://www.mintlify.com/GeeeekExplorer/nano-vllm/guides/prefix-caching), vLLM prefix caching
+  (https://www.mintlify.com/vllm-project/vllm/features/prefix-caching), vLLM APC design
+  (https://docs.vllm.ai/en/v0.8.3/design/automatic_prefix_caching.html)
+
+  논문 관점에서 강해지는 주장
+  현재 제목을 다음처럼 더 선명하게 만들 수 있습니다.
+
+  > Windows-native LLM inference engine migration as an educational systems artifact for fixed-
+  > context agent workloads
+
+  즉, “production vLLM보다 빠르다”가 아니라:
+
+  1. Windows-native 환경에서 inference engine 내부를 학습 가능하게 재구성했다.
+  2. DB schema / SKILL.md / 교육용 OKF context처럼 반복되는 고정 context workload를 정의했다.
+  3. Prefix KV cache가 이런 agentic educational workload에서 prefill 비용을 줄인다는 것을 실증했
+     다.
+
+  4. Green Contexts, allocator thrashing, prefix cache를 함께 분석해 “LLM serving 최적화는 kernel
+     하나가 아니라 전체 serving loop 문제”임을 보였다.
+
+  이건 훨씬 좋은 story입니다.
+
+  추천 실험 설계
+  3개 workload를 만들면 좋습니다.
+
+   Workload             Static Prefix                                    Dynamic Suffix
+  ━━━━━━━━━━━━━━━━━━━  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━  ━━━━━━━━━━━━━━━━━━━━━
+   Text-to-SQL Agent    system prompt + DB schema + SKILL.md             사용자 질문
+  ───────────────────  ───────────────────────────────────────────────  ─────────────────────
+   CUDA Tutor Agent     CUDA Python lesson + kernel template + rubric    학생 질문/수정 요청
+  ───────────────────  ───────────────────────────────────────────────  ─────────────────────
+   nano-vLLM Tutor      inference engine docs + source excerpt           개념 질문
+
+  측정은 최소 이 정도면 됩니다.
+
+   Metric                              Why
+  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   TTFT                                prefix cache 효과가 가장 잘 드러남
+  ──────────────────────────────────  ──────────────────────────────────────────────────────
+   Prefill tokens actually computed    cache hit의 직접 증거
+  ──────────────────────────────────  ──────────────────────────────────────────────────────
+   Prefill tok/s                       nano-vLLM 문서와 맞는 관찰 지표
+  ──────────────────────────────────  ──────────────────────────────────────────────────────
+   E2E throughput                      실제 사용자 관점
+  ──────────────────────────────────  ──────────────────────────────────────────────────────
+   Cache hit ratio / reused blocks     mechanism evidence
+  ──────────────────────────────────  ──────────────────────────────────────────────────────
+  ──────────────────────────────────  ──────────────────────────────────────────────────────
+   Decode P50/P99 ITL                  prefix cache가 decode에는 직접 효과가 적다는 점 확인
+
+  비교군
+
+  A. no prefix cache
+  B. prefix cache enabled, cold first request
+  C. prefix cache enabled, warm repeated requests
+  D. shuffled/changed prefix negative control
+  E. WSL2 vLLM or nano-vLLM reference
+
+  중요한 주의점
+
+  - prefix는 token-level exact match여야 합니다. timestamp, run_id, user name 같은 동적 정보가 앞
+    부분에 들어가면 cache hit가 깨집니다.
+
+  - static context는 반드시 prompt 앞쪽에 두고, user query는 뒤쪽에 둬야 합니다.
+  - nano-vLLM은 block size 단위로 cache를 재사용하므로, 충분히 긴 fixed prefix일수록 효과가 잘 보
+    입니다.
+
+  - output이 매우 길면 decode 시간이 지배적이라 개선 폭이 작아질 수 있습니다. 논문 실험은
+    max_tokens=64/128처럼 prefill 영향이 보이는 조건도 포함해야 합니다.
+
+  내 판단
+  현재 paper만으로도 KCC/워크샵/실증 논문은 가능하지만, prefix KV cache 실험을 추가하면 훨씬 설득
+  력이 좋아집니다. 특히 교수님의 “Information Organizing and Retrieval” 방향과도 자연스럽게 연결됩
+  니다.
+
+  가장 좋은 framing은:
+
+  > 고정 지식 context를 가진 교육/DB agent workload에서는 inference engine의 핵심 최적화 대상이
+  > decode kernel만이 아니라 reusable prefill context이며, micro-vLLM은 이를 Windows-native 환경에
+  > 서 관찰·실험·교육할 수 있는 artifact이다.
+
+  이 방향으로 가면 micro-vLLM 논문과 educational knowledge agent 논문이 분리되지 않고, 첫 논문이
+  두 번째 논문의 실험 기반이 됩니다.
