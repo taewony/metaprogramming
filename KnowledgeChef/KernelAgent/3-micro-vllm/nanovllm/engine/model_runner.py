@@ -60,16 +60,25 @@ class ModelRunner:
                         self.use_green_contexts = False
             if self.use_green_contexts and self.green_api_type is None and self.green_requested_api in {"auto", "cuda_core"}:
                 try:
-                    from cuda import cuda
+                    from cuda.bindings import driver as cuda
                     from cuda.core import Device, ContextOptions, SMResourceOptions
                     cuda.cuInit(0)
                     dev = Device(0)
+                    dev.set_current()
                     sm = dev.resources.sm
                     decode_sm = self.green_decode_sms
                     prefill_sm = self.green_prefill_sms if "NANO_VLLM_PREFILL_SMS" in os.environ else max(1, sm.sm_count - decode_sm)
-                    long_grp, crit_grp = sm.split(SMResourceOptions(count=(prefill_sm, decode_sm)))[0]
+                    split_layouts = list(sm.split(SMResourceOptions(count=(prefill_sm, decode_sm))))
+                    layout = split_layouts[0]
+                    if not isinstance(layout, (list, tuple)) or len(layout) < 2:
+                        raise RuntimeError(f"expected two SM resource groups, got {layout!r}")
+                    long_grp, crit_grp = layout[0], layout[1]
+                    self.green_device = dev
                     self.ctx_prefill = dev.create_context(ContextOptions(resources=[long_grp]))
                     self.ctx_decode = dev.create_context(ContextOptions(resources=[crit_grp]))
+                    self.green_prefill_stream = self.ctx_prefill.create_stream()
+                    self.green_decode_stream = self.ctx_decode.create_stream()
+                    dev.set_current()
                     self.green_api_type = "cuda_core"
                     print(f"Green Contexts Initialized (cuda.core API): Prefill Context ({prefill_sm} SMs), Decode Context ({decode_sm} SMs)")
                 except Exception as ex:
@@ -256,7 +265,7 @@ class ModelRunner:
             if self.green_api_type == "pytorch":
                 ctx.set_context()
             elif self.green_api_type == "cuda_core":
-                ctx.push_current()
+                self.green_device.set_current(ctx)
         
         try:
             input_ids, positions = self.prepare_prefill(seqs) if is_prefill else self.prepare_decode(seqs)
@@ -271,7 +280,7 @@ class ModelRunner:
                 if self.green_api_type == "pytorch":
                     ctx.pop_context()
                 elif self.green_api_type == "cuda_core":
-                    ctx.pop_current()
+                    self.green_device.set_current()
 
     @torch.inference_mode()
     def capture_cudagraph(self):
@@ -309,3 +318,4 @@ class ModelRunner:
             block_tables=block_tables,
             outputs=outputs,
         )
+

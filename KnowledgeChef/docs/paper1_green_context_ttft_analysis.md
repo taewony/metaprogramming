@@ -99,3 +99,12 @@ If those conditions are not met, keep Green Contexts as a feasibility/future-wor
   되고, 평균 개선폭이 delta 표준편차보다 크면 본문 분석으로 넣고, 아니면 지금처럼 “feasible but
   mixed result”로 두는 게 안전합니다.
 ```
+## 2026-07-28 target-PC API update
+
+A target-PC preflight showed the following:
+
+- PyTorch `torch.cuda.green_contexts.GreenContext` is importable but cannot create a context in the current environment, reporting `Green Context is only supported on CUDA 12.8+!` despite PyTorch reporting CUDA 13.0.
+- `cuda.core` resource partitioning works when using `from cuda.bindings import driver as cuda`, `Device.set_current(ctx)`, and `Device.set_current()` for restoration.
+- The runtime was updated to use this `cuda.core` activation pattern instead of the stale `from cuda import cuda` and `ctx.push_current()/ctx.pop_current()` path.
+
+Paper implication: if a rerun now records `green_enabled=true` and `green_api_type="cuda_core"`, then it can be treated as a real resource-partitioning intervention. Previous JSONL files where `green_enabled=false` remain fallback-control runs and should not be used as Green Context efficacy evidence.

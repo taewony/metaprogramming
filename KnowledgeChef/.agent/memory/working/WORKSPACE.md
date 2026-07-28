@@ -268,3 +268,15 @@ Expected if Ollama is available: `answer_source` becomes `llm`, `llm.status` bec
 - [x] Added Green Context metadata to `bench_green.py` result JSON.
 - [x] Added `KernelAgent/3-micro-vllm/bench_green_repeat.py` for target-PC repeated JSONL evidence collection.
 - [x] Added `docs/paper1_green_context_ttft_analysis.md` with interpretation, target-PC commands, and paper inclusion decision rule.
+## Active hypotheses
+- Green Context integration failure is caused by stale cuda.core usage in `model_runner.py`: old `from cuda import cuda` import plus `ctx.push_current()/pop_current()` activation, while the target PC validates `from cuda.bindings import driver as cuda` plus `dev.set_current(ctx)/dev.set_current()`.
+## Paper #1 cuda.core Green Context runtime checkpoint
+- [x] Incorporated target-PC finding: PyTorch GreenContext remains unavailable, but `cuda.core` works with `cuda.bindings.driver`, `Device.set_current(ctx)`, and `Device.set_current()` restoration.
+- [x] Updated `KernelAgent/3-micro-vllm/nanovllm/engine/model_runner.py` to use the working cuda.core import and activation path.
+- [x] Updated `KernelAgent/3-micro-vllm/tests/test_green_contexts_api.py` with the working preflight and an exact 32/16 two-context check.
+- [x] Updated `docs/paper1_green_context_ttft_analysis.md` to distinguish prior fallback-control JSONL from future valid Green Context efficacy runs.
+## Paper #1 Green Context preflight checkpoint
+- [x] Rewrote `KernelAgent/3-micro-vllm/tests/test_green_contexts_api.py` as a structured target-PC preflight.
+- [x] Treats PyTorch GreenContext as optional and cuda.core `Device.set_current()` activation as the required benchmark path.
+- [x] Checks both a single decode partition and the exact benchmark split from `NANO_VLLM_PREFILL_SMS`/`NANO_VLLM_DECODE_SMS` defaults 32/16.
+- [x] Returns process exit code 0 only when cuda.core Green Context preflight succeeds.
