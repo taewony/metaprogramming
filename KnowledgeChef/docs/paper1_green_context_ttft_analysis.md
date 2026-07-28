@@ -127,3 +127,28 @@ A subsequent target-PC run showed that `sm.split(SMResourceOptions(count=(16,)))
 - `layout=[decode_resource]`: Decode uses the requested resource and Prefill uses the device SM resource object as a fallback, matching the target-PC probe that successfully created both contexts.
 
 The benchmark JSON now records `green_split_layout_width` and `green_prefill_resource_source` so paper analysis can distinguish explicit-remainder partitioning from the fallback mapping.
+
+## Level 1 stress benchmark
+
+`KernelAgent/3-micro-vllm/bench_green_stress.py` implements the first adversarial Green Context experiment. It keeps one protected decode request active and repeatedly injects large prefill requests. The key metric is not ordinary TTFT; it is protected decode completion gap, which includes prefill-induced pauses between visible decode tokens in the current sequential engine loop.
+
+Default workload:
+
+- protected decode prompt: 32 tokens
+- protected decode output: 256 tokens
+- interfering prefill prompt: 3072 tokens
+- interfering prefill output: 1 token
+- injections: 12
+- injection cadence: every 8 protected decode steps, starting after 4 decode steps
+- Green split: decode 16 SMs, prefill 32 SMs/default fallback resource
+
+Target-PC command:
+
+```powershell
+cd D:\code\metaprogramming\KnowledgeChef\KernelAgent\3-micro-vllm
+python .\bench_green_stress.py --repeats 20 --green-api cuda_core --prefill-sms 32 --decode-sms 16 --jsonl green_context_stress_cuda_core_32_16.jsonl
+```
+
+For a more aggressive run, increase `--prefill-prompt-tokens` to 4096 and `--max-model-len` to 8192 if the model and VRAM allow it.
+
+Paper decision rule: claim Green Context effectiveness only if `green_enabled=true`, `green_api_type="cuda_core"`, and protected `decode_gap_p99_ms` or `decode_gap_max_ms` improves consistently across paired runs. If only activation succeeds but decode-gap metrics remain flat, Green Contexts should remain a feasibility/future-work result.

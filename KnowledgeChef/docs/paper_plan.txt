@@ -174,3 +174,12 @@
 
   이 방향으로 가면 micro-vLLM 논문과 educational knowledge agent 논문이 분리되지 않고, 첫 논문이
   두 번째 논문의 실험 기반이 됩니다.
+
+  cd D:\code\metaprogramming\KnowledgeChef\KernelAgent\3-micro-vllm
+
+  python .\bench_green_stress.py --repeats 20 --green-api cuda_core --prefill-sms 32 --decode-sms 16 --jsonl green_context_stress_cuda_core_32_16.jsonl
+
+  For a more aggressive version, if VRAM allows:
+
+  python .\bench_green_stress.py --repeats 20 --green-api cuda_core --prefill-sms 32 --decode-sms 16 --prefill-prompt-tokens 4096 --max-model-len 8192 --jsonl green_context_stress_cuda_core_32_16_4096.jsonl
+

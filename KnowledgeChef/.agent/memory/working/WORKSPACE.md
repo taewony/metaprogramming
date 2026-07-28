@@ -291,3 +291,13 @@ Expected if Ollama is available: `answer_source` becomes `llm`, `llm.status` bec
 - [x] Runtime now maps `layout[0]` to decode and uses `layout[1]` if available, otherwise the device SM resource object as the prefill fallback.
 - [x] Added `green_split_layout_width` and `green_prefill_resource_source` metadata to `bench_green.py` output.
 - [x] AST validation passed for `test_green_contexts_api.py`, `model_runner.py`, and `bench_green.py`.
+## Paper #1 Green Context v2 JSONL checkpoint
+- [x] Found and parsed `KernelAgent/3-micro-vllm/green_context_results_cuda_core_32_16_v2.jsonl`.
+- [x] Confirmed Green side activation: 20/20 `green_enabled=true`, 20/20 `green_api_type=cuda_core`.
+- [x] Confirmed split metadata: 20/20 `green_split_layout_width=1`, 20/20 `green_prefill_resource_source=device_sm_fallback`.
+- [x] Interpreted results as activation-valid but efficacy-neutral: one baseline P99 outlier drives the apparent full-run P99 improvement; excluding it leaves TTFT/P99/throughput near flat.
+## Paper #1 Green Context Level 1 stress benchmark checkpoint
+- [x] Added `KernelAgent/3-micro-vllm/bench_green_stress.py` for adversarial protected-decode plus repeated-prefill interference.
+- [x] Measures decode step latency and protected decode completion gap, including prefill-induced pauses between decode tokens.
+- [x] Parent mode runs paired baseline/Green subprocesses and writes JSONL evidence with activation metadata.
+- [x] AST validation and `--help` passed locally; GPU execution remains target-PC work.
