@@ -22,19 +22,13 @@ def test_cutile_decode_graph_capture_is_documented_in_code():
     assert "use_cutile=self.use_cutile" in source
 
 
-def test_cutile_prefill_wrapper_avoids_padded_tensor_materialization():
+def test_cutile_prefill_has_explicit_strategy_dispatch():
     source = read("nanovllm/layers/cutile_attention.py")
-    forbidden = [
-        "q_4d = torch.zeros",
-        "k_4d = torch.zeros",
-        "v_4d = torch.zeros",
-        "res[start_q:end_q]",
-    ]
-    for pattern in forbidden:
-        assert pattern not in source
-
+    assert "NANO_VLLM_CUTILE_PREFILL_STRATEGY" in source
     assert "def _bhtd_view" in source
     assert "fmha_prefill_paged_kernel" in source
+    assert "def _cutile_fmha_prefill_padded" in source
+    assert "strategy == \"hybrid\" and batch_size > 1" in source
 
 
 def test_cutile_kv_store_avoids_pytorch_advanced_indexing_path():
@@ -44,3 +38,4 @@ def test_cutile_kv_store_avoids_pytorch_advanced_indexing_path():
     use_cutile_branch = source[source.index("def store_kvcache("):source.index("class Attention")]
     assert "if use_cutile and HAS_CUTILE" in use_cutile_branch
     assert "slot_mapping[mask]" not in use_cutile_branch
+

@@ -8,11 +8,15 @@ from nanovllm import LLM, SamplingParams
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--use-cutile", action="store_true", help="Use cuTile backend")
+    parser.add_argument("--enforce-eager", action="store_true", help="Disable CUDA Graph replay")
+    parser.add_argument("--cutile-prefill-strategy", choices=["hybrid", "direct", "padded"], default="hybrid", help="cuTile prefill strategy for target-PC comparisons")
     args = parser.parse_args()
 
     if args.use_cutile:
         os.environ["NANO_VLLM_USE_CUTILE"] = "1"
+        os.environ["NANO_VLLM_CUTILE_PREFILL_STRATEGY"] = args.cutile_prefill_strategy
         print("🚀 Using cuTile attention backend")
+        print(f"cuTile prefill strategy: {args.cutile_prefill_strategy}")
     else:
         print("⚡ Using default (FlashAttention) backend")
 
@@ -22,7 +26,7 @@ def main():
     max_ouput_len = 1024
 
     path = os.path.expanduser("~/huggingface/Qwen3-0.6B/")
-    llm = LLM(path, enforce_eager=False, max_model_len=4096)
+    llm = LLM(path, enforce_eager=args.enforce_eager, max_model_len=4096)
 
     prompt_token_ids = [[randint(0, 10000) for _ in range(randint(100, max_input_len))] for _ in range(num_seqs)]
     sampling_params = [SamplingParams(temperature=0.6, ignore_eos=True, max_tokens=randint(100, max_ouput_len)) for _ in range(num_seqs)]
@@ -63,4 +67,5 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 

@@ -183,3 +183,36 @@ Next diagnostic command:
 $env:CUDA_LOG_FILE='stderr'
 python bench.py --use-cutile
 ```
+
+### Target-PC result after CUDA Graph capture repair
+
+User-measured run after replacing the PyTorch advanced-indexing KV-store path:
+
+```text
+cuTile CUDA Graph decode capture enabled
+Total: 133966tok, Time: 342.02s, Throughput: 391.69tok/s
+```
+
+Interpretation:
+
+- CUDA Graph capture is now functionally enabled.
+- The result is not yet a performance improvement against the previous cuTile baseline (`463.35 tok/s` mean, best single log `470.82 tok/s`).
+- The likely regression source is not CUDA Graph capture alone, but the direct no-copy prefill path used for multi-request serving. It removes padded materialization, but it launches per sequence and therefore increases host/kernel-launch pressure during batched prefill admission.
+
+Follow-up implementation: `bench.py` now exposes `--cutile-prefill-strategy hybrid|direct|padded` and `--enforce-eager`.
+
+Recommended target-PC comparison matrix:
+
+```powershell
+python bench.py --use-cutile --cutile-prefill-strategy hybrid
+python bench.py --use-cutile --cutile-prefill-strategy hybrid --enforce-eager
+python bench.py --use-cutile --cutile-prefill-strategy direct
+python bench.py --use-cutile --cutile-prefill-strategy padded
+```
+
+Expected reading:
+
+- `hybrid` should use batched padded prefill for multi-sequence admission and direct/paged prefill for single or prefix-cache cases.
+- `direct` isolates the no-copy prefill experiment and should reproduce the launch-pressure regression on the 256-request benchmark.
+- `hybrid --enforce-eager` isolates the value of CUDA Graph replay after restoring multi-sequence prefill batching.
+- `padded` approximates the previous cuTile prefill behavior while retaining the cuTile KV-store repair.

@@ -325,3 +325,10 @@ Expected if Ollama is available: `answer_source` becomes `llm`, `llm.status` bec
 - [x] Updated `store_kvcache()` so `use_cutile and HAS_CUTILE` dispatches to the cuTile KV-store kernel.
 - [x] Extended static regression tests to guard against routing cuTile graph capture through the PyTorch advanced-indexing KV-store path.
 - [x] Updated `docs/perf_improve.md` with the capture repair note and next diagnostic command.
+## Paper #1 cuTile graph-enabled benchmark checkpoint
+- [x] Target-PC run confirmed `cuTile CUDA Graph decode capture enabled` after the cuTile KV-store repair.
+- [x] Measured graph-enabled direct-prefill run regressed to `391.69 tok/s` over `342.02s` for `133966` tokens, below the prior cuTile mean `463.35 tok/s`.
+- [x] Interpreted regression as likely multi-sequence prefill launch pressure from direct no-copy prefill, not graph enablement alone.
+- [x] Added `--cutile-prefill-strategy hybrid|direct|padded` and `--enforce-eager` to `KernelAgent/3-micro-vllm/bench.py`.
+- [x] Updated cuTile prefill dispatch so `hybrid` uses batched padded prefill for multi-sequence non-prefix admission and direct/paged prefill for single or prefix-cache cases.
+- [x] Guarded prefix-cache prefill from the explicit padded path because it needs per-sequence causal offset handling.
