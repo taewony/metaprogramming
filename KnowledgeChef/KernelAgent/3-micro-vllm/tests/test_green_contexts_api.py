@@ -1,8 +1,9 @@
 """Preflight check for CUDA Green Context support on the target PC.
 
-PyTorch GreenContext is treated as optional because the current target
-installation can import it but rejects activation. The required path for the
-paper benchmark is cuda.core resource partitioning with Device.set_current().
+PyTorch GreenContext is optional in the current environment. The required path
+for the paper benchmark is cuda.core resource partitioning with
+Device.set_current(). The benchmark split is implemented by carving out a
+decode partition and using the remaining SM resource as the prefill partition.
 """
 
 from __future__ import annotations
@@ -35,20 +36,22 @@ def test_pytorch_green_context() -> bool:
         print("ctx.pop_context() succeeded")
         return True
     except Exception as exc:
-        print(f"GreenContext creation or activation failed: {exc}")
+        print(f"GreenContext creation or activation failed: {exc} (treated as optional)")
         return False
 
 
-def first_resource(layout):
-    if isinstance(layout, (list, tuple)):
-        return layout[0]
-    return layout
+def split_decode_and_remainder(sm, decode_sms: int, resource_options_cls):
+    layouts = list(sm.split(resource_options_cls(count=(decode_sms,))))
+    if not layouts:
+        raise RuntimeError("single decode partition split returned no layouts")
 
+    layout = layouts[0]
+    if isinstance(layout, (list, tuple)) and len(layout) >= 2:
+        decode_grp = layout[0]
+        prefill_grp = layout[1]
+        return decode_grp, prefill_grp
 
-def two_resources(layout):
-    if not isinstance(layout, (list, tuple)) or len(layout) < 2:
-        raise RuntimeError(f"expected two SM resource groups, got {layout!r}")
-    return layout[0], layout[1]
+    raise RuntimeError(f"expected decode and remainder SM resource groups, got {layout!r}")
 
 
 def test_cuda_core_green_context() -> bool:
@@ -74,33 +77,26 @@ def test_cuda_core_green_context() -> bool:
         print(f"Device found: {dev.name}, total SMs: {total_sms}")
         print(f"Requested benchmark split: prefill={prefill_sms} SMs, decode={decode_sms} SMs")
 
-        if prefill_sms + decode_sms > total_sms:
+        if prefill_sms + decode_sms != total_sms:
             raise RuntimeError(
-                f"requested split {prefill_sms}+{decode_sms} exceeds total SM count {total_sms}"
+                f"cuda.core Green Context split must cover all SMs: requested {prefill_sms}+{decode_sms}, total {total_sms}"
             )
 
-        print(f"Requesting single partition of size: {decode_sms} SMs")
-        single_layouts = list(sm.split(SMResourceOptions(count=(decode_sms,))))
-        if not single_layouts:
-            raise RuntimeError("single partition split returned no layouts")
-        crit_grp = first_resource(single_layouts[0])
-        print(f"Single SM split succeeded; resource type: {type(crit_grp)}")
+        print(f"\n[Part 1] Requesting decode partition of size: {decode_sms} SMs")
+        decode_grp, prefill_grp = split_decode_and_remainder(sm, decode_sms, SMResourceOptions)
+        print(f"SM split succeeded; decode resource type: {type(decode_grp)}")
+        print(f"SM split remainder captured as prefill resource type: {type(prefill_grp)}")
 
-        ctx_crit = dev.create_context(ContextOptions(resources=[crit_grp]))
-        print("single dev.create_context succeeded")
-        dev.set_current(ctx_crit)
-        print("dev.set_current(ctx_crit) succeeded")
-        stream = ctx_crit.create_stream()
-        print(f"ctx_crit.create_stream succeeded; stream type: {type(stream)}")
+        ctx_decode_only = dev.create_context(ContextOptions(resources=[decode_grp]))
+        print("single decode dev.create_context succeeded")
+        dev.set_current(ctx_decode_only)
+        print("dev.set_current(ctx_decode_only) succeeded")
+        stream = ctx_decode_only.create_stream()
+        print(f"ctx_decode_only.create_stream succeeded; stream type: {type(stream)}")
         dev.set_current()
         print("dev.set_current() restored primary context after single-context test")
 
-        print(f"Requesting two-way partition: {prefill_sms} SMs + {decode_sms} SMs")
-        pair_layouts = list(sm.split(SMResourceOptions(count=(prefill_sms, decode_sms))))
-        if not pair_layouts:
-            raise RuntimeError("two-way partition split returned no layouts")
-        prefill_grp, decode_grp = two_resources(pair_layouts[0])
-
+        print(f"\n[Part 2] Executing two-context allocation: prefill={prefill_sms} SMs, decode={decode_sms} SMs")
         ctx_prefill = dev.create_context(ContextOptions(resources=[prefill_grp]))
         ctx_decode = dev.create_context(ContextOptions(resources=[decode_grp]))
         print("two-context creation succeeded")

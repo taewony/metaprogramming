@@ -66,13 +66,20 @@ class ModelRunner:
                     dev = Device(0)
                     dev.set_current()
                     sm = dev.resources.sm
+                    total_sms = sm.sm_count
                     decode_sm = self.green_decode_sms
-                    prefill_sm = self.green_prefill_sms if "NANO_VLLM_PREFILL_SMS" in os.environ else max(1, sm.sm_count - decode_sm)
-                    split_layouts = list(sm.split(SMResourceOptions(count=(prefill_sm, decode_sm))))
+                    prefill_sm = self.green_prefill_sms if "NANO_VLLM_PREFILL_SMS" in os.environ else max(1, total_sms - decode_sm)
+                    if prefill_sm + decode_sm != total_sms:
+                        raise RuntimeError(f"cuda.core Green Context split must cover all SMs: requested {prefill_sm}+{decode_sm}, total {total_sms}")
+                    split_layouts = list(sm.split(SMResourceOptions(count=(decode_sm,))))
+                    if not split_layouts:
+                        raise RuntimeError("single decode partition split returned no layouts")
                     layout = split_layouts[0]
-                    if not isinstance(layout, (list, tuple)) or len(layout) < 2:
-                        raise RuntimeError(f"expected two SM resource groups, got {layout!r}")
-                    long_grp, crit_grp = layout[0], layout[1]
+                    if isinstance(layout, (list, tuple)) and len(layout) >= 2:
+                        crit_grp = layout[0]
+                        long_grp = layout[1]
+                    else:
+                        raise RuntimeError(f"expected decode and remainder SM resource groups, got {layout!r}")
                     self.green_device = dev
                     self.ctx_prefill = dev.create_context(ContextOptions(resources=[long_grp]))
                     self.ctx_decode = dev.create_context(ContextOptions(resources=[crit_grp]))

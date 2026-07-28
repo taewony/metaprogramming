@@ -108,3 +108,13 @@ A target-PC preflight showed the following:
 - The runtime was updated to use this `cuda.core` activation pattern instead of the stale `from cuda import cuda` and `ctx.push_current()/ctx.pop_current()` path.
 
 Paper implication: if a rerun now records `green_enabled=true` and `green_api_type="cuda_core"`, then it can be treated as a real resource-partitioning intervention. Previous JSONL files where `green_enabled=false` remain fallback-control runs and should not be used as Green Context efficacy evidence.
+
+## 2026-07-28 split-mapping correction
+
+The target-PC preflight confirmed the correct cuda.core split semantics for the RTX 5070 benchmark path:
+
+- `sm.split(SMResourceOptions(count=(16,)))` returns a layout whose first resource is the requested 16-SM partition and whose second resource is the remaining 32-SM partition.
+- The runtime now maps the requested 16-SM partition to Decode and the remainder resource to Prefill.
+- The runtime intentionally requires `prefill_sms + decode_sms == total_sms` for this cuda.core path, because this implementation is a full-GPU two-context partition rather than an arbitrary partial partition.
+
+Paper implication: the valid Green Context intervention should be described as a full-GPU SM partitioning experiment: 16 SMs are carved out for decode isolation, and the remaining 32 SMs are assigned to prefill. New JSONL evidence should be accepted only when `green_enabled=true` and `green_api_type="cuda_core"`.
