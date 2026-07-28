@@ -249,3 +249,22 @@ Expected if Ollama is available: `answer_source` becomes `llm`, `llm.status` bec
 - [x] Added `docs/paper1_execution_plan.md` with contribution framing, host/target split, existing evidence, and prefix KV-cache experiment plan.
 - [x] Added `KernelAgent/3-micro-vllm/bench_prefix_cache.py` to measure no-cache, warm-cache, and prefix-changed fixed-context workloads.
 - [x] Validated benchmark script with AST parsing and `--help`; GPU execution remains target-PC work because host Python lacks `torch`.
+## Paper #1 prefix-cache result checkpoint
+- [x] Found three target-PC result files under `KernelAgent/3-micro-vllm`: `prefix_cache_results_cutile.jsonl`, `prefix_cache_results_cutile_1024.jsonl`, and `prefix_cache_results_cutile_3072.jsonl`.
+- [x] Parsed all three JSONL files successfully: each has 28 rows, no malformed JSON, and summaries for `no_cache`, `warm_cache`, and `prefix_changed`.
+- [x] Key result: warm prefix cache reduces TTFT strongly and reduces computed prefill tokens to 64, while E2E throughput does not consistently improve because decode dominates the 64-token generation loop.
+## Paper #1 KTCP revision checkpoint
+- [x] Generated `docs/paper1_prefix_cache_results.md` from measured prefix-cache JSONL data.
+- [x] Created `docs/paper1_micro_vllm_ktcp_revised_draft.md` with measured results replacing earlier `[ASSUMED]` placeholders.
+- [x] Created `KernelAgent/paper/paper-v4-prefix-cache.tex` as a KCC/KTCP-oriented LaTeX draft with fixed-context agent workload and prefix KV-cache evidence.
+- [x] Checked the new Paper #1 artifacts for unresolved placeholder markers; `pdflatex` is not available on PATH in the current environment.
+## Paper #1 HTML review checkpoint
+- [x] Created Korean review HTML at `KernelAgent/paper/paper-v4-prefix-cache.ko.html` from `paper-v4-prefix-cache.tex`.
+- [x] Created English review HTML at `KernelAgent/paper/paper-v4-prefix-cache.en.html` with matching structure and measured-result tables.
+- [x] Validated language tags, closing HTML tags, key prefix-cache metrics, and absence of placeholder markers.
+## Paper #1 Green Context TTFT checkpoint
+- [x] Re-analyzed saved Green Context logs: TTFT mean delta -0.57% across 9 runs, but effect is small and mixed.
+- [x] Added forced Green Context API selection via `NANO_VLLM_GREEN_CONTEXT_API=auto|pytorch|cuda_core` plus SM split env vars in `model_runner.py`.
+- [x] Added Green Context metadata to `bench_green.py` result JSON.
+- [x] Added `KernelAgent/3-micro-vllm/bench_green_repeat.py` for target-PC repeated JSONL evidence collection.
+- [x] Added `docs/paper1_green_context_ttft_analysis.md` with interpretation, target-PC commands, and paper inclusion decision rule.

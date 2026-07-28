@@ -83,13 +83,19 @@ def run_benchmark_workload(use_green: bool):
     p99_itl = get_percentile(decode_latencies, 99.0)
     
     # Print JSON output to stdout for parent process to parse
+    runner = getattr(llm, "model_runner", None)
     result = {
         "ttft": ttft,
         "p50_itl": p50_itl,
         "p99_itl": p99_itl,
         "throughput": throughput,
         "total_tokens": total_tokens_processed,
-        "total_time": total_time
+        "total_time": total_time,
+        "green_requested_api": os.environ.get("NANO_VLLM_GREEN_CONTEXT_API", "auto"),
+        "green_enabled": bool(getattr(runner, "use_green_contexts", False)),
+        "green_api_type": getattr(runner, "green_api_type", None),
+        "green_prefill_sms": getattr(runner, "green_prefill_sms", None),
+        "green_decode_sms": getattr(runner, "green_decode_sms", None),
     }
     print("RESULT_JSON:" + json.dumps(result))
 
@@ -183,3 +189,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+

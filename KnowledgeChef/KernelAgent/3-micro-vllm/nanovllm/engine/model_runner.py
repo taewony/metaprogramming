@@ -38,29 +38,43 @@ class ModelRunner:
         import os
         self.use_green_contexts = (os.environ.get("NANO_VLLM_USE_GREEN_CONTEXTS", "0") == "1")
         self.green_api_type = None
+        self.green_requested_api = os.environ.get("NANO_VLLM_GREEN_CONTEXT_API", "auto").lower()
+        if self.green_requested_api not in {"auto", "pytorch", "cuda_core"}:
+            print(f"WARNING: Unknown Green Context API '{self.green_requested_api}', using auto.")
+            self.green_requested_api = "auto"
+        self.green_prefill_sms = int(os.environ.get("NANO_VLLM_PREFILL_SMS", "32"))
+        self.green_decode_sms = int(os.environ.get("NANO_VLLM_DECODE_SMS", "16"))
         if self.use_green_contexts:
-            try:
-                from torch.cuda.green_contexts import GreenContext
-                self.ctx_prefill = GreenContext.create(num_sms=32)
-                self.ctx_decode = GreenContext.create(num_sms=16)
-                self.green_api_type = "pytorch"
-                print("🟢 Green Contexts Initialized (PyTorch API): Prefill Context (32 SMs), Decode Context (16 SMs)")
-            except Exception as e:
+            errors = []
+            if self.green_requested_api in {"auto", "pytorch"}:
+                try:
+                    from torch.cuda.green_contexts import GreenContext
+                    self.ctx_prefill = GreenContext.create(num_sms=self.green_prefill_sms)
+                    self.ctx_decode = GreenContext.create(num_sms=self.green_decode_sms)
+                    self.green_api_type = "pytorch"
+                    print(f"Green Contexts Initialized (PyTorch API): Prefill Context ({self.green_prefill_sms} SMs), Decode Context ({self.green_decode_sms} SMs)")
+                except Exception as e:
+                    errors.append(f"pytorch={e}")
+                    if self.green_requested_api == "pytorch":
+                        print(f"WARNING: Green Context initialization failed: {e}. Falling back to default context.")
+                        self.use_green_contexts = False
+            if self.use_green_contexts and self.green_api_type is None and self.green_requested_api in {"auto", "cuda_core"}:
                 try:
                     from cuda import cuda
                     from cuda.core import Device, ContextOptions, SMResourceOptions
                     cuda.cuInit(0)
                     dev = Device(0)
                     sm = dev.resources.sm
-                    decode_sm = 16
-                    prefill_sm = max(1, sm.sm_count - decode_sm)
+                    decode_sm = self.green_decode_sms
+                    prefill_sm = self.green_prefill_sms if "NANO_VLLM_PREFILL_SMS" in os.environ else max(1, sm.sm_count - decode_sm)
                     long_grp, crit_grp = sm.split(SMResourceOptions(count=(prefill_sm, decode_sm)))[0]
                     self.ctx_prefill = dev.create_context(ContextOptions(resources=[long_grp]))
                     self.ctx_decode = dev.create_context(ContextOptions(resources=[crit_grp]))
                     self.green_api_type = "cuda_core"
-                    print(f"🟢 Green Contexts Initialized (cuda.core API): Prefill Context ({prefill_sm} SMs), Decode Context ({decode_sm} SMs)")
+                    print(f"Green Contexts Initialized (cuda.core API): Prefill Context ({prefill_sm} SMs), Decode Context ({decode_sm} SMs)")
                 except Exception as ex:
-                    print(f"⚠️ Green Context initialization failed: {ex}. Falling back to default context.")
+                    errors.append(f"cuda_core={ex}")
+                    print(f"WARNING: Green Context initialization failed: {'; '.join(errors)}. Falling back to default context.")
                     self.use_green_contexts = False
         self.warmup_model()
         self.allocate_kv_cache()
