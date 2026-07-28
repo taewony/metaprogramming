@@ -96,6 +96,8 @@ def run_benchmark_workload(use_green: bool):
         "green_api_type": getattr(runner, "green_api_type", None),
         "green_prefill_sms": getattr(runner, "green_prefill_sms", None),
         "green_decode_sms": getattr(runner, "green_decode_sms", None),
+        "green_split_layout_width": getattr(runner, "green_split_layout_width", None),
+        "green_prefill_resource_source": getattr(runner, "green_prefill_resource_source", None),
     }
     print("RESULT_JSON:" + json.dumps(result))
 
@@ -189,4 +191,5 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 

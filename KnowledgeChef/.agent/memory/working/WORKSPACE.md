@@ -284,3 +284,10 @@ Expected if Ollama is available: `answer_source` becomes `llm`, `llm.status` bec
 - [x] Updated `model_runner.py` to use `sm.split(SMResourceOptions(count=(decode_sms,)))` and map the returned remainder resource to prefill.
 - [x] Updated `test_green_contexts_api.py` to match the target-PC passing run: PyTorch path optional, cuda.core path required, decode partition plus remainder-as-prefill mapping.
 - [x] AST validation passed for `model_runner.py` and `test_green_contexts_api.py`.
+## Active hypotheses
+- `cuda.core` `sm.split(SMResourceOptions(count=(decode_sms,)))` may return only the requested decode SMResource on RTX 5070; requiring a second remainder resource is too strict. The passing target-PC probe uses the device SM resource object as the prefill-side fallback when no explicit remainder is returned.
+## Paper #1 Green Context one-resource layout checkpoint
+- [x] Fixed `split_decode_and_remainder` after target-PC traceback showed `layout=[SMResource]` rather than `[decode, remainder]`.
+- [x] Runtime now maps `layout[0]` to decode and uses `layout[1]` if available, otherwise the device SM resource object as the prefill fallback.
+- [x] Added `green_split_layout_width` and `green_prefill_resource_source` metadata to `bench_green.py` output.
+- [x] AST validation passed for `test_green_contexts_api.py`, `model_runner.py`, and `bench_green.py`.

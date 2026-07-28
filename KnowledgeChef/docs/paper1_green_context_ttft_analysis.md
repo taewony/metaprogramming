@@ -118,3 +118,12 @@ The target-PC preflight confirmed the correct cuda.core split semantics for the 
 - The runtime intentionally requires `prefill_sms + decode_sms == total_sms` for this cuda.core path, because this implementation is a full-GPU two-context partition rather than an arbitrary partial partition.
 
 Paper implication: the valid Green Context intervention should be described as a full-GPU SM partitioning experiment: 16 SMs are carved out for decode isolation, and the remaining 32 SMs are assigned to prefill. New JSONL evidence should be accepted only when `green_enabled=true` and `green_api_type="cuda_core"`.
+
+## 2026-07-28 one-resource layout correction
+
+A subsequent target-PC run showed that `sm.split(SMResourceOptions(count=(16,)))` can return a layout containing only the requested decode `SMResource`. The preflight and runtime now tolerate both shapes:
+
+- `layout=[decode_resource, remainder_resource]`: Decode uses the requested resource and Prefill uses the explicit remainder.
+- `layout=[decode_resource]`: Decode uses the requested resource and Prefill uses the device SM resource object as a fallback, matching the target-PC probe that successfully created both contexts.
+
+The benchmark JSON now records `green_split_layout_width` and `green_prefill_resource_source` so paper analysis can distinguish explicit-remainder partitioning from the fallback mapping.

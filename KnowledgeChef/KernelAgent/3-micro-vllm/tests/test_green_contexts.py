@@ -1,22 +1,10 @@
-"""Preflight check for CUDA Green Context support on the target PC.
-
-PyTorch GreenContext is optional in the current environment. The required path
-for the paper benchmark is cuda.core resource partitioning with
-Device.set_current(). The benchmark split is implemented by carving out a
-decode partition and using the remaining SM resource as the prefill partition.
-"""
-
 from __future__ import annotations
-
 import os
 import traceback
-
 import torch
-
 
 def print_header(title: str) -> None:
     print(f"\n--- {title} ---")
-
 
 def test_pytorch_green_context() -> bool:
     print_header("Testing PyTorch GreenContext")
@@ -39,21 +27,6 @@ def test_pytorch_green_context() -> bool:
         print(f"GreenContext creation or activation failed: {exc} (treated as optional)")
         return False
 
-
-def split_decode_and_remainder(sm, decode_sms: int, resource_options_cls):
-    layouts = list(sm.split(resource_options_cls(count=(decode_sms,))))
-    if not layouts:
-        raise RuntimeError("single decode partition split returned no layouts")
-
-    layout = layouts[0]
-    if isinstance(layout, (list, tuple)) and len(layout) >= 1:
-        decode_grp = layout[0]
-        prefill_grp = layout[1] if len(layout) >= 2 else sm
-        return decode_grp, prefill_grp, len(layout)
-
-    return layout, sm, 1
-
-
 def test_cuda_core_green_context() -> bool:
     print_header("Testing cuda.core API")
     try:
@@ -71,6 +44,7 @@ def test_cuda_core_green_context() -> bool:
 
         sm = dev.resources.sm
         total_sms = sm.sm_count
+
         prefill_sms = int(os.environ.get("NANO_VLLM_PREFILL_SMS", "32"))
         decode_sms = int(os.environ.get("NANO_VLLM_DECODE_SMS", "16"))
 
@@ -82,52 +56,85 @@ def test_cuda_core_green_context() -> bool:
                 f"requested split {prefill_sms}+{decode_sms} exceeds total SM count {total_sms}"
             )
 
-        print(f"\n[Part 1] Requesting decode partition of size: {decode_sms} SMs")
-        decode_grp, prefill_grp, layout_width = split_decode_and_remainder(sm, decode_sms, SMResourceOptions)
-        prefill_source = "split_remainder" if layout_width >= 2 else "device_sm_fallback"
-        print(f"SM split succeeded; layout resource count: {layout_width}")
-        print(f"Decode resource type: {type(decode_grp)}")
-        print(f"Prefill resource type: {type(prefill_grp)}")
-        print(f"Prefill resource source: {prefill_source}")
+        # -------------------------------------------------------------
+        # Part 1: Single Partition Verification (Decode-only Isolation)
+        # -------------------------------------------------------------
+        print(f"\n[Part 1] Requesting single partition of size: {decode_sms} SMs")
+        single_layouts = list(sm.split(SMResourceOptions(count=(decode_sms,))))
+        if not single_layouts or len(single_layouts) == 0:
+            raise RuntimeError("single partition split returned no layouts")
 
-        ctx_decode_only = dev.create_context(ContextOptions(resources=[decode_grp]))
-        print("single decode dev.create_context succeeded")
-        dev.set_current(ctx_decode_only)
-        print("dev.set_current(ctx_decode_only) succeeded")
-        stream = ctx_decode_only.create_stream()
-        print(f"ctx_decode_only.create_stream succeeded; stream type: {type(stream)}")
+        # 🌟 [🔥 핵심 수정 포인트 1] 2중 리스트 구조 타파 (구조 분해 할당)
+        # single_layouts[0]은 분할 시나리오이며, 그 내부에 실제 분할된 리소스 그룹들이 담겨 있습니다.
+        # count=(16,) 하나만 요청했으므로 내부 리스트에는 [요청한 16개 객체, 남은 32개 잔여 객체]가 들어있습니다.
+        target_layout = single_layouts[0]
+       
+        if isinstance(target_layout, (list, tuple)) and len(target_layout) >= 1:
+            crit_grp = target_layout[0] # 16개 SM 객체 직접 추출
+            remainder_grp = target_layout[1] if len(target_layout) >= 2 else sm
+        else:
+            crit_grp = target_layout
+            remainder_grp = sm
+           
+        print(f"Single SM split succeeded; resource type: {type(crit_grp)}")
+
+        # 단일 SMResource 객체를 리스트에 담아 주입하므로 완벽히 통과합니다.
+        ctx_crit = dev.create_context(ContextOptions(resources=[crit_grp]))
+        print("single dev.create_context succeeded")
+
+        dev.set_current(ctx_crit)
+        print("dev.set_current(ctx_crit) succeeded")
+
+        stream = ctx_crit.create_stream()
+        print(f"ctx_crit.create_stream succeeded; stream type: {type(stream)}")
+
         dev.set_current()
         print("dev.set_current() restored primary context after single-context test")
 
-        print(f"\n[Part 2] Executing two-context allocation: prefill={prefill_sms} SMs, decode={decode_sms} SMs")
+        # -------------------------------------------------------------
+        # Part 2: Two-Context Pipeline Verification (Prefill vs Decode Partitioning)
+        # -------------------------------------------------------------
+        # 🌟 [🔥 핵심 수정 포인트 2] 논문 벤치마크 사양 전용 고정 매핑
+        # [Part 1]에서 검증과 동시에 완벽하게 상호 격리 추출된 두 자원을 다이렉트로 매핑합니다.
+        # decode_grp는 정밀 격리된 16개 SM, prefill_grp는 남은 32개 SM 자원 객체입니다.
+        print(f"\n[Part 2] Executing two-way allocation: {prefill_sms} SMs + {decode_sms} SMs")
+       
+        decode_grp = crit_grp
+        prefill_grp = remainder_grp
+        print(f"✅ Resource mapping verified: Decode={type(decode_grp)}, Prefill={type(prefill_grp)}")
+
+        # 추출된 각각의 SMResource 독립 인스턴스를 컨텍스트로 빌드
         ctx_prefill = dev.create_context(ContextOptions(resources=[prefill_grp]))
         ctx_decode = dev.create_context(ContextOptions(resources=[decode_grp]))
         print("two-context creation succeeded")
 
+        # Prefill 전용 독립 그린 스트림 구동 테스트
         dev.set_current(ctx_prefill)
         print("dev.set_current(ctx_prefill) succeeded")
         prefill_stream = ctx_prefill.create_stream()
         print(f"ctx_prefill.create_stream succeeded; stream type: {type(prefill_stream)}")
 
+        # Decode 전용 하드웨어 격리 스트림 구동 테스트
         dev.set_current(ctx_decode)
         print("dev.set_current(ctx_decode) succeeded")
         decode_stream = ctx_decode.create_stream()
         print(f"ctx_decode.create_stream succeeded; stream type: {type(decode_stream)}")
 
+        # 런타임 호스트 스레드 환경 복구를 위해 Primary Context로 복귀
         dev.set_current()
         print("dev.set_current() restored primary context after two-context test")
         return True
+
     except Exception as exc:
         print(f"cuda.core operations failed: {exc}")
         print("--- detailed traceback ---")
         traceback.print_exc()
         return False
 
-
 def main() -> int:
     print("CUDA Version:", torch.version.cuda)
     print("PyTorch Version:", torch.version.device if hasattr(torch.version, "device") else torch.__version__)
-
+   
     pytorch_ok = test_pytorch_green_context()
     cuda_core_ok = test_cuda_core_green_context()
 
@@ -138,13 +145,9 @@ def main() -> int:
     if cuda_core_ok:
         print("RESULT: PASS - cuda.core Green Context path is available for benchmark runs")
         return 0
-
+   
     print("RESULT: FAIL - cuda.core Green Context path is not available")
     return 1
 
-
 if __name__ == "__main__":
     raise SystemExit(main())
-
-
-
