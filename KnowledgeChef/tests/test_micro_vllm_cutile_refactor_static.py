@@ -35,3 +35,12 @@ def test_cutile_prefill_wrapper_avoids_padded_tensor_materialization():
 
     assert "def _bhtd_view" in source
     assert "fmha_prefill_paged_kernel" in source
+
+
+def test_cutile_kv_store_avoids_pytorch_advanced_indexing_path():
+    source = read("nanovllm/layers/attention.py")
+    assert "store_kvcache_cutile" in source
+    assert "store_kvcache_cutile(key, value, k_cache, v_cache, slot_mapping)" in source
+    use_cutile_branch = source[source.index("def store_kvcache("):source.index("class Attention")]
+    assert "if use_cutile and HAS_CUTILE" in use_cutile_branch
+    assert "slot_mapping[mask]" not in use_cutile_branch

@@ -318,3 +318,10 @@ Expected if Ollama is available: `answer_source` becomes `llm`, `llm.status` bec
 - [x] Reworked `KernelAgent/3-micro-vllm/nanovllm/layers/cutile_attention.py` so cuTile prefill uses direct per-sequence views instead of Python-side padded `q/k/v` materialization and Python output repack.
 - [x] Added a paged prefill kernel path for prefix-cache prefill using `block_table` and paged KV cache directly, with causal offset handling via `Q_START_IN_K`.
 - [x] Updated `docs/perf_improve.md` with the implementation checkpoint and target-PC measurement protocol reusing the existing Linux FlashAttention reference measurement.
+## Paper #1 cuTile CUDA Graph capture repair checkpoint
+- [x] Investigated target-PC `cudaErrorStreamCaptureInvalidated` during cuTile CUDA Graph capture.
+- [x] Identified the first likely capture breaker: cuTile decode graph capture was still using `store_kvcache_pytorch` with boolean masking and advanced indexed assignment.
+- [x] Added `store_kvcache_cutile_kernel` and `store_kvcache_cutile()` in `KernelAgent/3-micro-vllm/nanovllm/layers/attention.py`.
+- [x] Updated `store_kvcache()` so `use_cutile and HAS_CUTILE` dispatches to the cuTile KV-store kernel.
+- [x] Extended static regression tests to guard against routing cuTile graph capture through the PyTorch advanced-indexing KV-store path.
+- [x] Updated `docs/perf_improve.md` with the capture repair note and next diagnostic command.

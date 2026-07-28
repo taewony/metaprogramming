@@ -159,3 +159,27 @@ python bench.py --use-cutile
 - log에 `cuTile CUDA Graph decode capture enabled`가 있으면 decode graph path가 활성화된 측정이다.
 - warning fallback이 출력되면 해당 결과는 CUDA Graph 개선 실험으로 사용하지 않고, fallback 원인을 별도 repair 대상으로 기록한다.
 - 새 cuTile throughput은 기존 Linux reference `2138.55 tok/s`와 비교하되, 논문 본문에서는 여전히 Linux를 optimized reference baseline으로 둔다.
+
+### CUDA Graph capture repair note: KV-cache store
+
+Target-PC run showed:
+
+```text
+CUDA error: operation failed due to a previous error during capture
+cudaErrorStreamCaptureInvalidated
+```
+
+First repair applied: cuTile decode no longer uses the PyTorch advanced-indexing KV-cache write during graph capture. `store_kvcache()` now dispatches to `store_kvcache_cutile()` when `use_cutile and HAS_CUTILE`, and that path launches `store_kvcache_cutile_kernel` instead of using `slot_mapping[mask]` and indexed assignment.
+
+If capture still fails after this repair, the next suspects are:
+
+1. cuTile `paged_decode_kernel` graph-capture compatibility.
+2. CUDA operation launched by a non-attention layer during graph capture.
+3. A prior asynchronous kernel error surfacing only when graph capture begins.
+
+Next diagnostic command:
+
+```powershell
+$env:CUDA_LOG_FILE='stderr'
+python bench.py --use-cutile
+```
