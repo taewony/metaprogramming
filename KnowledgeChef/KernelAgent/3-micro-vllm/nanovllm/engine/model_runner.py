@@ -20,7 +20,9 @@ class ModelRunner:
         self.block_size = config.kvcache_block_size
         import os
         use_cutile = (os.environ.get("NANO_VLLM_USE_CUTILE", "0") == "1")
-        self.enforce_eager = config.enforce_eager or use_cutile
+        self.use_cutile = use_cutile
+        self.enforce_eager = config.enforce_eager
+        self.cuda_graphs_enabled = False
         self.world_size = config.tensor_parallel_size
         self.rank = rank
         self.event = event
@@ -98,7 +100,17 @@ class ModelRunner:
         self.warmup_model()
         self.allocate_kv_cache()
         if not self.enforce_eager:
-            self.capture_cudagraph()
+            try:
+                self.capture_cudagraph()
+                self.cuda_graphs_enabled = True
+                if self.use_cutile:
+                    print("cuTile CUDA Graph decode capture enabled")
+            except Exception as exc:
+                if self.use_cutile:
+                    print(f"WARNING: cuTile CUDA Graph capture failed; falling back to eager decode: {exc}")
+                    self.enforce_eager = True
+                else:
+                    raise
         torch.set_default_device("cpu")
         torch.set_default_dtype(default_dtype)
 
@@ -117,7 +129,7 @@ class ModelRunner:
             dist.barrier()
             if self.rank == 0:
                 self.shm.unlink()
-        if not self.enforce_eager:
+        if self.cuda_graphs_enabled:
             del self.graphs, self.graph_pool
         torch.cuda.synchronize()
         dist.destroy_process_group()
@@ -222,7 +234,7 @@ class ModelRunner:
         cu_seqlens_q = torch.tensor(cu_seqlens_q, dtype=torch.int32, pin_memory=True).cuda(non_blocking=True)
         cu_seqlens_k = torch.tensor(cu_seqlens_k, dtype=torch.int32, pin_memory=True).cuda(non_blocking=True)
         slot_mapping = torch.tensor(slot_mapping, dtype=torch.int32, pin_memory=True).cuda(non_blocking=True)
-        set_context(True, cu_seqlens_q, cu_seqlens_k, max_seqlen_q, max_seqlen_k, slot_mapping, None, block_tables)
+        set_context(True, cu_seqlens_q, cu_seqlens_k, max_seqlen_q, max_seqlen_k, slot_mapping, None, block_tables, use_cutile=self.use_cutile)
         return input_ids, positions
 
     def prepare_decode(self, seqs: list[Sequence]):
@@ -240,7 +252,7 @@ class ModelRunner:
         slot_mapping = torch.tensor(slot_mapping, dtype=torch.int32, pin_memory=True).cuda(non_blocking=True)
         context_lens = torch.tensor(context_lens, dtype=torch.int32, pin_memory=True).cuda(non_blocking=True)
         block_tables = self.prepare_block_tables(seqs)
-        set_context(False, slot_mapping=slot_mapping, context_lens=context_lens, block_tables=block_tables)
+        set_context(False, slot_mapping=slot_mapping, context_lens=context_lens, block_tables=block_tables, use_cutile=self.use_cutile)
         return input_ids, positions
 
     def prepare_sample(self, seqs: list[Sequence]):
@@ -310,7 +322,7 @@ class ModelRunner:
 
         for bs in reversed(self.graph_bs):
             graph = torch.cuda.CUDAGraph()
-            set_context(False, slot_mapping=slot_mapping[:bs], context_lens=context_lens[:bs], block_tables=block_tables[:bs])
+            set_context(False, slot_mapping=slot_mapping[:bs], context_lens=context_lens[:bs], block_tables=block_tables[:bs], use_cutile=self.use_cutile)
             outputs[:bs] = self.model(input_ids[:bs], positions[:bs])    # warmup
             with torch.cuda.graph(graph, self.graph_pool):
                 outputs[:bs] = self.model(input_ids[:bs], positions[:bs])    # capture
@@ -328,4 +340,6 @@ class ModelRunner:
             block_tables=block_tables,
             outputs=outputs,
         )
+
+
 

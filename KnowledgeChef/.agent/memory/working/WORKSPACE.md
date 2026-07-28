@@ -301,3 +301,20 @@ Expected if Ollama is available: `answer_source` becomes `llm`, `llm.status` bec
 - [x] Measures decode step latency and protected decode completion gap, including prefill-induced pauses between decode tokens.
 - [x] Parent mode runs paired baseline/Green subprocesses and writes JSONL evidence with activation metadata.
 - [x] AST validation and `--help` passed locally; GPU execution remains target-PC work.
+## Paper #1 Green Context stress JSONL checkpoint
+- [x] Parsed `KernelAgent/3-micro-vllm/green_context_stress_cuda_core_32_16.jsonl`: 20 paired runs, 20/20 Green side `green_enabled=true`, `green_api_type=cuda_core`.
+- [x] Stress workload: protected decode 256 tokens, repeated 3072-token prefill injection 12 times, split 32/16 with `device_sm_fallback` source.
+- [x] Observed consistent decode-step tail improvement: step P99 mean -4.30%, improved 18/20.
+- [x] Observed decode-gap P95 improvement: mean -4.98%, improved 16/20; gap P99/max only small improvements because sequential prefill injection still dominates visible gaps.
+## Paper #1 submission-candidate draft checkpoint
+- [x] Rewrote `docs/paper1_micro_vllm_educational_systems_artifact_draft.md` from planning draft into a measured-data submission-candidate draft.
+- [x] Removed `[ASSUMED]` placeholders and centered the paper on measured prefix KV-cache evidence for fixed-context agent workloads.
+- [x] Positioned CUDA-core Green Contexts as bounded resource-partitioning evidence: activation succeeds and stress decode tails improve moderately, but sequential prefill insertion remains the main visible-gap bottleneck.
+- [x] Preserved the KTCP strategy: Paper #1 is a Windows-native LLM inference-engine migration artifact; ActiveGraph/Tau-style educational agents remain outside the primary technical contribution.
+## Paper #1 cuTile performance refactor checkpoint
+- [x] Added `tests/test_micro_vllm_cutile_refactor_static.py` as a static TDD guard for cuTile decode graph enablement and prefill padding/copy removal.
+- [x] Updated `KernelAgent/3-micro-vllm/nanovllm/engine/model_runner.py` so `NANO_VLLM_USE_CUTILE=1` no longer forces eager mode; decode CUDA Graph capture is attempted when `enforce_eager=False`.
+- [x] Added visible benchmark log messages for cuTile CUDA Graph capture success or eager fallback.
+- [x] Reworked `KernelAgent/3-micro-vllm/nanovllm/layers/cutile_attention.py` so cuTile prefill uses direct per-sequence views instead of Python-side padded `q/k/v` materialization and Python output repack.
+- [x] Added a paged prefill kernel path for prefix-cache prefill using `block_table` and paged KV cache directly, with causal offset handling via `Q_START_IN_K`.
+- [x] Updated `docs/perf_improve.md` with the implementation checkpoint and target-PC measurement protocol reusing the existing Linux FlashAttention reference measurement.

@@ -1,70 +1,72 @@
-# Paper 1 Draft: Windows-Native LLM Inference Engine Migration as an Educational Systems Artifact
+# Windows-Native LLM Inference Engine Migration as an Educational Systems Artifact
 
-**Working title:** Windows-Native LLM Inference Engine Migration as an Educational Systems Artifact: micro-vLLM, CUDA Python 1.0, and Fixed-Context Agent Workloads
+**Working title:** Windows-Native LLM Inference Engine Migration as an Educational Systems Artifact: micro-vLLM, CUDA Python, Prefix KV Cache, and Green Context Stress Analysis
 
 **Author:** Taewon Kim
 
-**Draft status:** Planning draft. This manuscript assumes the additional prefix KV-cache experiments described here are completed successfully. Numeric values marked `[ASSUMED]` are placeholders for final measured values and must be replaced before submission.
+**Draft status:** Submission-candidate draft for Paper #1. This version replaces the previous planning placeholders with measured evidence from `KernelAgent/3-micro-vllm`. The strongest result is prefix KV-cache reuse for fixed-context agent workloads. Green Contexts are included as a bounded resource-partitioning analysis, not as the headline contribution.
 
 ## Abstract
 
-High-performance LLM serving systems are commonly developed and evaluated in Linux-centric GPU software stacks that combine optimized attention kernels, Triton compilation, NCCL-based distributed execution, and production-oriented schedulers. These systems are powerful, but their complexity makes it difficult for students and local Windows-based researchers to inspect how prefill, decode, KV cache management, kernel launch overhead, and memory allocation interact inside an inference engine. This paper presents **micro-vLLM**, a Windows-native educational inference-engine artifact built with CUDA Python 1.0 and a cuTile-style Python kernel development workflow. Instead of claiming production superiority over mature Linux serving engines, micro-vLLM is designed to make LLM serving mechanisms observable, modifiable, and experimentally teachable.
+High-performance LLM serving systems are typically developed around Linux-centric GPU software stacks, including FlashAttention, Triton, NCCL, vLLM-style schedulers, and production-oriented memory managers. These systems are effective, but their scale and dependency assumptions make it difficult for students and Windows-based local researchers to inspect how prefill, decode, KV cache management, scheduler decisions, CUDA contexts, and memory allocation interact inside an inference engine. This paper presents **micro-vLLM**, a Windows-native educational inference-engine artifact built around CUDA Python and a cuTile-style kernel development workflow. The goal is not to outperform mature Linux serving stacks, but to provide a compact, modifiable, and evidence-producing artifact for learning LLM serving mechanisms.
 
-We extend the original micro-vLLM prototype with a fixed-context agent workload inspired by Text-to-SQL and educational knowledge agents, where every request shares a long static prefix such as a system prompt, database schema, `SKILL.md`, or course knowledge bundle, followed by a short dynamic user question. This workload exposes prefix KV-cache reuse as an important optimization for educational and knowledge-retrieval agents. In an assumed successful evaluation, warm prefix-cache reuse reduces prefill token computation by `[ASSUMED: 70-90%]`, improves TTFT by `[ASSUMED: 35-60%]` for long static contexts, and improves end-to-end throughput by `[ASSUMED: 1.25-1.75x]` when output lengths are short to moderate. These results complement earlier observations: WSL2 FlashAttention remains much faster than the current Windows-native cuTile backend in raw throughput, Green Contexts slightly reduce Decode P99 inter-token latency while harming median latency and throughput, and naive shape padding can trigger allocator thrashing. Together, these findings support the thesis that educational inference-engine artifacts should teach the full serving loop, not isolated kernels alone.
+The artifact follows a staged path from tiled MatMul and fused multi-head attention to a minimal LLM loop and a nano-vLLM-style serving engine. We evaluate three system mechanisms that are useful for teaching complete serving-loop causality. First, WSL2 FlashAttention remains the optimized reference baseline, achieving 2138.55 tok/s on average versus 463.35 tok/s for the current Windows-native cuTile path, a 4.62x throughput advantage. Second, for fixed-context agent workloads that repeatedly reuse long static prefixes such as system prompts, database schemas, `SKILL.md` files, or course contexts, warm prefix KV-cache reuse reduces computed prefill tokens to 64 and reduces TTFT by 41.1%, 66.1%, and 79.7% for 1024-, 2048-, and 3072-token static prefixes, respectively. Third, CUDA-core Green Contexts successfully activate on an RTX 5070 target PC as a 32/16 SM resource-partitioning substrate. Under an adversarial repeated-prefill stress workload, Green Contexts reduce protected decode-step P99 latency by 4.3% on average and improve 18/20 paired runs; protected decode-gap P95 improves by 5.0% and improves 16/20 runs. However, decode-gap P99 and maximum gap remain mostly dominated by the current sequential engine loop. Together, these results support a practical educational claim: inference-engine education should teach the full serving loop, including successful optimizations, bounded mechanisms, and negative results.
 
 ## Keywords
 
-LLM serving, CUDA Python 1.0, cuTile, prefix KV cache, nano-vLLM, fixed-context agents, educational systems artifact, Windows-native GPU computing
+LLM serving, CUDA Python, cuTile, prefix KV cache, CUDA Green Contexts, nano-vLLM, fixed-context agents, Windows-native GPU computing, educational systems artifact
 
 ## 1. Introduction
 
-Local LLM inference is increasingly relevant for education, private data analysis, and offline research environments. Students and researchers want to understand not only how to call an LLM API, but how an inference engine transforms prompts into prefill work, maintains KV cache state, schedules decode steps, and trades latency against throughput. Production-grade systems such as vLLM, TensorRT-LLM, FlashAttention-based stacks, and Triton kernels provide strong performance, but they are difficult to modify and often assume Linux-centered dependencies.
+Local LLM inference is increasingly relevant in classrooms, research laboratories, private data-analysis settings, and offline development environments. In these settings, learners do not only need to call an LLM API; they need to understand how prompts become prefill work, how KV cache blocks are allocated, why decode is latency sensitive, how scheduler decisions affect visible response time, and why a local optimization can fail when placed inside the complete serving loop.
 
-Windows-native GPU development is important for educational settings because many learners use consumer GPUs on Windows machines. However, the dominant LLM serving stack frequently relies on Linux-first build scripts, NCCL, Triton, and prebuilt CUDA packages. WSL2 is a practical workaround, but it adds another layer between the learner and the native runtime they are trying to understand.
+Production-grade serving systems such as vLLM, TensorRT-LLM, FlashAttention-based stacks, and Triton kernels provide strong performance, but they are not ideal as first educational artifacts. They are large, Linux-oriented, and tightly coupled to optimized dependencies. WSL2 is a practical path for Windows users, but it adds another boundary between the learner and the native runtime. Windows-native GPU development remains important because many students and local researchers use consumer Windows machines with NVIDIA GPUs.
 
-This paper argues for a different target: **an educational systems artifact**. micro-vLLM is not positioned as a faster replacement for vLLM. It is a controlled artifact that exposes the key mechanisms of an LLM inference engine inside a Windows-native CUDA Python workflow. The artifact is valuable if it helps learners and researchers observe mechanisms, reproduce bottlenecks, and connect low-level GPU behavior to high-level agent workloads.
+This paper therefore targets a different contribution: **an educational systems artifact**. micro-vLLM is not positioned as a faster replacement for vLLM. It is designed to expose the serving mechanisms that students and researchers need to inspect: prefill, decode, paged KV cache, prefix reuse, CUDA context activation, scheduler behavior, allocation overhead, and tail-latency tradeoffs. The artifact is valuable when it turns serving behavior into reproducible evidence rather than hiding it behind a production stack.
 
-The revised contribution of this paper is the addition of **fixed-context agent workloads**. Many real agent systems repeatedly prepend the same system prompt, schema, policy, tool specification, few-shot examples, or course context to each user query. Text-to-SQL agents repeatedly include database schema and rule context. Educational agents repeatedly include rubrics, course modules, and source-code excerpts. Such workloads are a natural fit for prefix KV-cache reuse, because the expensive prefill computation for the static prefix can be reused across requests.
+A central workload in this paper is the **fixed-context agent workload**. Many agent systems repeatedly prepend stable context before a short user request: system prompts, database schemas, tool contracts, `SKILL.md` files, policy text, examples, rubrics, or course modules. Text-to-SQL agents repeatedly include database schema and rule context. CUDA tutoring agents repeatedly include course material and kernel templates. Educational knowledge agents repeatedly include selected knowledge-bundle excerpts. Such workloads are naturally suited to prefix KV-cache reuse, because the expensive static prefix can be reused across requests.
 
 ## 2. Research Questions
 
-**RQ1.** Can a Windows-native educational inference-engine artifact expose the main serving-loop mechanisms of LLM inference: prefill, decode, KV cache management, prefix reuse, allocation behavior, and GPU resource partitioning?
+**RQ1.** Can a Windows-native CUDA Python/cuTile-based micro-vLLM artifact expose the main mechanisms of LLM serving in a form suitable for education and controlled experimentation?
 
-**RQ2.** For fixed-context agent workloads, how much does prefix KV-cache reuse reduce prefill computation, TTFT, and end-to-end latency in a Windows-native micro-vLLM implementation?
+**RQ2.** For fixed-context agent workloads, how much does prefix KV-cache reuse reduce computed prefill tokens and time-to-first-token in a Windows-native micro-vLLM implementation?
 
-**RQ3.** How do prefix caching, Green Contexts, and shape stabilization interact with the full serving loop, and what can students learn from successful and failed optimizations?
+**RQ3.** What do bounded and negative optimization results, including CUDA Green Contexts and dynamic shape padding, teach about full serving-loop causality?
 
 ## 3. Contributions
 
 This paper makes four contributions.
 
-1. **Educational migration artifact.** We present micro-vLLM as a staged Windows-native LLM inference-engine artifact that migrates concepts from MatMul, fused attention, llm-from-scratch, and nano-vLLM-style serving into an inspectable CUDA Python workflow.
+1. **A Windows-native educational migration artifact.** We organize micro-vLLM as a staged learning path from MatMul and fused attention to LLM-from-scratch and nano-vLLM-style serving. The artifact is compact enough to inspect and modify while still exercising real GPU behavior.
 
-2. **Fixed-context agent benchmark.** We define a benchmark for educational and data-query agents whose requests share long static prefixes such as system prompts, schemas, `SKILL.md` files, and course knowledge bundles.
+2. **A fixed-context agent benchmark.** We define and measure agent-like workloads where requests share long static prefixes followed by short dynamic user questions. This bridges inference-engine mechanisms with practical Text-to-SQL, tutoring, and knowledge-agent scenarios.
 
-3. **Prefix KV-cache evaluation.** Assuming successful completion of the planned experiments, we show that prefix KV reuse substantially reduces prefill work and improves TTFT for fixed-context workloads, while producing limited benefit when decode dominates or prefixes do not match.
+3. **Measured prefix KV-cache evidence.** Warm prefix cache reduces computed prefill tokens to 64 in all tested static-prefix settings and reduces TTFT by up to 79.7%. The changed-prefix negative control returns 0.0% cache hit and near no-cache TTFT, validating exact-prefix dependence.
 
-4. **Systems-learning analysis.** We connect positive and negative optimization findings: WSL2 FlashAttention remains the performance reference, Green Contexts show a tail-latency trade-off, and naive shape padding can harm throughput through allocator thrashing.
+4. **Serving-loop bottleneck analysis.** We report both bounded and negative systems results: WSL2 FlashAttention remains 4.62x faster than the current Windows-native cuTile backend; dynamic shape padding reduces throughput by 67.04% due to allocator pressure; CUDA-core Green Contexts activate successfully and moderately smooth protected decode latency under stress, but do not eliminate sequential prefill-induced pauses.
 
 ## 4. Background
 
 ### 4.1 LLM Serving Loop
 
-Autoregressive LLM serving has two main phases. In **prefill**, the model processes the input prompt and produces KV cache entries for all prompt tokens. In **decode**, the model generates one token at a time while attending to previously cached keys and values. Prefill is sensitive to prompt length and parallel compute throughput. Decode is sensitive to per-token latency, scheduler overhead, memory bandwidth, and KV-cache access patterns.
+Autoregressive LLM serving consists of a **prefill** phase and a **decode** phase. Prefill processes the prompt and writes KV cache entries for all prompt tokens. Decode generates one token at a time while attending to previously cached keys and values. Prefill is sensitive to prompt length and parallel compute throughput. Decode is sensitive to per-token latency, memory bandwidth, scheduler overhead, KV-cache access, and kernel-launch behavior.
 
-### 4.2 Paged KV Cache and Prefix Caching
+This distinction matters because an optimization can improve one phase while leaving the end-to-end service metric unchanged. For example, prefix cache can greatly reduce prefill work and TTFT, yet produce limited throughput benefit when the benchmark generates many output tokens and decode dominates total runtime.
 
-Paged KV-cache systems divide the KV cache into blocks that can be mapped, reused, and evicted. Prefix caching extends this idea: when a new request shares an identical token prefix with an earlier request, the engine can reuse the cached KV blocks for the shared prefix instead of recomputing them. This is especially useful for repeated system prompts, long documents, course modules, and multi-turn conversations.
+### 4.2 Paged KV Cache and Prefix Reuse
 
-The key engineering condition is exact token-prefix stability. Dynamic metadata such as timestamps, run IDs, random examples, or user-specific text placed early in the prompt can break cache reuse. Therefore, prompt layout is part of the serving-system design: static context should appear first, dynamic user queries should appear last.
+Paged KV cache divides KV memory into blocks that can be allocated, mapped, reused, and evicted. Prefix caching extends this idea with token-identical prefix reuse. When a new request shares the same token prefix as an earlier request, the runtime can reuse the existing KV blocks and compute only the suffix.
 
-### 4.3 CUDA Python 1.0 and Windows-Native Experimentation
+The mechanism depends on exact token-prefix stability. Dynamic metadata such as timestamps, run IDs, randomized examples, or user-specific text placed early in the prompt can break reuse. Therefore, prompt layout is not only a modeling concern; it is also a runtime-efficiency concern. Static context should appear before dynamic user content when prefix reuse is desired.
 
-CUDA Python provides Python-level access to CUDA runtime, driver, graph, profiling, and related APIs. In this work, it enables a teaching-oriented path where students can inspect host-side runtime control while still connecting to real GPU execution. cuTile-style Python kernels are used as a learning bridge between high-level PyTorch operations and low-level CUDA C++ kernels.
+### 4.3 CUDA Python, cuTile, and nano-vLLM
 
-### 4.4 nano-vLLM as a Readable Reference
+CUDA Python provides Python-level access to CUDA runtime and driver APIs, making it useful for teaching host-side GPU control. A cuTile-style workflow expresses tiled GPU kernels inside Python, lowering the barrier relative to C++ CUDA while exposing more hardware behavior than high-level PyTorch operators. nano-vLLM is a compact reference for vLLM-style serving. micro-vLLM adapts this pedagogical stance to a Windows-native CUDA Python experimentation path.
 
-nano-vLLM is a compact vLLM-like implementation intended to be readable and hackable. Its compact codebase makes it useful as a migration reference and teaching object. micro-vLLM borrows this pedagogical stance but targets Windows-native CUDA Python experimentation rather than full production serving.
+### 4.4 Green Contexts as Resource Partitioning
+
+CUDA Green Contexts allow GPU resources, especially SMs, to be partitioned across contexts. In this paper they are treated as a **resource-isolation mechanism**, not as a general speedup mechanism. The relevant question is whether a latency-sensitive decode path can be protected under prefill interference. A Green Context result is only valid if activation metadata confirms that the requested resource-partitioning path was actually used.
 
 ## 5. System Design
 
@@ -72,171 +74,216 @@ nano-vLLM is a compact vLLM-like implementation intended to be readable and hack
 
 micro-vLLM is designed around four goals.
 
-- **Inspectability:** learners should see how prompt tokens become prefill work, KV blocks, and decode steps.
-- **Modifiability:** kernels and scheduler logic should be small enough to modify during experiments.
-- **Windows-native execution:** the artifact should run in a Windows CUDA environment without treating WSL2 as the only viable path.
-- **Agent-workload relevance:** the benchmark should reflect repeated static context used by educational, Text-to-SQL, and knowledge-retrieval agents.
+- **Inspectability:** learners can trace how prompt tokens become prefill work, KV blocks, and decode steps.
+- **Modifiability:** kernels, scheduler logic, and runtime instrumentation are small enough to change during experiments.
+- **Windows-native execution:** the artifact runs in a Windows CUDA environment without treating WSL2 as the only viable path.
+- **Agent-workload relevance:** benchmarks reflect repeated static context in educational agents, Text-to-SQL agents, and local knowledge agents.
 
 ### 5.2 Migration Stages
 
-The implementation is organized as a learning path.
+| Stage | Folder | Educational role |
+| :--- | :--- | :--- |
+| 0 | `KernelAgent/0-MatMul` | tiling, shared memory, swizzling, GEMM baseline learning |
+| 1 | `KernelAgent/1-FMHA` | online softmax, causal masking, fused attention implementation |
+| 2 | `KernelAgent/2-LLM-from-scratch` | minimal autoregressive loop, KV cache, CUDA Graph experiments |
+| 3 | `KernelAgent/3-micro-vllm` | paged KV cache, prefix cache, continuous batching, Green Contexts |
 
-1. **MatMul stage:** tiling, shared memory, register pressure, occupancy, and baseline comparison.
-2. **FMHA stage:** online softmax, causal masking, attention score residency, and memory hierarchy.
-3. **llm-from-scratch stage:** minimal transformer inference, KV cache lifecycle, and decode loop.
-4. **micro-vLLM stage:** paged KV cache, continuous batching, prefix reuse, and agent workload benchmarks.
+This structure makes the inference engine a sequence of inspectable learning stages rather than a monolithic serving black box.
 
-### 5.3 Fixed-Context Prompt Layout
+### 5.3 micro-vLLM Serving Architecture
 
-The benchmark uses prompts with the following structure.
+micro-vLLM uses a lightweight Qwen-family serving loop. The scheduler manages waiting and running sequences. The block manager allocates KV-cache blocks and performs hash-based prefix reuse. Each sequence tracks prompt tokens, generated tokens, block tables, and cached-token counts. The model runner separates prefill and decode preparation, including input IDs, positions, slot mappings, sequence lengths, and block tables.
+
+For prefix cache, the scheduler checks complete-block hashes during sequence allocation. If an identical prefix block exists, `seq.num_cached_tokens` increases and the prefill path sends only the uncached suffix to the model. The attention context still reflects the full key length, so the model can attend over reused prefix KV blocks and newly computed suffix KV blocks.
+
+For Green Contexts, the runtime records whether the requested path actually activates. PyTorch GreenContext was importable in the target environment but rejected context creation. The working path used `cuda.core` with `cuda.bindings.driver`, `Device.set_current(ctx)`, and `Device.set_current()` for restoration. The benchmark JSON records `green_enabled`, `green_api_type`, `green_split_layout_width`, and `green_prefill_resource_source` to prevent false performance claims when activation falls back.
+
+### 5.4 Fixed-Context Prompt Layout
+
+The benchmark uses the following prompt layout.
 
 ```text
-[Static system prompt]
-[Static policy / tool contract]
-[Static DB schema or course OKF excerpt]
-[Static examples or rubric]
-[Dynamic user query]
+[static system prompt]
+[static policy / tool contract]
+[static DB schema or course context]
+[static examples or rubric]
+[dynamic user question]
 ```
 
-The static prefix is intentionally identical across many requests. The dynamic suffix changes per user question. This design represents common agent workloads such as:
-
-- Text-to-SQL over a fixed SQLite schema.
-- CUDA programming tutor over a fixed course module.
-- nano-vLLM tutor over a fixed source-code excerpt.
-- Retrieval agent over a fixed OKF knowledge bundle selection.
-
-### 5.4 Prefix KV-Cache Mechanism
-
-The prefix cache stores fully computed KV blocks for token prefixes. Each block is identified by a chained content hash over previous tokens and current block tokens. On a new request, the scheduler finds the longest cached prefix, skips recomputation for those tokens, and only precomputes the suffix tokens. The model runner then decodes using both reused prefix KV blocks and newly computed suffix KV blocks.
-
-The implementation records:
-
-- number of prompt tokens,
-- number of reused prefix tokens,
-- number of newly computed prefill tokens,
-- reused KV blocks,
-- cache-hit ratio,
-- TTFT,
-- decode ITL,
-- end-to-end latency,
-- VRAM occupancy.
+The static prefix is intentionally identical across requests. The dynamic suffix changes per user question. This represents Text-to-SQL over a fixed SQLite schema, CUDA tutoring over a fixed module, nano-vLLM tutoring over a fixed source excerpt, and retrieval agents over stable course or knowledge-bundle context.
 
 ## 6. Experimental Methodology
 
 ### 6.1 Hardware and Software
 
-The target machine is a Windows 11 workstation with an NVIDIA GeForce RTX 5070 GPU, 48 SMs, 12 GB VRAM, and CUDA 13.3. The model is Qwen2.5-3B-Instruct or a comparable local model that fits in VRAM under the tested batch and cache settings.
+Experiments were conducted on a Windows 11 target PC with an NVIDIA GeForce RTX 5070 GPU. The device reports 48 SMs, approximately 12GB VRAM, and 48MB L2 cache in the local artifact metadata. Recent Green Context preflight output reports PyTorch 2.13.0+cu130 and CUDA 13.0. micro-vLLM uses a Qwen-family local model; the stress benchmark logs identify `Qwen3-0.6B` on the target PC.
 
-### 6.2 Workloads
+### 6.2 Baseline Throughput Benchmark
 
-| Workload | Static Prefix | Dynamic Suffix | Purpose |
-| :--- | :--- | :--- | :--- |
-| SQL Agent | system prompt + database schema + `SKILL.md` | natural-language SQL question | fixed schema query workload |
-| CUDA Tutor | course module + kernel template + rubric | student question or patch request | educational code reasoning |
-| nano-vLLM Tutor | source excerpt + serving concept notes | concept question | inference-engine learning |
-| Negative Control | shuffled or changed prefix | question | verifies prefix exactness |
+The baseline throughput benchmark compares the Windows-native cuTile path against the WSL2 FlashAttention reference path on the same dynamic multi-user benchmark. This comparison is not intended to show Windows cuTile superiority; it anchors the artifact against a mature optimized stack.
 
-### 6.3 Conditions
+### 6.3 Prefix Cache Benchmark
+
+The prefix-cache benchmark uses `KernelAgent/3-micro-vllm/bench_prefix_cache.py`. For each static-prefix length, the benchmark runs three conditions.
 
 | Condition | Description |
 | :--- | :--- |
-| NoCache | prefix cache disabled or bypassed |
-| ColdCache | prefix cache enabled, first request computes full prefix |
-| WarmCache | prefix cache enabled, repeated static prefix reused |
-| PrefixChanged | prefix differs early, cache hit should collapse |
-| WSL2 Reference | WSL2 FlashAttention or vLLM baseline |
+| `no_cache` | Clear the persistent hash table before each request and perform full prefill. |
+| `warm_cache` | Prime the cache and then reuse the same static prefix. |
+| `prefix_changed` | Change the prefix so exact-prefix cache hits collapse. |
 
-### 6.4 Metrics
+Static prefix lengths are 1024, 2048, and 3072 tokens. The dynamic suffix is 64 tokens and generation length is 64 tokens. The benchmark records cache-hit ratio, cached tokens, computed prefill tokens, TTFT, end-to-end latency, decode ITL, and throughput.
 
-- TTFT: time to first token.
-- Prefill tokens computed: actual model tokens processed during prefill.
-- Prefix cache hit ratio: reused prefix tokens divided by total prompt tokens.
-- Throughput: output tokens per second.
-- Decode P50/P99 ITL: median and tail inter-token latency.
-- VRAM overhead: memory consumed by cache retention.
-- Correctness: output equivalence under deterministic sampling.
+### 6.4 Green Context Stress Benchmark
+
+The Green Context stress benchmark uses `KernelAgent/3-micro-vllm/bench_green_stress.py`. It keeps one protected decode request active and repeatedly injects large prefill requests. The main metric is **protected decode completion gap**, which includes prefill-induced pauses between visible decode tokens in the current sequential engine loop.
+
+Default stress workload:
+
+| Parameter | Value |
+| :--- | ---: |
+| Protected decode prompt | 32 tokens |
+| Protected decode output | 256 tokens |
+| Interfering prefill prompt | 3072 tokens |
+| Interfering prefill output | 1 token |
+| Prefill injections | 12 |
+| Injection cadence | every 8 protected decode steps, starting after 4 decode steps |
+| Green split | prefill 32 SMs, decode 16 SMs |
+
+The Green-side subprocess must report `green_enabled=true` and `green_api_type="cuda_core"` to be accepted as a valid intervention.
 
 ## 7. Results
 
-### 7.1 Existing Baseline Results
+### 7.1 WSL2 FlashAttention Reference vs Windows cuTile
 
-The original micro-vLLM evaluation found that WSL2 FlashAttention remains substantially faster than the current Windows-native cuTile backend in raw throughput.
+The dynamic multi-user benchmark processed 133,966 generated tokens.
 
-| Backend | Runs | Time | Throughput | Relative |
+| Backend | Runs | Mean time | Mean throughput | Relative throughput |
 | :--- | ---: | ---: | ---: | ---: |
 | Windows cuTile | 3 | 289.16 s | 463.35 tok/s | 1.00x |
 | WSL2 FlashAttention | 4 | 62.65 s | 2138.55 tok/s | 4.62x |
 
-This result supports the paper's positioning: micro-vLLM is not yet a production-grade performance replacement. Its value is inspectability, migration feasibility, and experimental diagnosis.
+The result shows that the current Windows-native cuTile backend is slower than the mature WSL2 FlashAttention path. This is not a weakness of the paper framing; it is the reason the contribution is positioned as educational migration, inspectability, and bottleneck analysis rather than production serving replacement.
 
-### 7.2 Assumed Prefix Cache Results
+### 7.2 Prefix KV Cache for Fixed-Context Agent Workloads
 
-The following table is written under the user's assumption that all required prefix-cache experiments succeed. Replace all `[ASSUMED]` values with final measured data.
+| Static prefix | Prompt tokens | Warm cache hit | Prefill no-cache | Prefill warm | Prefill reduction | TTFT no-cache | TTFT warm | TTFT reduction | Prefix-changed TTFT | E2E delta warm vs no-cache |
+| ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| 1024 | 1088 | 94.1% | 1088 | 64 | 94.1% | 146.98 ms | 86.56 ms | 41.1% | 148.18 ms | +34.2% |
+| 2048 | 2112 | 97.0% | 2112 | 64 | 97.0% | 255.58 ms | 86.72 ms | 66.1% | 256.93 ms | +4.9% |
+| 3072 | 3136 | 98.0% | 3136 | 64 | 98.0% | 381.76 ms | 77.47 ms | 79.7% | 389.61 ms | +1.2% |
 
-| Workload | Prefix Tokens | Output Tokens | Condition | Prefill Tokens Computed | TTFT | E2E Throughput | Cache Hit |
-| :--- | ---: | ---: | :--- | ---: | ---: | ---: | ---: |
-| SQL Agent | 2048 | 64 | NoCache | 2048 | `[ASSUMED: 820 ms]` | `[ASSUMED: 310 tok/s]` | 0% |
-| SQL Agent | 2048 | 64 | WarmCache | `[ASSUMED: 128-256]` | `[ASSUMED: 360 ms]` | `[ASSUMED: 480 tok/s]` | `[ASSUMED: 87-94%]` |
-| CUDA Tutor | 4096 | 128 | NoCache | 4096 | `[ASSUMED: 1450 ms]` | `[ASSUMED: 240 tok/s]` | 0% |
-| CUDA Tutor | 4096 | 128 | WarmCache | `[ASSUMED: 256-512]` | `[ASSUMED: 620 ms]` | `[ASSUMED: 360 tok/s]` | `[ASSUMED: 88-94%]` |
-| nano-vLLM Tutor | 6144 | 128 | NoCache | 6144 | `[ASSUMED: 2050 ms]` | `[ASSUMED: 190 tok/s]` | 0% |
-| nano-vLLM Tutor | 6144 | 128 | WarmCache | `[ASSUMED: 512-768]` | `[ASSUMED: 890 ms]` | `[ASSUMED: 290 tok/s]` | `[ASSUMED: 87-92%]` |
-| Negative Control | 4096 | 128 | PrefixChanged | `[ASSUMED: 4096]` | `[ASSUMED: near NoCache]` | `[ASSUMED: near NoCache]` | `[ASSUMED: <5%]` |
+Warm prefix cache reduces computed prefill tokens to 64 in all static-prefix settings. This means the static prefix is reused as complete KV blocks and only the 64-token dynamic suffix is newly computed. TTFT reduction grows with prefix length: 41.1% for 1024 tokens, 66.1% for 2048 tokens, and 79.7% for 3072 tokens.
 
-The expected pattern is mechanism-specific. Prefix caching improves prefill-dominated metrics such as TTFT and computed prefill tokens. It has less direct effect on decode ITL because decode still produces new tokens one step at a time.
+The prefix-changed negative control returns 0.0% cache hit and TTFT close to the no-cache condition. This validates the mechanism: the improvement comes from exact token-prefix reuse rather than measurement noise.
 
-### 7.3 Green Contexts and Shape Stabilization
+End-to-end throughput does not consistently improve in this 64-token generation benchmark. This is expected because the decode loop still dominates total runtime after prefill. The correct claim is therefore **prefill-work and TTFT reduction for fixed-context workloads**, not universal throughput improvement.
 
-The original Green Contexts experiment showed a mixed trade-off.
+### 7.3 Dynamic Shape Padding as a Negative Result
 
-| Metric | Green OFF | Green ON | Delta |
-| :--- | ---: | ---: | ---: |
-| TTFT | 251.79 ms | 250.30 ms | -0.6% |
-| Decode P50 ITL | 49.76 ms | 52.33 ms | +5.2% |
-| Decode P99 ITL | 91.14 ms | 87.60 ms | -3.9% |
-| Throughput | 397.07 tok/s | 386.92 tok/s | -2.6% |
+Dynamic shape padding was intended to reduce JIT shape variation. In practice, it caused temporary tensor allocation and copy overhead at each decode step, increasing PyTorch CUDA caching allocator pressure. The no-padding eager path achieved 470.82 tok/s, while the padded path achieved 155.16 tok/s, a 67.04% throughput decrease.
 
-The shape-padding experiment showed that launch/JIT avoidance can backfire when it changes memory allocation behavior. The padded path reduced total throughput by 67.0% relative to no-padding eager execution. This result is pedagogically useful because it demonstrates that a local optimization hypothesis must be evaluated against the full serving loop.
+This negative result is pedagogically important. It shows that local optimization hypotheses must be evaluated inside the full serving loop, including allocation behavior and host-side runtime overhead.
+
+### 7.4 Green Context Activation and Non-Stress Result
+
+Initial Green Context logs were not valid efficacy measurements because the requested Green path silently fell back. The runtime was then instrumented with activation metadata. A valid cuda-core run recorded `green_enabled=true` and `green_api_type="cuda_core"` for 20/20 Green-side runs, with a 32/16 SM split and `green_prefill_resource_source="device_sm_fallback"`.
+
+Under the non-stress paired benchmark, the valid Green run showed no stable serving-level benefit after accounting for one baseline P99 outlier. Excluding that outlier, TTFT changed by +0.49% on average, P99 ITL by +0.32%, and throughput by +2.06%. This motivates the stress workload rather than a general speedup claim.
+
+### 7.5 Green Context Stress Result
+
+Under repeated 3072-token prefill interference, cuda-core Green Contexts show moderate protected-decode smoothing.
+
+| Metric | Baseline mean | Green mean | Mean delta | Median delta | Improved runs |
+| :--- | ---: | ---: | ---: | ---: | ---: |
+| Decode step P50 | 50.56 ms | 47.37 ms | -5.38% | -5.97% | 14/20 |
+| Decode step P95 | 66.33 ms | 62.89 ms | -4.83% | -5.41% | 13/20 |
+| Decode step P99 | 71.56 ms | 68.42 ms | -4.30% | -3.39% | 18/20 |
+| Decode gap P50 | 51.03 ms | 47.89 ms | -5.28% | -5.39% | 14/20 |
+| Decode gap P95 | 79.45 ms | 75.33 ms | -4.98% | -5.77% | 16/20 |
+| Decode gap P99 | 432.31 ms | 426.35 ms | -1.29% | -1.15% | 13/20 |
+| Decode gap max | 441.38 ms | 437.94 ms | -0.70% | -0.87% | 14/20 |
+| Throughput | 2098.17 tok/s | 2188.79 tok/s | +4.75% | +5.19% | 14/20 |
+
+The strongest Green Context result is not TTFT. It is decode-step tail smoothing under adversarial prefill injection: decode-step P99 improves in 18/20 paired runs, and decode-gap P95 improves in 16/20 paired runs. However, decode-gap P99 and maximum gap remain close to baseline. This indicates that the current sequential Python engine still inserts prefill pauses that SM partitioning cannot fully hide. Green Contexts are therefore a **bounded resource-isolation mechanism** in this artifact, not a complete solution for serving latency.
 
 ## 8. Discussion
 
 ### 8.1 Why Fixed-Context Agents Matter
 
-Agent systems often pay a repeated prefill cost for context that is logically constant: system prompt, safety policy, database schema, tool descriptions, examples, and course material. A serving engine that ignores this structure repeatedly recomputes the same hidden states. Prefix KV caching makes the workload structure visible to the runtime.
+Agent workloads often pay repeated prefill cost for context that is logically constant. A Text-to-SQL agent repeatedly includes schema and rule context. A CUDA tutor repeatedly includes course material, code snippets, and rubrics. A knowledge agent repeatedly includes selected knowledge-bundle content. Prefix KV cache makes this repeated structure visible to the runtime.
 
-### 8.2 Educational Value
+The prefix-cache result therefore connects prompt organization to serving efficiency. Stable context should be placed at the beginning of the prompt, and volatile metadata should be moved later or excluded from the cached prefix. For educational and data-query agents, runtime-aware prompt layout can reduce TTFT without changing the model.
 
-The artifact helps students observe three classes of optimization.
+### 8.2 What the Green Context Result Teaches
 
-- **Successful mechanism:** prefix KV reuse improves prefill-heavy fixed-context workloads.
-- **Trade-off mechanism:** Green Contexts can reduce tail latency while hurting throughput in a sequential engine loop.
-- **Failed mechanism:** shape padding can reduce JIT variability but increase allocator overhead enough to dominate runtime.
+Green Contexts teach a different lesson. They are not a general accelerator; they are a resource-partitioning substrate. The artifact demonstrates three important engineering points.
 
-This is a stronger educational story than a single speedup claim. It teaches students to connect hypotheses, measurements, and system-level causality.
+First, activation validity must be measured. Earlier Green runs were invalid because the runtime silently fell back. Second, resource partitioning alone does not guarantee latency improvement when the serving loop is sequential. Third, under a stress workload with repeated prefill interference, Green Contexts moderately smooth protected decode latency but do not remove prefill-induced pauses.
 
-### 8.3 Why Not Replace vLLM?
+This is a useful educational result because it prevents a common mistake: attributing latency variance to a GPU feature without proving that the feature activated or that the scheduler creates the right interference pattern.
 
-The results do not challenge vLLM's production role. vLLM and FlashAttention remain stronger for mature high-throughput serving. micro-vLLM is valuable because it is small, Windows-native, and instrumented for learning. It provides a controlled environment where students can modify runtime components and observe consequences.
+### 8.3 Educational Value of Negative Results
+
+The paper intentionally includes negative and bounded results. WSL2 FlashAttention is much faster than the Windows cuTile path. Dynamic padding hurts throughput. Green Contexts require activation metadata and only show bounded benefit in the current engine. These results make the artifact more useful for education because they show how systems claims should be formed: mechanism, instrumentation, control condition, measurement, and conservative interpretation.
+
+### 8.4 Submission Scope
+
+This paper should not include the broader ActiveGraph or Tau Coding Agent framework as a technical contribution. Those topics fit a separate educational knowledge-agent paper. Paper #1 should stay focused on micro-vLLM as an inference-engine artifact and on measured serving-loop behavior.
 
 ## 9. Threats to Validity
 
-- The experiments use a single consumer GPU and may not generalize to larger datacenter GPUs.
-- Prefix-cache gains depend on exact token-prefix reuse and will shrink when prompts vary early.
-- Workloads with long generated outputs may be decode-dominated and show smaller end-to-end gains.
-- Windows-native implementation maturity is lower than Linux serving stacks.
-- `[ASSUMED]` values must be replaced with measured data before publication.
+1. The experiments use a single RTX 5070 target PC and may not generalize to datacenter GPUs or other CUDA versions.
+2. The current Windows-native cuTile backend is slower than WSL2 FlashAttention, so the paper must not claim production serving superiority.
+3. Prefix-cache gains depend on exact token-prefix stability. Early prompt variation can collapse cache hits.
+4. The prefix-cache benchmark uses 64 generated tokens, so decode dominates end-to-end runtime and limits throughput gains.
+5. The Green Context stress result uses `device_sm_fallback` as the prefill resource source because the target `cuda.core` split returns a one-resource layout for the decode carve-out. The artifact records this metadata, but future profiling should confirm the precise SM residency behavior.
+6. The Green Context benchmark still uses a sequential Python engine loop. A future asynchronous prefill/decode loop is needed to test stronger resource-isolation claims.
+7. Nsight-level counters such as L2 hit rate, achieved occupancy, and kernel overlap are not yet included in the reported evidence.
 
 ## 10. Conclusion
 
-This paper reframes micro-vLLM as a Windows-native educational systems artifact for learning LLM inference-engine internals. The revised evaluation adds fixed-context agent workloads, showing why prefix KV-cache reuse is a natural optimization for Text-to-SQL, CUDA tutoring, and knowledge-retrieval agents. Combined with Green Contexts and allocator-thrashing analysis, the artifact demonstrates that inference-engine education should teach complete serving-loop causality: prompt layout, prefill reuse, KV-cache management, decode latency, memory allocation, and GPU resource partitioning.
+This paper presents micro-vLLM as a Windows-native educational systems artifact for learning LLM inference-engine internals. The artifact does not outperform mature Linux serving stacks: WSL2 FlashAttention achieves 4.62x higher average throughput than the current Windows cuTile backend. Instead, micro-vLLM contributes an inspectable migration and experimentation path where students and researchers can observe complete serving-loop causality.
+
+The strongest measured result is prefix KV-cache reuse for fixed-context agent workloads. Warm cache reduces computed prefill tokens to 64 across all tested static-prefix lengths and reduces TTFT by 41.1%, 66.1%, and 79.7% for 1024-, 2048-, and 3072-token prefixes. The changed-prefix negative control validates exact-prefix dependence.
+
+The Green Context experiments provide a bounded systems insight. cuda-core Green Contexts activate successfully on the RTX 5070 target PC and moderately smooth protected decode latency under repeated prefill interference. Decode-step P99 improves by 4.3% on average and improves in 18/20 paired stress runs. However, decode-gap P99 and maximum gap remain dominated by sequential prefill insertion, showing that SM partitioning alone is insufficient without an asynchronous serving loop.
+
+Together, these results support the paper's educational thesis: effective inference-engine education should teach not only successful optimizations, but also activation validity, negative results, workload dependence, and the distinction between isolated kernel behavior and end-to-end serving behavior.
 
 ## References
 
 1. W. Kwon et al., "Efficient Memory Management for Large Language Model Serving with PagedAttention," SOSP 2023.
-2. vLLM Project, "Automatic Prefix Caching," https://docs.vllm.ai/en/v0.8.3/design/automatic_prefix_caching.html
-3. vLLM Project, "Prefix caching," https://www.mintlify.com/vllm-project/vllm/features/prefix-caching
-4. GeeeekExplorer, "nano-vLLM," https://github.com/GeeeekExplorer/nano-vllm
-5. GeeeekExplorer, "Nano-vLLM Prefix Caching," https://www.mintlify.com/GeeeekExplorer/nano-vllm/guides/prefix-caching
-6. NVIDIA, "CUDA Python," https://nvidia.github.io/cuda-python/latest/
-7. NVIDIA, "Green Contexts," CUDA Programming Guide, https://docs.nvidia.com/cuda/cuda-programming-guide/04-special-topics/green-contexts.html
-8. T. Dao et al., "FlashAttention: Fast and Memory-Efficient Exact Attention with IO-Awareness," NeurIPS 2022.
+2. T. Dao et al., "FlashAttention: Fast and Memory-Efficient Exact Attention with IO-Awareness," NeurIPS 2022.
+3. P. Tillet, H. T. Kung, and D. Cox, "Triton: an intermediate language and compiler for tiled neural network computations," MAPL 2019.
+4. NVIDIA Corporation, "CUDA Python Documentation," NVIDIA CUDA Documentation.
+5. NVIDIA Corporation, "Green Contexts," CUDA Programming Guide.
+6. GeeeekExplorer, "nano-vLLM," GitHub repository.
+7. vLLM Project, "Automatic Prefix Caching," vLLM Documentation.
+8. PyTorch Foundation, "torch.cuda.green_contexts: Granular Resource Partitioning for CUDA Kernels," PyTorch Documentation.
+
+## Appendix A. Raw Evidence Files
+
+Prefix cache:
+
+- `KernelAgent/3-micro-vllm/prefix_cache_results_cutile_1024.jsonl`
+- `KernelAgent/3-micro-vllm/prefix_cache_results_cutile.jsonl`
+- `KernelAgent/3-micro-vllm/prefix_cache_results_cutile_3072.jsonl`
+
+Green Contexts:
+
+- `KernelAgent/3-micro-vllm/green_context_results_cuda_core_32_16_v2.jsonl`
+- `KernelAgent/3-micro-vllm/green_context_stress_cuda_core_32_16.jsonl`
+- `KernelAgent/3-micro-vllm/tests/test_green_contexts_api.py`
+
+Baseline and bottleneck analysis:
+
+- `KernelAgent/3-micro-vllm/analysis_report.md`
+- `KernelAgent/3-micro-vllm/test-result-cuTile.md`
+- `KernelAgent/3-micro-vllm/test-result-cuTile-run.md`
+- `KernelAgent/3-micro-vllm/test-result-flash_attn.md`
+- `KernelAgent/3-micro-vllm/test-result-flash_attn-run1.md`
+- `KernelAgent/3-micro-vllm/test-result-flash_attn-run2.md`
+- `KernelAgent/3-micro-vllm/test-result-flash_attn-run3.md`
+- `KernelAgent/paper/gpu_info.txt`
